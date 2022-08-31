@@ -13,8 +13,6 @@ import com.company.util.AssetLibrary;
    import kabam.rotmg.constants.ItemConstants;
    import kabam.rotmg.messaging.impl.data.StatData;
 
-import org.hamcrest.text.containsString;
-
 public class ObjectLibrary
    {
       public static var playerChars_:Vector.<XML> = new Vector.<XML>();
@@ -29,7 +27,6 @@ public class ObjectLibrary
       public static const typeToAnimationsData_:Dictionary = new Dictionary();
       public static const typeToIdItems_:Dictionary = new Dictionary();
       public static const idToTypeItems_:Dictionary = new Dictionary();
-      public static const preloadedCustom_:Dictionary = new Dictionary();
       public static const defaultProps_:ObjectProperties = new ObjectProperties(null);
 
       public static const TYPE_MAP:Object = {
@@ -62,11 +59,11 @@ public class ObjectLibrary
          "Wall":Wall,
          "Forge":Forge,
          "StatNPC":StatNPC,
-         "SkillTree":SkillTree,
          "MarketNPC":MarketNPC,
-          "BountyBoard": BountyBoard,
-          "PotionStorage": PotionStorage
-
+         "BountyBoard": BountyBoard,
+         "PotionStorage": PotionStorage,
+         "Essence":Essence,
+         "Engine":Engine
       };
 
 
@@ -75,7 +72,7 @@ public class ObjectLibrary
          super();
       }
 
-      public static function parseFromXML(xml:XML, preloaded:Boolean) : void
+      public static function parseFromXML(xml:XML) : void
       {
          var objectXML:XML = null;
          var id:String = null;
@@ -85,63 +82,59 @@ public class ObjectLibrary
          var i:int = 0;
          for each(objectXML in xml.Object)
          {
-            id = String(objectXML.@id);
-            displayId = id;
-            if(objectXML.hasOwnProperty("DisplayId"))
-            {
-               displayId = objectXML.DisplayId;
-            }
-            if(objectXML.hasOwnProperty("Group"))
-            {
-               if(objectXML.Group == "Hexable")
-               {
-                  hexTransforms_.push(objectXML);
+            try {
+               id = String(objectXML.@id);
+               displayId = id;
+               if (objectXML.hasOwnProperty("DisplayId")) {
+                  displayId = objectXML.DisplayId;
                }
-            }
-            objectType = int(objectXML.@type);
-            propsLibrary_[objectType] = new ObjectProperties(objectXML);
-            xmlLibrary_[objectType] = objectXML;
-            idToType_[id] = objectType;
-            typeToDisplayId_[objectType] = displayId;
-
-            if (String(objectXML.Class) == "Equipment")
-            {
-               typeToIdItems_[objectType] = id.toLowerCase(); /* Saves us the power to do this later */
-               idToTypeItems_[id.toLowerCase()] = objectType;
-            }
-
-            if (preloaded)
-            {
-               preloadedCustom_[objectType] = id.toLowerCase();
-            }
-
-            if(String(objectXML.Class) == "Player")
-            {
-               playerClassAbbr_[objectType] = String(objectXML.@id).substr(0,2);
-               found = false;
-               for(i = 0; i < playerChars_.length; i++)
-               {
-                  if(int(playerChars_[i].@type) == objectType)
-                  {
-                     playerChars_[i] = objectXML;
-                     found = true;
+               if (objectXML.hasOwnProperty("Group")) {
+                  if (objectXML.Group == "Hexable") {
+                     hexTransforms_.push(objectXML);
                   }
                }
-               if(!found)
-               {
-                  playerChars_.push(objectXML);
+               objectType = int(objectXML.@type);
+               propsLibrary_[objectType] = new ObjectProperties(objectXML);
+               xmlLibrary_[objectType] = objectXML;
+               idToType_[id] = objectType;
+               typeToDisplayId_[objectType] = displayId;
+
+               if (String(objectXML.Class) == "Equipment") {
+                  typeToIdItems_[objectType] = id.toLowerCase(); /* Saves us the power to do this later */
+                  idToTypeItems_[id.toLowerCase()] = objectType;
                }
-            }
-            typeToTextureData_[objectType] = new TextureData(objectXML);
-            if(objectXML.hasOwnProperty("Top"))
-            {
-               typeToTopTextureData_[objectType] = new TextureData(XML(objectXML.Top));
-            }
-            if(objectXML.hasOwnProperty("Animation"))
-            {
-               typeToAnimationsData_[objectType] = new AnimationsData(objectXML);
+
+               if (String(objectXML.Class) == "Player") {
+                  playerClassAbbr_[objectType] = String(objectXML.@id).substr(0, 2);
+                  found = false;
+                  for (i = 0; i < playerChars_.length; i++) {
+                     if (int(playerChars_[i].@type) == objectType) {
+                        playerChars_[i] = objectXML;
+                        found = true;
+                     }
+                  }
+                  if (!found) {
+                     playerChars_.push(objectXML);
+                  }
+               }
+
+               if(id.indexOf("Engine") != -1){
+trace ();
+               }
+               typeToTextureData_[objectType] = new TextureData(objectXML);
+               if (objectXML.hasOwnProperty("Top")) {
+                  typeToTopTextureData_[objectType] = new TextureData(XML(objectXML.Top));
+               }
+               if (objectXML.hasOwnProperty("Animation")) {
+                  typeToAnimationsData_[objectType] = new AnimationsData(objectXML);
+               }
+            } catch (e:Error) {
+               trace("Failure to add XML Object: " + id)
             }
          }
+
+
+
       }
 
       public static function getIdFromType(type:int) : String

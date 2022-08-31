@@ -14,27 +14,11 @@ namespace wServer.networking.packets.outgoing
         public bool AllowPlayerTeleport { get; set; }
         public bool ShowDisplays { get; set; }
         public string Music { get; set; }
+        public bool DisableShooting { get; set; }
+        public bool DisableAbilities { get; set; }
 
-        public override PacketId ID => PacketId.MAPINFO;
 
-        public override Packet CreateInstance()
-        {
-            return new MapInfo();
-        }
-
-        protected override void Read(NReader rdr)
-        {
-            Width = rdr.ReadInt32();
-            Height = rdr.ReadInt32();
-            Name = rdr.ReadUTF();
-            DisplayName = rdr.ReadUTF();
-            Seed = rdr.ReadUInt32();
-            Background = rdr.ReadInt32();
-            Difficulty = rdr.ReadInt32();
-            AllowPlayerTeleport = rdr.ReadBoolean();
-            ShowDisplays = rdr.ReadBoolean();
-            Music = rdr.ReadUTF();
-        }
+        public override MessageId MessageId => MessageId.MAPINFO;
 
         protected override void Write(NWriter wtr)
         {
@@ -48,6 +32,8 @@ namespace wServer.networking.packets.outgoing
             wtr.Write(AllowPlayerTeleport);
             wtr.Write(ShowDisplays);
             wtr.WriteUTF(Music);
+            wtr.Write(DisableShooting);
+            wtr.Write(DisableAbilities);
         }
     }
 }

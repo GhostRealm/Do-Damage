@@ -79,7 +79,7 @@ namespace wServer.logic.behaviors
                         return;
                     }
 
-                    var entity = Entity.Resolve(host.CoreServerManager, _children ?? host.ObjectType);
+                    var entity = Entity.Resolve(host.GameServer, _children ?? host.ObjectType);
                     entity.GivesNoXp = true;
                     entity.Move((float)targetX, (float)targetY);
 
@@ -92,7 +92,7 @@ namespace wServer.logic.behaviors
                         if (enemyHost.Spawned)
                         {
                             enemyEntity.Spawned = true;
-                            enemyEntity.ApplyConditionEffect(new ConditionEffect() { Effect = ConditionEffectIndex.Invisible, DurationMS = -1 });
+                            enemyEntity.ApplyConditionEffect(new ConditionEffect(ConditionEffectIndex.Invisible, -1));
                         }
                     }
 

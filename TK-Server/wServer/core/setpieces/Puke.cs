@@ -6,11 +6,11 @@ namespace wServer.core.setpieces
     {
         private byte[,] SetPiece = new byte[,] { { 1 } };
 
-        public int Size => 1;
+        public override int Size => 1;
 
-        public void RenderSetPiece(World world, IntPoint pos)
+        public override void RenderSetPiece(World world, IntPoint pos)
         {
-            var dat = world.Manager.Resources.GameData;
+            var dat = world.GameServer.Resources.GameData;
             var p = new IntPoint
             {
                 X = pos.X - (Size / 2),

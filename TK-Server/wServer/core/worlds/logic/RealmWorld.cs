@@ -1,7 +1,7 @@
-﻿using common.resources;
+﻿using CA.Profiler;
+using common.resources;
 using NLog;
 using System;
-using System.IO;
 using System.Threading.Tasks;
 using wServer.core.objects;
 using wServer.core.setpieces;
@@ -11,115 +11,67 @@ namespace wServer.core.worlds.logic
 {
     public class RealmWorld : World
     {
-        private static readonly Logger Log = LogManager.GetCurrentClassLogger();
+        public bool Closed { get; private set; }
+        public KingdomManager KingdomManager { get; private set; }
 
-        private static string[] _realmNames =
-                {
-            "Lich", "Goblin", "Ghost",
-            "Giant", "Gorgon","Blob",
-            "Leviathan", "Unicorn", "Minotaur",
-            "Cube", "Pirate", "Spider",
-            "Snake", "Deathmage", "Gargoyle",
-            "Scorpion", "Djinn", "Phoenix",
-            "Satyr", "Drake", "Orc",
-            "Flayer", "Cyclops", "Sprite",
-            "Chimera", "Kraken", "Hydra",
-            "Slime", "Ogre", "Hobbit",
-            "Titan", "Medusa", "Golem",
-            "Demon", "Skeleton", "Mummy",
-            "Imp", "Bat", "Wyrm",
-            "Spectre", "Reaper", "Beholder",
-            "Dragon", "Harpy"
-        };
-
-        private readonly bool _oryxPresent;
-
-        private Oryx _overseer;
-        private Task _overseerTask;
-
-        public RealmWorld(int id, WorldResource resource, Client client = null) : base(id, resource)
+        public RealmWorld(GameServer gameServer, int id, WorldResource resource) : base(gameServer, id, resource)
         {
-            _oryxPresent = true;
+            KingdomManager = new KingdomManager(this);
             IsRealm = true;
         }
 
-        // since map gets reset, admins not allowed to join when closed. Possible to crash server otherwise.
-        public override bool AllowedAccess(Client client) => !Closed && base.AllowedAccess(client);
+        public void SetMaxPlayers(int capacity) => MaxPlayers = capacity;
 
-        public bool CloseRealm()
+        public override void Init()
         {
-            if (_overseer == null)
-                return false;
-
-            _overseer.InitCloseRealm();
-
-            return true;
+            SetPieces.ApplySetPieces(this);
+            KingdomManager.Init();
+            base.Init();
         }
 
-        public void EnemyKilled(Enemy enemy, Player killer)
+        public override bool AllowedAccess(Client client) => !Closed || client.Rank.IsAdmin;
+
+        protected override void UpdateLogic(ref TickTime time)
         {
-            if (_overseer != null && !enemy.Spawned)
-                _overseer.OnEnemyKilled(enemy, killer);
+            if (IsPlayersMax())
+                GameServer.WorldManager.Nexus.PortalMonitor.ClosePortal(Id);
+            else if (!GameServer.WorldManager.Nexus.PortalMonitor.PortalIsOpen(Id))
+                GameServer.WorldManager.Nexus.PortalMonitor.OpenPortal(Id);
+
+            KingdomManager.Update(ref time);
+            base.UpdateLogic(ref time);
         }
 
         public override int EnterWorld(Entity entity)
         {
             var ret = base.EnterWorld(entity);
-
             if (entity is Player player)
-                _overseer?.OnPlayerEntered(player);
-
+                KingdomManager?.OnPlayerEntered(player);
             return ret;
         }
 
-        public bool IsClosing()
+        public override void LeaveWorld(Entity entity)
         {
-            if (_overseer == null)
+            // use it if needed
+            base.LeaveWorld(entity);
+        }
+
+        public void EnemyKilled(Enemy enemy, Player killer)
+        {
+            if (!enemy.Spawned)
+                KingdomManager.OnEnemyKilled(enemy, killer);
+        }
+
+        public bool CloseRealm()
+        {
+            if (Closed)
                 return false;
-
-            return _overseer.Closing;
-        }
-
-        protected override void UpdateLogic(ref TickTime time)
-        {
-            try
-            {
-                if (Closed || IsPlayersMax())
-                    Manager.WorldManager.Nexus.PortalMonitor.ClosePortal(Id);
-                //else if (!Manager.WorldManager.PortalMonitor.PortalIsOpen(Id))
-                //    Manager.WorldManager.PortalMonitor.OpenPortal(Id);
-
-                var t = time;
-                if (_overseerTask == null || _overseerTask.IsCompleted)
-                {
-                    _overseerTask = Task.Factory.StartNew(() =>
-                    {
-                        _overseer?.Tick(ref t);
-                    }).ContinueWith(e => Log.Error(e.Exception.InnerException.ToString()), TaskContinuationOptions.OnlyOnFaulted);
-                }
-            }
-            catch (Exception e)
-            {
-                Log.Error($"Unknown Error with Realm Tick {e}");
-            }
-
-            base.UpdateLogic(ref time);
-        }
-
-        static Random Random = new Random();
-
-        public override void Init()
-        {
-            DisplayName = _realmNames[Random.Next(0, _realmNames.Length)];
-
-            SetPieces.ApplySetPieces(this);
-
-            if (_oryxPresent)
-            {
-                _overseer = new Oryx(this);
-                _overseer.Init();
-            }
-            base.Init();
+            Closed = true;
+            KingdomManager.DisableSpawning = true;
+            KingdomManager.CurrentState = KindgomState.Closing;
+            GameServer.WorldManager.Nexus.PortalMonitor.RemovePortal(Id);
+            FlagForClose();
+            return true;
         }
     }
 }

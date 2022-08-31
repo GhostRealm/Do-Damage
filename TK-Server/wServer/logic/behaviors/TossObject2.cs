@@ -34,7 +34,7 @@ namespace wServer.logic.behaviors
 
             if (cool <= 0)
             {
-                if (host.HasConditionEffect(ConditionEffects.Stunned))
+                if (host.HasConditionEffect(ConditionEffectIndex.Stunned))
                     return;
 
                 var tossAngle = randomToss ? Random.Next(0, 360) * Math.PI / 180 : angle;
@@ -48,10 +48,10 @@ namespace wServer.logic.behaviors
 
                 var target = tossAngle == null ? new Position { X = en.X, Y = en.Y } : new Position { X = host.X + (float)(range * Math.Cos(tossAngle.Value)), Y = host.Y + (float)(range * Math.Sin(tossAngle.Value)) };
 
-                host.World.Broadcast(new ShowEffect { EffectType = EffectType.Throw, Color = new ARGB(0xffffbf00), TargetObjectId = host.Id, Pos1 = target }, PacketPriority.Low);
-                host.World.Timers.Add(new WorldTimer(1000, (world, t) =>
+                host.World.Broadcast(new ShowEffect { EffectType = EffectType.Throw, Color = new ARGB(0xffffbf00), TargetObjectId = host.Id, Pos1 = target });
+                host.World.Timers.Add(new WorldTimer(1500, (world, t) =>
                 {
-                    var entity = Entity.Resolve(world.Manager, child);
+                    var entity = Entity.Resolve(world.GameServer, child);
                     entity.Move(target.X, target.Y);
 
                     if (entity is Enemy && host is Enemy)

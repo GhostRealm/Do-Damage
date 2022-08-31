@@ -27,7 +27,7 @@ namespace wServer.logic.behaviors
 
             Status = CycleStatus.NotStarted;
 
-            if (host.HasConditionEffect(ConditionEffects.Paralyzed))
+            if (host.HasConditionEffect(ConditionEffectIndex.Paralyzed))
                 return;
 
             if (_distance == 0)
@@ -35,7 +35,7 @@ namespace wServer.logic.behaviors
                 Status = CycleStatus.InProgress;
 
                 var vect = new Vector2((float)Math.Cos(_direction), (float)Math.Sin(_direction));
-                var moveDist = host.GetSpeed(_speed) * time.ElaspedMsDelta / 1000f;
+                var moveDist = host.GetSpeed(_speed) * time.BehaviourTickTime;
 
                 host.ValidateAndMove(host.X + vect.X * moveDist, host.Y + vect.Y * moveDist);
                 Status = CycleStatus.Completed;
@@ -44,7 +44,7 @@ namespace wServer.logic.behaviors
             {
                 Status = CycleStatus.InProgress;
 
-                var moveDist = host.GetSpeed(_speed) * time.ElaspedMsDelta / 1000f;
+                var moveDist = host.GetSpeed(_speed) * time.BehaviourTickTime;
                 var vect = new Vector2((float)Math.Cos(_direction), (float)Math.Sin(_direction));
 
                 host.ValidateAndMove(host.X + vect.X * moveDist, host.Y + vect.Y * moveDist);

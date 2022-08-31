@@ -17,9 +17,9 @@ namespace wServer.logic
                     new PlayerWithinTransition(15, "Start")
                     ),
                 new State("Start",
-                    new Wander(0.6),
-                    new StayBack(0.6, 5),
-                    new Shoot(20, 2, shootAngle: 10, 0, coolDown: 200),
+                    new Wander(0.4),
+                    new StayBack(0.3, 5),
+                    new Shoot(20, 2, shootAngle: 10, 0, coolDown: 600),
                     new Shoot(20, 1, projectileIndex: 1, coolDown: 2000, coolDownOffset: 1000)
                     )
                 )
@@ -30,12 +30,12 @@ namespace wServer.logic
                     new PlayerWithinTransition(15, "Start")
                     ),
                 new State("Start",
-                    new Wander(0.6),
-                    new Protect(0.6, "Corrupted Mage", 20, 5, 5),
-                    new StayBack(0.6, 5),
-                    new Shoot(20, 1, 0, coolDown: 300),
-                    new HealEntity(15, "Corrupted Mage", 100, coolDown: 500),
-                    new HealEntity(15, "Strange Priest", 1500, coolDown: 500),
+                    new Wander(0.5),
+                    new Protect(0.3, "Corrupted Mage", 20, 5, 5),
+                    new StayBack(0.3, 5),
+                    new Shoot(20, 1, 0, coolDown: 600),
+                    new HealEntity(15, "Corrupted Mage", 100, coolDown: 1500),
+                    new HealEntity(15, "Strange Priest", 1500, coolDown: 1500),
                     new Shoot(20, 2, shootAngle: 25, projectileIndex: 1, coolDown: 3000, coolDownOffset: 1500)
                     )
                 )
@@ -43,10 +43,10 @@ namespace wServer.logic
         .Init("Corrupted Mini Priest",
             new State(
                 new State("Start",
-                    new Wander(0.6),
-                    new StayBack(0.6, 5),
-                    new Shoot(20, 1, 0, coolDown: 300),
-                    new HealEntity(15, "Strange Priest", 100, coolDown: 500),
+                    new Wander(0.5),
+                    new StayBack(0.3, 5),
+                    new Shoot(20, 1, 0, coolDown: 800),
+                    new HealEntity(15, "Strange Priest", 100, coolDown: 1500),
                     new Shoot(20, 2, shootAngle: 25, projectileIndex: 1, coolDown: 3000, coolDownOffset: 1500)
                     )
                 )
@@ -59,7 +59,7 @@ namespace wServer.logic
                 new ChangeSize(100, 0),
                 new TimedTransition(1500, "Shoot"),
                 new State("Follow Player",
-                    new Follow(0.5, 20, 0),
+                    new Follow(0.9, 20, 0),
                     new PlayerWithinTransition(1, "Shoot")
                     ),
                 new State("Shoot",
@@ -153,9 +153,8 @@ namespace wServer.logic
                     new RemoveConditionalEffect(ConditionEffectIndex.Invulnerable),
                     new Reproduce("Strange Magician Spell", 20, 3, 3000),
                     new Flash(0xFF0000, 1, 1),
-                    new Charge(speed: 3, range: 15, coolDown: 3000), //wanna offset this so it happens 1 second after the reproduce but its whatever
-                    new Shoot(20, 2, shootAngle: 20, projectileIndex: 0, predictive: 1, coolDown: 500),
-                    new Shoot(20, 1, shootAngle: 0, projectileIndex: 1, predictive: 0, coolDown: 1750),
+                    new Chase(speed: 8, sightRange: 11, range: 15, duration: 5, coolDown: 3000), new Shoot(20, 2, shootAngle: 20, projectileIndex: 0, predictive: 1, coolDown: 500),
+                    new Shoot(20, 1, shootAngle: 0, projectileIndex: 1, predictive: 0, coolDown: 950),
                     new HpLessTransition(0.5, "Shoot Two")
                     ),
                 new State("Shoot Two",
@@ -176,7 +175,8 @@ namespace wServer.logic
                     ),
                 new State("Rage Start",
                     new Reproduce("Strange Magician Spell", 20, 3, 1500),
-                    new Chase(speed: 3, sightRange: 11, range: 15, duration: 5, coolDown: 3000),
+                    new Wander(0.5),
+                    new Chase(speed: 8, sightRange: 11, range: 15, duration: 5, coolDown: 3000),
                     new Shoot(20, 2, shootAngle: 20, projectileIndex: 0, predictive: 0, coolDown: 750),
                     new Shoot(20, 2, shootAngle: 20, projectileIndex: 0, predictive: 0, coolDown: 1000),
                     new Shoot(20, 1, shootAngle: 20, projectileIndex: 1, predictive: 0, coolDown: 1200)
@@ -186,7 +186,8 @@ namespace wServer.logic
                 LootTemplates.DustLoot()
                 ),
             new Threshold(0.03,
-                new ItemLoot("Magicians Hide", 0.0014)
+                new ItemLoot("Talisman Fragment", 0.01),
+                new ItemLoot("Magicians Hide", 0.001)
                 ),
             new Threshold(0.01,
                 new ItemLoot("Potion of Life", 0.18),
@@ -223,6 +224,7 @@ namespace wServer.logic
                 new ConditionalEffect(ConditionEffectIndex.Invincible, true),
                 new State("Follow Player",
                     new Follow(1, 20, 1),
+                    new TimedTransition(4500, "Shoot"),
                     new PlayerWithinTransition(1, "Shoot")
                     ),
                 new State("Shoot",
@@ -313,17 +315,16 @@ namespace wServer.logic
                     )
                 ),
             new Threshold(0.03,
-                new ItemLoot("Wand of Pain", .003)
+                new ItemLoot("Wand of Pain", 0.003)
                 ),
             new Threshold(0.05,
-                new ItemLoot("Tome of Universal Theory", .0015, threshold: 0.05)//,
+                new ItemLoot("Tome of Universal Theory", .00015, threshold: 0.05)//,
                 //new ItemLoot("All-Knowing Bookworm", .0015, threshold: 0.05) //NO XML
                 ),
             new Threshold(0.01,
-                new ItemLoot("Crafting Material 1", 0.01),
-                new ItemLoot("Head of Calamity", 0.007),
-                new ItemLoot("Blood-Soaked Robe", 0.015),
-                new ItemLoot("The Dance of Fire", 0.01),
+                new ItemLoot("Head of Calamity", 0.0007),
+                new ItemLoot("Blood-Soaked Robe", 0.0015),
+                new ItemLoot("The Dance of Fire", 0.001),
                 new ItemLoot("Potion of Attack", 1),
                 new ItemLoot("Potion of Defense", 1),
                 new ItemLoot("Potion of Defense", 1),

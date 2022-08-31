@@ -141,10 +141,12 @@ package kabam.rotmg.assets
       public static var Custom32x32EncountersEmbed_:Class = EmbeddedAssets_Custom32x32EncountersEmbed_;
       public static var CustomEnvironment16x16Embed_:Class = EmbeddedAssets_customEnvironment16x16Embed_;
       public static var CustomEnvironmentEmbed_:Class = EmbeddedAssets_customEnvironmentEmbed_;
+      public static var CustomEnvironmentMortomusEmbed_:Class = EmbeddedAssets_customEnvironmentMortomusEmbed_;
       public static var CustomEnvironment1Embed_:Class = EmbeddedAssets_customEnvironment1Embed_;
       public static var CustomObjects32x32Embed_:Class = EmbeddedAssets_CustomObjects32x32Embed_;
       public static var CustomObjectsSkillTreeEmbed_:Class = EmbeddedAssets_CustomObjectsSkillTreeEmbed_;
       public static var CustomObjEmbed_:Class = EmbeddedAssets_CustomObjEmbed_;
+      public static var CustomObj1Embed_:Class = EmbeddedAssets_CustomObj1Embed_;
       public static var CustomProjsEmbed_:Class = EmbeddedAssets_CustomProjsEmbed_;
       public static var CustomProjsBigEmbed_:Class = EmbeddedAssets_CustomProjsBigEmbed_;
       public static var mageEmbed_:Class = EmbeddedAssets_mageEmbed_;
@@ -155,6 +157,7 @@ package kabam.rotmg.assets
       public static var LostHallsBossesEmbed_:Class = EmbeddedAssets_LostHallsBossesEmbed_;
       public static var LostHallsProjs2Embed_:Class = EmbeddedAssets_LostHallsProjs2Embed_;
       public static var LostHallsObjects16x16Embed_:Class = EmbeddedAssets_LostHallsObjects16x16Embed_;
+      public static var Engine32x32Embed:Class = EmbeddedAssets_Engine32x32Embed_;
       public static var tieredItems:Class = EmbeddedAssets_TieredItems;
       
       public static var models_:Object = {

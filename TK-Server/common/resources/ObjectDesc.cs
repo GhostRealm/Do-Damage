@@ -47,10 +47,10 @@ namespace common.resources
         public readonly int Size;
         public readonly int SizeStep;
         public readonly int[] SlotTypes;
+        public readonly int[] Equipment;
         public readonly bool SlowedImmune;
         public readonly bool SpawnPoint;
         public readonly float SpawnProb;
-        public readonly bool SpecialEnemy;
         public readonly bool StasisImmune;
         public readonly bool Static;
         public readonly bool StunImmune;
@@ -83,6 +83,9 @@ namespace common.resources
             if (e.HasElement("SlotTypes"))
                 SlotTypes = e.GetValue<string>("SlotTypes").CommaToArray<int>();
 
+            if (e.HasElement("Equipment"))
+                Equipment = e.GetValue<string>("Equipment").CommaToArray<int>();
+
             CanPutNormalObjects = e.HasElement("CanPutNormalObjects");
             CanPutSoulboundObjects = e.HasElement("CanPutSoulboundObjects");
             Loot = e.HasElement("Loot");
@@ -108,7 +111,6 @@ namespace common.resources
             SpawnPoint = e.HasElement("SpawnPoint");
             Group = e.GetValue<string>("Group");
             Quest = e.HasElement("Quest");
-            SpecialEnemy = e.HasElement("SpecialEnemy");
             Level = e.GetValue<int>("Level");
             God = e.HasElement("God");
             NoArticle = e.HasElement("NoArticle");

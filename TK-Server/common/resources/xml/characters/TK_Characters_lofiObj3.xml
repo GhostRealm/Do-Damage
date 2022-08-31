@@ -63,8 +63,8 @@
       <ObjectId>Invisible</ObjectId>
       <Damage>120</Damage>
       <Speed>10</Speed>
-      <LifetimeMS>300</LifetimeMS>
-      <Size>75</Size>
+      <LifetimeMS>1000</LifetimeMS>
+      <Size>100</Size>
       <MultiHit />
     </Projectile>
     <DisplayId>Boulder</DisplayId>
@@ -1001,7 +1001,7 @@
       <File>custom16x16Environment</File>
       <Index>0x0e</Index>
     </Texture>
-    <MaxHitPoints>120000</MaxHitPoints>
+    <MaxHitPoints>50000</MaxHitPoints>
     <Defense>35</Defense>
     <Size>100</Size>
     <XpMult>0.0</XpMult>
@@ -1016,7 +1016,7 @@
       <File>custom16x16Environment</File>
       <Index>0x0f</Index>
     </Texture>
-    <MaxHitPoints>120000</MaxHitPoints>
+    <MaxHitPoints>50000</MaxHitPoints>
     <Defense>35</Defense>
     <Size>100</Size>
     <XpMult>0.0</XpMult>
@@ -1031,7 +1031,7 @@
       <File>custom16x16Environment</File>
       <Index>0x0d</Index>
     </Texture>
-    <MaxHitPoints>120000</MaxHitPoints>
+    <MaxHitPoints>50000</MaxHitPoints>
     <Defense>35</Defense>
     <Size>100</Size>
     <XpMult>0.0</XpMult>

@@ -2,7 +2,7 @@
 using common.resources;
 using System;
 using System.Collections.Generic;
-using wServer.core.objects;
+using wServer.core.objects.connection;
 
 namespace wServer.core.terrain
 {
@@ -14,7 +14,6 @@ namespace wServer.core.terrain
         public int ObjId;
         public ushort ObjType;
         public TileRegion Region;
-        public long SightRegion = 1;
         public bool Spawned;
         public TerrainType Terrain;
         public TileDesc TileDesc;
@@ -26,14 +25,14 @@ namespace wServer.core.terrain
 
         private WmapDesc _originalDesc;
 
-        public WmapTile(WmapDesc desc, short x, short y)
+        public WmapTile(WmapDesc desc)
         {
             _originalDesc = desc;
 
             Reset();
         }
 
-        public WmapTile Clone() => new WmapTile(_originalDesc, X, Y)
+        public WmapTile Clone() => new WmapTile(_originalDesc)
         {
             UpdateCount = (byte)(UpdateCount + 1),
             TileId = _originalDesc.TileId,
@@ -127,7 +126,7 @@ namespace wServer.core.terrain
                             break;
 
                         case "eff":
-                            stats.Add(new KeyValuePair<StatDataType, object>(StatDataType.Effects, Utils.GetInt(kv[1])));
+                            stats.Add(new KeyValuePair<StatDataType, object>(StatDataType.ConditionBatch1, Utils.GetInt(kv[1])));
                             break;
 
                         case "conn":
@@ -135,32 +134,32 @@ namespace wServer.core.terrain
                             break;
 
                         case "mtype":
-                            stats.Add(new KeyValuePair<StatDataType, object>(StatDataType.MerchantMerchandiseType, Utils.GetInt(kv[1])));
+                            stats.Add(new KeyValuePair<StatDataType, object>(StatDataType.MerchandiseType, Utils.GetInt(kv[1])));
                             break;
 
                         case "mcost":
-                            stats.Add(new KeyValuePair<StatDataType, object>(StatDataType.SellablePrice, Math.Max(0, Utils.GetInt(kv[1]))));
+                            stats.Add(new KeyValuePair<StatDataType, object>(StatDataType.MerchandisePrice, Math.Max(0, Utils.GetInt(kv[1]))));
                             break;
 
                         case "mcur":
-                            stats.Add(new KeyValuePair<StatDataType, object>(StatDataType.SellablePriceCurrency, Utils.GetInt(kv[1])));
+                            stats.Add(new KeyValuePair<StatDataType, object>(StatDataType.MerchandiseCurrency, Utils.GetInt(kv[1])));
                             break;
 
                         case "mamnt":
-                            stats.Add(new KeyValuePair<StatDataType, object>(StatDataType.MerchantRemainingCount, Utils.GetInt(kv[1])));
+                            stats.Add(new KeyValuePair<StatDataType, object>(StatDataType.MerchandiseCount, Utils.GetInt(kv[1])));
                             break;
 
                         case "mtime":
-                            stats.Add(new KeyValuePair<StatDataType, object>(StatDataType.MerchantRemainingMinute, Utils.GetInt(kv[1])));
+                            stats.Add(new KeyValuePair<StatDataType, object>(StatDataType.MerchandiseMinsLeft, Utils.GetInt(kv[1])));
                             break;
 
                         case "mdisc":
-                            stats.Add(new KeyValuePair<StatDataType, object>(StatDataType.MerchantDiscount, Utils.GetInt(kv[1])));
+                            stats.Add(new KeyValuePair<StatDataType, object>(StatDataType.MerchandiseDiscount, Utils.GetInt(kv[1])));
                             break;
 
                         case "mrank":
                         case "stars":
-                            stats.Add(new KeyValuePair<StatDataType, object>(StatDataType.SellableRankRequirement, Utils.GetInt(kv[1])));
+                            stats.Add(new KeyValuePair<StatDataType, object>(StatDataType.MerchandiseRankReq, Utils.GetInt(kv[1])));
                             break;
                     }
                 }

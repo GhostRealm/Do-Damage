@@ -16,7 +16,7 @@ namespace wServer.core.objects
         private float radius;
         private int t = 0;
 
-        public Trap(Player player, float radius, int dmg, ConditionEffectIndex eff, float effDuration) : base(player.CoreServerManager, 0x0711, LIFETIME * 1000, true, true, false)
+        public Trap(Player player, float radius, int dmg, ConditionEffectIndex eff, float effDuration) : base(player.GameServer, 0x0711, LIFETIME * 1000, true, true, false)
         {
             this.player = player;
             this.radius = radius;
@@ -26,7 +26,7 @@ namespace wServer.core.objects
             duration = (int)(effDuration * 1000);
         }
 
-        public override void Tick(TickTime time)
+        public override void Tick(ref TickTime time)
         {
             if (t / 500 == p)
             {
@@ -36,7 +36,7 @@ namespace wServer.core.objects
                     Color = new ARGB(0xff9000ff),
                     TargetObjectId = Id,
                     Pos1 = new Position() { X = radius / 2 }
-                }, this, PacketPriority.Low);
+                }, this);
 
                 p++;
 
@@ -56,7 +56,7 @@ namespace wServer.core.objects
             if (monsterNearby)
                 Explode(time);
 
-            base.Tick(time);
+            base.Tick(ref time);
         }
 
         private void Explode(TickTime time)
@@ -67,15 +67,11 @@ namespace wServer.core.objects
                 Color = new ARGB(0xff9000ff),
                 TargetObjectId = Id,
                 Pos1 = new Position() { X = radius }
-            }, this, PacketPriority.Low);
+            }, this);
 
             this.AOE(radius, false, enemy =>
             {
-                (enemy as Enemy).Damage(player, time, dmg, false, false, new ConditionEffect()
-                {
-                    Effect = effect,
-                    DurationMS = duration
-                });
+                (enemy as Enemy).Damage(player, time, dmg, false, false, new ConditionEffect(effect, duration));
             });
 
             World.LeaveWorld(this);

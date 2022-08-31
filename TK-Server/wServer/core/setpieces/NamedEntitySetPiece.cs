@@ -9,11 +9,11 @@ namespace wServer.core.setpieces
 
         public NamedEntitySetPiece(string entityName) => EntityName = entityName;
 
-        public int Size => 5;
+        public override int Size => 5;
 
-        public void RenderSetPiece(World world, IntPoint pos)
+        public override void RenderSetPiece(World world, IntPoint pos)
         {
-            var entity = Entity.Resolve(world.Manager, EntityName);
+            var entity = Entity.Resolve(world.GameServer, EntityName);
 
             if (entity == null)
                 return;

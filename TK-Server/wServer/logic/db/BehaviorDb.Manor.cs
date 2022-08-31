@@ -33,12 +33,9 @@ namespace wServer.logic
                     ),
                 new State("spooksters3",
                     new HealSelf(coolDown: 2250, 4, true),
-                    new Shoot(8.4, count: 40, projectileIndex: 1, coolDown: 2750),
+                    new Shoot(8.4, count: 40, projectileIndex: 1, coolDown: 1500),
                     new TimedTransition(4000, "spooksters")
                     )
-                ),
-            new Threshold(0.05,
-                new ItemLoot("Essence Eater", 0.0015)
                 ),
             new Threshold(0.03,
                 new ItemLoot("Wand of Vampires", 0.003),
@@ -63,12 +60,12 @@ namespace wServer.logic
                 new TierLoot(4, ItemType.Ring, 0.2),
                 new TierLoot(5, ItemType.Ring, 0.07),
                 new ItemLoot("Holy Water", 0.5),
-                new ItemLoot("Chasuble of Holy Light", 0.01),
-                new ItemLoot("St. Abraham's Wand", 0.01),
-                new ItemLoot("Tome of Purification", 0.001),
-                new ItemLoot("Ring of Divine Faith", 0.01),
-                new ItemLoot("Corrupted Pendant", 0.01),
-                new ItemLoot("Bone Dagger", 0.08)
+                new ItemLoot("Chasuble of Holy Light", 0.001),
+                new ItemLoot("St. Abraham's Wand", 0.001),
+                new ItemLoot("Tome of Purification", 0.0001),
+                new ItemLoot("Ring of Divine Faith", 0.001),
+                new ItemLoot("Corrupted Pendant", 0.001),
+                new ItemLoot("Bone Dagger", 0.008)
                 )
             )
         .Init("Hellhound",

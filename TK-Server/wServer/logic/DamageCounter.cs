@@ -1,7 +1,7 @@
-﻿using CA.Extensions.Concurrent;
-using common;
+﻿using common;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using wServer.core;
 using wServer.core.objects;
 using wServer.core.worlds.logic;
@@ -10,7 +10,7 @@ namespace wServer.logic
 {
     public class DamageCounter
     {
-        public WeakDictionary<Player, int> hitters = new WeakDictionary<Player, int>();
+        private WeakDictionary<Player, int> Hitters;
 
         public Enemy Host;
 
@@ -22,8 +22,20 @@ namespace wServer.logic
         public DamageCounter Parent { get; set; }
         public int TotalDamage { get; private set; }
 
+        public WeakDictionary<Player, int> GetHitters()
+        {
+            if (Hitters == null)
+                Hitters = new WeakDictionary<Player, int>();
+            return Hitters;
+        }
+
+        private bool Dead;
         public void Death(TickTime time)
         {
+            if (Dead)
+                return;
+            Dead = true;
+
             if (Corpse != null)
             {
                 Corpse.Parent = this;
@@ -39,12 +51,12 @@ namespace wServer.logic
 
             if (lastHitPlayer_ != null)
             {
-                var account = lastHitPlayer_.CoreServerManager.Database.GetAccount(lastHitPlayer_.AccountId);
+                var account = lastHitPlayer_.GameServer.Database.GetAccount(lastHitPlayer_.AccountId);
                 account.EnemiesKilled++;
                 account.FlushAsync();
                 if (account.EnemiesKilled % 1000 == 0)
                 {
-                    var guild = lastHitPlayer_.CoreServerManager.Database.GetGuild(account.GuildId);
+                    var guild = lastHitPlayer_.GameServer.Database.GetGuild(account.GuildId);
                     if (guild != null)
                     {
                         lastHitPlayer_.SendInfo("Congratulations! You just killed another 1000 enemies! Reward: 1 Guild point.");
@@ -55,15 +67,16 @@ namespace wServer.logic
             }
 
             var lvlUps = 0;
-            var players = enemy.World.Players.ValueWhereAsParallel(_ => enemy.Dist(_) < 25d);
-            foreach (var player in players)
+            foreach (var player in enemy.World.Players.Values)
             {
-                var level = player.Level;
-                var rank = player.Rank;
-                if (player.HasConditionEffect(common.resources.ConditionEffects.Paused))
+                if (player.Dist(enemy) > 25)
                     continue;
 
-                var xp = enemy.ObjectDesc.MaxHP / 15f * enemy.ObjectDesc.ExpMultiplier;
+                var level = player.Level;
+                if (player.HasConditionEffect(common.resources.ConditionEffectIndex.Paused))
+                    continue;
+
+                var xp = (enemy.ObjectDesc.MaxHP / 10.0f) * enemy.ObjectDesc.ExpMultiplier;
                 var upperLimit = player.ExperienceGoal * 0.1f;
                 if (player.Quest == enemy)
                     upperLimit = player.ExperienceGoal * 0.5f;
@@ -74,29 +87,8 @@ namespace wServer.logic
                 else
                     playerXp = xp;
 
-                if (player.Level < 20)
-                {
-                    playerXp *= 4f;
-                    switch (player.Rank)
-                    {
-                        case Player.DONOR_1: playerXp *= 1.5f; break;
-                        case Player.DONOR_2: playerXp *= 2f; break;
-                        case Player.DONOR_3: playerXp *= 2.5f; break;
-                        case Player.DONOR_4: playerXp *= 3f; break;
-                        case Player.DONOR_5: playerXp *= 3.5f; break;
-                        case Player.VIP: playerXp *= 4f; break;
-                    }
-                }
-
                 if (player.Level < 20 && player.XPBoostTime != 0)
-                {
                     playerXp *= 1.5f;
-                }
-
-                playerXp *= (float)player.CoreServerManager.GetExperienceRate();
-
-                var enemyClasified = enemy.Legendary ? 1.75f : enemy.Epic ? 1.50f : 1.0f;
-                playerXp *= enemyClasified;
 
                 if (enemy.GivesNoXp)
                     playerXp = 0;
@@ -104,6 +96,31 @@ namespace wServer.logic
                 var killer = (Parent ?? this).LastHitter == player;
                 if (player.EnemyKilled(enemy, (int)playerXp, killer) && !killer)
                     lvlUps++;
+
+                if (enemy.ObjectDesc.Quest)
+                {
+                    if (enemy.HP > 3000)
+                    {
+                        if(player.ActiveTalismans.Count > 0)
+                        {
+                            var essenceToGive = player.World.Random.Next(100, 200);
+                            if (essenceToGive > 0)
+                                player.GiveEssence(essenceToGive);
+                        }
+                        else
+                        {
+                            var essenceToGive = player.World.Random.Next(25, 100);
+                            if (essenceToGive > 0)
+                                player.GiveEssence(essenceToGive);
+                        }
+                    }
+                    else
+                    {
+                        var essenceToGive = player.World.Random.Next(5, 10);
+                        if (essenceToGive > 0)
+                            player.GiveEssence(essenceToGive);
+                    }
+                }
             }
 
             if ((Parent ?? this).LastHitter != null)
@@ -115,6 +132,8 @@ namespace wServer.logic
             if (Parent != null)
                 return Parent.GetPlayerData();
             List<Tuple<Player, int>> dat = new List<Tuple<Player, int>>();
+
+            var hitters = GetHitters();
             foreach (var i in hitters)
             {
                 if (i.Key == null || i.Key.World == null || i.Key.World.GetEntity(i.Key.Id) == null) continue;
@@ -126,6 +145,7 @@ namespace wServer.logic
 
         public void HitBy(Player player, TickTime time, Projectile projectile, int dmg)
         {
+            var hitters = GetHitters();
             if (!hitters.TryGetValue(player, out int totalDmg))
                 totalDmg = 0;
 
@@ -144,15 +164,17 @@ namespace wServer.logic
             dc.LastProjectile = LastProjectile;
             dc.LastHitter = LastHitter;
             dc.TotalDamage = TotalDamage;
-
+            
+            var hitters = GetHitters();
             foreach (var plr in hitters.Keys)
             {
-                if (!hitters.TryGetValue(plr, out int totalDmg))
+                if (!hitters.TryGetValue(plr, out var totalDmg))
                     totalDmg = 0;
-                if (!dc.hitters.TryGetValue(plr, out int totalExistingDmg))
-                    totalExistingDmg = 0;
 
-                dc.hitters[plr] = totalDmg + totalExistingDmg;
+                var dch = dc.GetHitters();
+                if (!dch.TryGetValue(plr, out int totalExistingDmg))
+                    totalExistingDmg = 0;
+                dch[plr] = totalDmg + totalExistingDmg;
             }
         }
     }

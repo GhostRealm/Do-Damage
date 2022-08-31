@@ -25,7 +25,7 @@ namespace wServer.logic.behaviors
             if (host == null || host.World == null)
                 return;
 
-            if (host.HasConditionEffect(ConditionEffects.Paused))
+            if (host.HasConditionEffect(ConditionEffectIndex.Paused))
                 return;
 
             var hx = (int)host.X;
@@ -34,7 +34,7 @@ namespace wServer.logic.behaviors
 
             foreach (var player in players)
                 foreach (var effect in _effects)
-                    player.ApplyConditionEffect(new ConditionEffect() { Effect = effect, DurationMS = _duration });
+                    player.ApplyConditionEffect(new ConditionEffect(effect, _duration));
         }
     }
 }

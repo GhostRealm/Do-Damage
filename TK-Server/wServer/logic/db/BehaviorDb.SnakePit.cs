@@ -60,18 +60,15 @@ namespace wServer.logic
                     new Grenade(1.5, 75, 6, _rightAngle + 45, 3000, ConditionEffectIndex.Petrify, 1000)
                     )
                 ),
-            new Threshold(0.03,
-                new ItemLoot("Queen's Scale", 0.0014)
-                ),
             new Threshold(0.01,
                 new ItemLoot("Potion of Speed", 1),
                 new ItemLoot("Potion of Speed", 1),
-                new ItemLoot("Hebikira", 0.01),
-                new ItemLoot("Snake Queen’s Hide", 0.01),
-                new ItemLoot("Star of Stheno", 0.01),
-                new ItemLoot("Spirit of Snakes", 0.01),
+                new ItemLoot("Hebikira", 0.001),
+                new ItemLoot("Snake Queen's Hide", 0.001),
+                new ItemLoot("Star of Stheno", 0.001),
+                new ItemLoot("Spirit of Snakes", 0.001),
                 new ItemLoot("Snake Pit Key", 0.1),
-                new ItemLoot("Wand of the Bulwark", 0.01),
+                new ItemLoot("Wand of the Bulwark", 0.001),
                 new ItemLoot("Snake Skin Armor", 0.1),
                 new ItemLoot("Snake Skin Shield", 0.1),
                 new ItemLoot("Snake Eye Ring", 0.1),
@@ -101,11 +98,11 @@ namespace wServer.logic
                     new Shoot(25, coolDown: 1000),
                     new State("Protect",
                         new EntityNotExistsTransition("Stheno the Snake Queen", 100, "Wander"),
-                        new Orbit(7.5, 10, acquireRange: 50, target: "Undead Stheno")
+                        new Orbit(2.5, 10, acquireRange: 50, target: "Undead Stheno")
                         ),
                     new State("Wander",
                         new Prioritize(
-                            new Wander(1)
+                            new Wander(0.3)
                             )
                         )
                     )
@@ -115,7 +112,7 @@ namespace wServer.logic
             new State(
                 new Prioritize(
                     new StayCloseToSpawn(1),
-                    new Wander(1)
+                    new Wander(0.3)
                     ),
                 new Shoot(20, coolDown: 1000)
                 )
@@ -124,7 +121,7 @@ namespace wServer.logic
             new State(
                 new Prioritize(
                     new StayCloseToSpawn(1),
-                    new Wander(1)
+                    new Wander(0.3)
                     ),
                 new Shoot(20, coolDown: 1000)
                 )
@@ -134,7 +131,7 @@ namespace wServer.logic
                 new Prioritize(
                     new Follow(1, 10, 1),
                     new StayCloseToSpawn(1),
-                    new Wander(1)
+                    new Wander(0.3)
                     ),
                 new Shoot(20, coolDown: 1000)
                 ),
@@ -146,7 +143,7 @@ namespace wServer.logic
             new State(
                 new Prioritize(
                     new StayCloseToSpawn(1),
-                    new Wander(1)
+                    new Wander(0.3)
                     ),
                 new Shoot(20, coolDown: 1000)
                 ),
@@ -158,7 +155,7 @@ namespace wServer.logic
             new State(
                 new Prioritize(
                     new Follow(1, 10, 1, coolDown: 2000),
-                    new Wander(1)
+                    new Wander(0.3)
                     ),
                 new Shoot(15, count: 3, shootAngle: 5, coolDown: 1000)
                 ),
@@ -170,7 +167,7 @@ namespace wServer.logic
             new State(
                 new Prioritize(
                     new Follow(1, 10, 5),
-                    new Wander(1)
+                    new Wander(0.3)
                     ),
                 new Shoot(15, count: 3, shootAngle: 5, coolDown: 1000)
                 ),
@@ -183,7 +180,7 @@ namespace wServer.logic
             new State(
                 new Prioritize(
                     new Follow(1, 10, 5),
-                    new Wander(1)
+                    new Wander(0.3)
                     ),
                 new Shoot(15, coolDown: 300)
                 ),

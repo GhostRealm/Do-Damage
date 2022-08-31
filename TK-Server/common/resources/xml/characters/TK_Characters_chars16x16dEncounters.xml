@@ -29,7 +29,7 @@
     <Projectile id="1">
       <ObjectId>White Bullet</ObjectId>
       <Speed>75</Speed>
-      <Damage>70</Damage>
+      <Damage>110</Damage>
       <Size>60</Size>
       <LifetimeMS>2500</LifetimeMS>
       <ArmorPiercing />
@@ -42,7 +42,6 @@
       <Size>65</Size>
       <LifetimeMS>3000</LifetimeMS>
       <MultiHit />
-      <ConditionEffect duration="4">Weak</ConditionEffect>
     </Projectile>
     <Projectile id="3">
       <ObjectId>White Bullet</ObjectId>
@@ -59,7 +58,7 @@
       <Size>120</Size>
       <LifetimeMS>3000</LifetimeMS>
       <MultiHit />
-      <ConditionEffect duration="4">Weak</ConditionEffect>
+      <ConditionEffect duration="2">Weak</ConditionEffect>
     </Projectile>
   </Object>
   <Object type="0x0d50" id="Lord of the Lost Lands">
@@ -331,7 +330,7 @@
     <HitSound>monster/ghost_god_hit</HitSound>
     <DeathSound>monster/ghost_god_death</DeathSound>
     <Size>100</Size>
-    <MaxHitPoints>250000</MaxHitPoints>
+    <MaxHitPoints>100000</MaxHitPoints>
     <Defense>90</Defense>
     <God />
     <StasisImmune />
@@ -339,7 +338,7 @@
     <Projectile id="0">
       <ObjectId>White Bullet</ObjectId>
       <Speed>80</Speed>
-      <Damage>95</Damage>
+      <Damage>110</Damage>
       <Size>65</Size>
       <LifetimeMS>1500</LifetimeMS>
       <ConditionEffect duration="6">Weak</ConditionEffect>
@@ -348,7 +347,7 @@
     <Projectile id="2">
       <ObjectId>Purple Star</ObjectId>
       <Speed>60</Speed>
-      <Damage>110</Damage>
+      <Damage>140</Damage>
       <Size>90</Size>
       <LifetimeMS>1700</LifetimeMS>
       <MultiHit />
@@ -357,7 +356,7 @@
     <Projectile id="3">
       <ObjectId>Blue Star</ObjectId>
       <Speed>60</Speed>
-      <Damage>120</Damage>
+      <Damage>150</Damage>
       <Size>100</Size>
       <LifetimeMS>1700</LifetimeMS>
       <MultiHit />
@@ -366,7 +365,7 @@
     <Projectile id="5">
       <ObjectId>Silver Shield</ObjectId>
       <Speed>47</Speed>
-      <Damage>140</Damage>
+      <Damage>180</Damage>
       <Size>130</Size>
       <LifetimeMS>2400</LifetimeMS>
       <MultiHit />
@@ -395,8 +394,8 @@
       <MultiHit />
     </Projectile>
   </Object>
-  <Object type="0x0d78" id="Oryx Stone Guardian Right">
-    <DisplayId>Stone Guardian</DisplayId>
+  <Object type="0x0d78" id="Talisman King's Golden Guardian Right">
+    <DisplayId>Golden Guardian</DisplayId>
     <Group>Oryx Minions</Group>
     <Enemy />
     <Class>Character</Class>
@@ -541,7 +540,8 @@
     <Class>Character</Class>
     <DisplayId>Nut</DisplayId>
     <Quest />
-    <Level>1</Level>
+	  <Event />
+	  <Level>20</Level>
     <AnimatedTexture>
       <File>chars16x16dEncounters</File>
       <Index>10</Index>
@@ -553,7 +553,6 @@
     <Defense>15</Defense>
     <XpMult>1</XpMult>
     <God />
-    <NoArticle />
     <Projectile id="0">
       <ObjectId>Darkness Bolt</ObjectId>
       <Damage>180</Damage>
@@ -638,8 +637,12 @@
     <Enemy />
     <Class>Character</Class>
     <DisplayId>Geb</DisplayId>
+    <Flying />
     <Quest />
-    <Level>1</Level>
+	  <Event />
+	  <Level>20</Level>
+    <God />
+    <StasisImmune />
     <AnimatedTexture>
       <File>chars16x16dEncounters</File>
       <Index>11</Index>
@@ -651,7 +654,6 @@
     <Defense>30</Defense>
     <XpMult>1</XpMult>
     <God />
-    <NoArticle />
     <Projectile id="0">
       <ObjectId>Darkness Bolt</ObjectId>
       <Damage>280</Damage>
@@ -709,7 +711,8 @@
     <Class>Character</Class>
     <DisplayId>Bes</DisplayId>
     <Quest />
-    <Level>1</Level>
+	  <Event />
+    <Level>20</Level>
     <AnimatedTexture>
       <File>chars16x16dEncounters</File>
       <Index>12</Index>
@@ -721,7 +724,6 @@
     <Defense>50</Defense>
     <XpMult>1</XpMult>
     <God />
-    <NoArticle />
     <Projectile id="0">
       <ObjectId>Darkness Bolt</ObjectId>
       <Damage>240</Damage>

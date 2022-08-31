@@ -29,7 +29,7 @@ namespace wServer.logic.behaviors
 
             for (var i = 0; i < _initialSpawn; i++)
             {
-                var entity = Entity.Resolve(host.CoreServerManager, _children);
+                var entity = Entity.Resolve(host.GameServer, _children);
                 entity.Move(host.X, host.Y);
 
                 var enemyHost = host as Enemy;
@@ -50,7 +50,7 @@ namespace wServer.logic.behaviors
                     if (enemyHost.Spawned)
                     {
                         enemyEntity.Spawned = true;
-                        enemyEntity.ApplyConditionEffect(new ConditionEffect() { Effect = ConditionEffectIndex.Invisible, DurationMS = -1 });
+                        enemyEntity.ApplyConditionEffect(ConditionEffectIndex.Invisible, -1);
                     }
                 }
 
@@ -66,7 +66,7 @@ namespace wServer.logic.behaviors
 
             if (spawn.RemainingTime <= 0 && spawn.CurrentNumber < _maxChildren)
             {
-                var entity = Entity.Resolve(host.CoreServerManager, _children);
+                var entity = Entity.Resolve(host.GameServer, _children);
                 entity.Move(host.X, host.Y);
                 entity.SpawnedByBehavior = _spawnedByBehav;
                 entity.GivesNoXp = _givesNoXp;
@@ -80,7 +80,7 @@ namespace wServer.logic.behaviors
                     if (enemyHost.Spawned)
                     {
                         enemyEntity.Spawned = true;
-                        enemyEntity.ApplyConditionEffect(new ConditionEffect() { Effect = ConditionEffectIndex.Invisible, DurationMS = -1 });
+                        enemyEntity.ApplyPermanentConditionEffect(ConditionEffectIndex.Invisible);
                     }
                 }
 

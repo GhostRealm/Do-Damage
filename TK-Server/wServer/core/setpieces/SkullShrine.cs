@@ -15,9 +15,9 @@ namespace wServer.core.setpieces
 
         private Random rand = new Random();
 
-        public int Size => 33;
+        public override int Size => 33;
 
-        public void RenderSetPiece(World world, IntPoint pos)
+        public override void RenderSetPiece(World world, IntPoint pos)
         {
             var t = new int[33, 33];
 
@@ -30,7 +30,7 @@ namespace wServer.core.setpieces
                 for (var y = 4; y < 29; y++)
                     t[x, y] = 2;
 
-            t = SetPieces.rotateCW(t);
+            t = SetPieces.RotateCW(t);
 
             for (var x = 12; x < 21; x++)
                 for (var y = 4; y < 29; y++)
@@ -40,7 +40,7 @@ namespace wServer.core.setpieces
                 for (var y = 5; y < 28; y++)
                     t[x, y] = 4;
 
-            t = SetPieces.rotateCW(t);
+            t = SetPieces.RotateCW(t);
 
             for (var x = 13; x < 20; x++)
                 for (var y = 5; y < 28; y++)
@@ -52,7 +52,7 @@ namespace wServer.core.setpieces
                     for (var y = 5; y < 7; y++)
                         t[x, y] = 3;
 
-                t = SetPieces.rotateCW(t);
+                t = SetPieces.RotateCW(t);
             }
 
             for (var i = 0; i < 4; i++)                     //Pillars
@@ -61,7 +61,7 @@ namespace wServer.core.setpieces
                 t[19, 7] = rand.Next() % 3 == 0 ? 6 : 5;
                 t[13, 10] = rand.Next() % 3 == 0 ? 6 : 5;
                 t[19, 10] = rand.Next() % 3 == 0 ? 6 : 5;
-                t = SetPieces.rotateCW(t);
+                t = SetPieces.RotateCW(t);
             }
 
             var noise = new Noise(Environment.TickCount); //Perlin noise
@@ -71,7 +71,7 @@ namespace wServer.core.setpieces
                     if (noise.GetNoise(x / 33f * 8, y / 33f * 8, .5f) < 0.2)
                         t[x, y] = 0;
 
-            var dat = world.Manager.Resources.GameData;
+            var dat = world.GameServer.Resources.GameData;
 
             for (var x = 0; x < 33; x++)                    //Rendering
                 for (var y = 0; y < 33; y++)
@@ -130,7 +130,7 @@ namespace wServer.core.setpieces
                     }
                 }
 
-            var skull = Entity.Resolve(world.Manager, "Skull Shrine");          //Skulls!
+            var skull = Entity.Resolve(world.GameServer, "Skull Shrine");          //Skulls!
             skull.Move(pos.X + Size / 2f, pos.Y + Size / 2f);
             world.EnterWorld(skull);
         }

@@ -48,9 +48,11 @@
         ItemDust,
         MiscellaneousDust,
         SpecialDust,
+        TalismanFragment,
         ShurikenAbilityDamaging,
         ShurikenAbilityBerserk,
-        ResetSkillTree,
-        GenericActivate
+        GenericActivate,
+        UnlockTalisman,
+        FuelEngine
     }
 }

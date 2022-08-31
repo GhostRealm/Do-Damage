@@ -1,5 +1,6 @@
 ﻿using System;
 using wServer.core.objects;
+using wServer.core.objects.connection;
 using wServer.core.worlds;
 
 namespace wServer.core.setpieces
@@ -31,11 +32,10 @@ namespace wServer.core.setpieces
         private static readonly string Floor = "Gold Sand";
         private static readonly string Pillar = "Tomb Wall";
 
-        private Random rand = new Random();
 
-        public int Size => 81;
+        public override int Size => 81;
 
-        public void RenderSetPiece(World world, IntPoint pos)
+        public override void RenderSetPiece(World world, IntPoint pos)
         {
             var t = new int[81, 81];
 
@@ -44,7 +44,7 @@ namespace wServer.core.setpieces
                 {
                     var dx = x - (Size / 2.0);
                     var dy = y - (Size / 2.0);
-                    var r = Math.Sqrt(dx * dx + dy * dy) + rand.NextDouble() * 4 - 2;
+                    var r = Math.Sqrt(dx * dx + dy * dy) + world.Random.NextDouble() * 4 - 2;
 
                     if (r <= 35)
                         t[x, y] = 1;
@@ -62,7 +62,7 @@ namespace wServer.core.setpieces
             t[26, 40] = t[27, 40] = t[27, 39] = t[27, 41] = 4;
             t[54, 40] = t[53, 40] = t[53, 39] = t[53, 41] = 4;
 
-            var dat = world.Manager.Resources.GameData;
+            var dat = world.GameServer.Resources.GameData;
 
             for (var x = 0; x < Size; x++)                      //Rendering
                 for (var y = 0; y < Size; y++)
@@ -107,7 +107,7 @@ namespace wServer.core.setpieces
                         tile.UpdateCount++;
                     }
 
-            var sphinx = Entity.Resolve(world.Manager, "Grand Sphinx");
+            var sphinx = Entity.Resolve(world.GameServer, "Grand Sphinx");
             sphinx.Move(pos.X + 40.5f, pos.Y + 40.5f);
             world.EnterWorld(sphinx);
         }

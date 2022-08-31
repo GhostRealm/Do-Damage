@@ -56,7 +56,7 @@ namespace common.isc
             else
             {
                 _consoleTitlePattern = GameServerTitleFormat;
-                _accessType = _settings.serverInfo.adminOnly ? "Admin" : (_settings.serverSettings.donorOnly ? "Donor" : "Public");
+                _accessType = _settings.serverInfo.adminOnly ? "Admin" : (_settings.serverSettings.supporterOnly ? "Supporter" : "Public");
             }
 
             // kind of fucked up to do this, but can't really think of another way
@@ -65,6 +65,12 @@ namespace common.isc
             // listen to "network" communications
             AddHandler<NetworkMsg>(Channel.Network, HandleNetwork);
 
+            if (isAppEngine)
+                JoinNetwork();
+        }
+
+        public void JoinNetwork()
+        {
             // tell other servers listening that we've join the network
             Publish(Channel.Network, new NetworkMsg()
             {
@@ -119,22 +125,6 @@ namespace common.isc
         {
             _tmr.Elapsed += (sender, e) => Tick(PingPeriod);
             _tmr.Start();
-        }
-
-        public string RestartInstance(string serverName, string user)
-        {
-            using (TimedLock.Lock(_dicLock))
-            {
-                var serverInfo = _servers.Values.SingleOrDefault(server => server.name.ToLower().Equals(serverName));
-
-                if (serverInfo != default && serverInfo.type == ServerType.World)
-                {
-                    Publish(Channel.Restart, new RestartMsg() { User = user }, serverInfo.instanceId);
-                    return "Restarting server in 1 minute.";
-                }
-                else
-                    return "Unable to contact server!";
-            }
         }
 
         public void Shutdown()
@@ -192,7 +182,10 @@ namespace common.isc
                     }
                 }
             }
-            catch (Exception e) { Console.WriteLine(e); }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+            }
         }
 
         private bool AddServer(string instanceId, ServerInfo info)

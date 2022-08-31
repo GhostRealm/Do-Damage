@@ -12,17 +12,15 @@ namespace wServer.core.setpieces
         private static readonly string WallA = "Blue Wall";
         private static readonly string WallB = "Destructible Blue Wall";
 
-        private Random rand = new Random();
+        public override int Size => 26;
 
-        public int Size => 26;
-
-        public void RenderSetPiece(World world, IntPoint pos)
+        public override void RenderSetPiece(World world, IntPoint pos)
         {
             var t = new int[25, 26];
 
             for (var x = 2; x < 23; x++)    //Floor
                 for (var y = 1; y < 24; y++)
-                    t[x, y] = rand.Next() % 10 == 0 ? 0 : 1;
+                    t[x, y] = world.Random.Next() % 10 == 0 ? 0 : 1;
 
             for (var y = 1; y < 24; y++)    //Perimeters
                 t[2, y] = t[22, y] = 2;
@@ -52,7 +50,7 @@ namespace wServer.core.setpieces
                     if (t[x, y] == 1 || t[x, y] == 0)
                         continue;
 
-                    var p = rand.NextDouble();
+                    var p = world.Random.NextDouble();
 
                     if (p < 0.1)
                         t[x, y] = 1;
@@ -60,14 +58,14 @@ namespace wServer.core.setpieces
                         t[x, y]++;
                 }
 
-            var r = rand.Next(0, 4);
+            var r = world.Random.Next(0, 4);
 
             for (var i = 0; i < r; i++)     //Rotation
-                t = SetPieces.rotateCW(t);
+                t = SetPieces.RotateCW(t);
 
             var w = t.GetLength(0);
             var h = t.GetLength(1);
-            var dat = world.Manager.Resources.GameData;
+            var dat = world.GameServer.Resources.GameData;
 
             for (var x = 0; x < w; x++)    //Rendering
                 for (var y = 0; y < h; y++)
@@ -97,7 +95,7 @@ namespace wServer.core.setpieces
                         tile.TileId = dat.IdToTileType[Floor];
                         tile.UpdateCount++;
 
-                        var wall = Entity.Resolve(world.Manager, dat.IdToObjectType[WallB]);
+                        var wall = Entity.Resolve(world.GameServer, dat.IdToObjectType[WallB]);
                         wall.Move(x + pos.X + 0.5f, y + pos.Y + 0.5f);
                         world.EnterWorld(wall);
                     }
@@ -128,7 +126,7 @@ namespace wServer.core.setpieces
                 }
 
             //Boss
-            var lich = Entity.Resolve(world.Manager, "Lich");
+            var lich = Entity.Resolve(world.GameServer, "Lich");
             lich.Move(pos.X + Size / 2, pos.Y + Size / 2);
             world.EnterWorld(lich);
         }

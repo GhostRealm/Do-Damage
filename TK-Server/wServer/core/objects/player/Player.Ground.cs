@@ -19,7 +19,6 @@ namespace wServer.core.objects
         public int MoveTime;
         public int AwaitingMoves;
         public Queue<int> AwaitingGoto;
-        public int TickId;
         public float PushX;
         public float PushY;
 
@@ -37,12 +36,12 @@ namespace wServer.core.objects
 
         public void ForceGroundHit(TickTime time, Position pos, int timeHit)
         {
-            if (World == null || World.Map == null || HasConditionEffect(ConditionEffects.Paused) || HasConditionEffect(ConditionEffects.Invincible))
+            if (World == null || World.Map == null || HasConditionEffect(ConditionEffectIndex.Paused) || HasConditionEffect(ConditionEffectIndex.Invincible))
                 return;
 
             var tile = World.Map[(int)pos.X, (int)pos.Y];
-            var objDesc = tile.ObjType == 0 ? null : CoreServerManager.Resources.GameData.ObjectDescs[tile.ObjType];
-            var tileDesc = CoreServerManager.Resources.GameData.Tiles[tile.TileId];
+            var objDesc = tile.ObjType == 0 ? null : GameServer.Resources.GameData.ObjectDescs[tile.ObjType];
+            var tileDesc = GameServer.Resources.GameData.Tiles[tile.TileId];
 
             if (tileDesc.Damaging && (objDesc == null || !objDesc.ProtectFromGroundDamage))
             {
@@ -61,27 +60,27 @@ namespace wServer.core.objects
                     TargetId = Id,
                     DamageAmount = (ushort)dmg,
                     Kill = HP <= 0,
-                }, this, this, PacketPriority.Low);
+                }, this, this);
                 anticheat = true;
             }
         }
 
         public void GroundEffect(TickTime time)
         {
-            if (World == null || World.Map == null || HasConditionEffect(ConditionEffects.Paused) || HasConditionEffect(ConditionEffects.Invincible) || HasConditionEffect(ConditionEffects.Stasis))
+            if (World == null || World.Map == null || HasConditionEffect(ConditionEffectIndex.Paused) || HasConditionEffect(ConditionEffectIndex.Invincible) || HasConditionEffect(ConditionEffectIndex.Stasis))
                 return;
 
             var tile = World.Map[(int)X, (int)Y];
-            var objDesc = tile.ObjType == 0 ? null : CoreServerManager.Resources.GameData.ObjectDescs[tile.ObjType];
-            var tileDesc = CoreServerManager.Resources.GameData.Tiles[tile.TileId];
+            var objDesc = tile.ObjType == 0 ? null : GameServer.Resources.GameData.ObjectDescs[tile.ObjType];
+            var tileDesc = GameServer.Resources.GameData.Tiles[tile.TileId];
 
-            if (tileDesc.Effects != null)
-                ApplyConditionEffect(tileDesc.Effects);
+            //if (tileDesc.Effects != null)
+            //    ApplyConditionEffect(tileDesc.Effects);
 
             if (time.TotalElapsedMs - l > 500 && !anticheat)
             {
-                if (HasConditionEffect(ConditionEffects.Paused) ||
-                    HasConditionEffect(ConditionEffects.Invincible))
+                if (HasConditionEffect(ConditionEffectIndex.Paused) ||
+                    HasConditionEffect(ConditionEffectIndex.Invincible))
                     return;
 
                 if (tileDesc.Damaging && (objDesc == null || !objDesc.ProtectFromGroundDamage))
@@ -101,7 +100,7 @@ namespace wServer.core.objects
                         TargetId = Id,
                         DamageAmount = (ushort)dmg,
                         Kill = HP <= 0,
-                    }, this, this, PacketPriority.Low);
+                    }, this, this);
 
                     l = time.TotalElapsedMs;
                 }

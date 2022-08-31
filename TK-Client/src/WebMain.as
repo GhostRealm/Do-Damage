@@ -9,6 +9,7 @@ import flash.display.Sprite;
 import flash.display.Stage;
 import flash.display.StageScaleMode;
 import flash.events.Event;
+import flash.system.Security;
 import flash.utils.ByteArray;
 
 import kabam.lib.net.NetConfig;
@@ -23,6 +24,8 @@ import kabam.rotmg.core.StaticInjectorContext;
 import kabam.rotmg.death.DeathConfig;
 import kabam.rotmg.dialogs.DialogsConfig;
 import kabam.rotmg.errors.ErrorConfig;
+import kabam.rotmg.essences.EssenceConfig;
+import kabam.rotmg.Engine.EngineConfig;
 import kabam.rotmg.fame.FameConfig;
 import kabam.rotmg.game.GameConfig;
 import kabam.rotmg.hud.HUDConfig;
@@ -42,6 +45,8 @@ import robotlegs.bender.bundles.mvcs.MVCSBundle;
 import robotlegs.bender.extensions.signalCommandMap.SignalCommandMapExtension;
 import robotlegs.bender.framework.api.IContext;
 import robotlegs.bender.framework.api.LogLevel;
+
+
 
 [SWF(frameRate="60", backgroundColor="#000000", width="800", height="600")]
 public class WebMain extends Sprite {
@@ -112,6 +117,8 @@ public class WebMain extends Sprite {
                 .configure(ClassesConfig)
                 .configure(Stage3DConfig)
                 .configure(HUDConfig)
+                .configure(EssenceConfig)
+                .configure(EngineConfig)
                 .configure(this);
         this.context.logLevel = LogLevel.DEBUG;
     }

@@ -16,7 +16,7 @@ namespace wServer.core.objects
         private SV<bool> _usable;
         public readonly PortalDesc PortalDescr;
         
-        public Portal(CoreServerManager manager, ushort objType, int? life) : base(manager, ValidatePortal(manager, objType), life, false, true, false)
+        public Portal(GameServer manager, ushort objType, int? life) : base(manager, ValidatePortal(manager, objType), life, false, true, false)
         {
             _usable = new SV<bool>(this, StatDataType.PortalUsable, true);
 
@@ -29,20 +29,20 @@ namespace wServer.core.objects
 
         public override bool HitByProjectile(Projectile projectile, TickTime time) => false;
 
-        protected override void ExportStats(IDictionary<StatDataType, object> stats)
+        protected override void ExportStats(IDictionary<StatDataType, object> stats, bool isOtherPlayer)
         {
             stats[StatDataType.PortalUsable] = Usable ? 1 : 0;
 
-            base.ExportStats(stats);
+            base.ExportStats(stats, isOtherPlayer);
         }
 
-        private static ushort ValidatePortal(CoreServerManager manager, ushort objType)
+        private static ushort ValidatePortal(GameServer manager, ushort objType)
         {
             var portals = manager.Resources.GameData.Portals;
 
             if (!portals.ContainsKey(objType))
             {
-                SLogger.Instance.Warn($"Portal {objType.To4Hex()} does not exist. Using Portal of Cowardice.");
+                StaticLogger.Instance.Warn($"Portal {objType.To4Hex()} does not exist. Using Portal of Cowardice.");
 
                 objType = 0x0703; // default to Portal of Cowardice
             }

@@ -60,7 +60,6 @@ namespace wServer.logic
                     )
                 ),
             new Threshold(.01,
-                new ItemLoot("Talisman of Looting", 0.043333),
                 new TierLoot(5, ItemType.Weapon, 0.26),
                 new TierLoot(6, ItemType.Weapon, 0.18),
                 new TierLoot(7, ItemType.Weapon, 0.10),
@@ -121,7 +120,6 @@ namespace wServer.logic
                     )
                 ),
             new Threshold(.01,
-                new ItemLoot("Talisman of Looting", 0.043333),
                 new TierLoot(4, ItemType.Weapon, 0.2),
                 new TierLoot(5, ItemType.Weapon, 0.1),
                 new TierLoot(4, ItemType.Armor, 0.2),
@@ -191,7 +189,6 @@ namespace wServer.logic
                     )
                 ),
             new Threshold(.01,
-                new ItemLoot("Talisman of Looting", 0.043333),
                 new TierLoot(5, ItemType.Weapon, 0.28),
                 new TierLoot(6, ItemType.Weapon, 0.20),
                 new TierLoot(7, ItemType.Weapon, 0.10),
@@ -268,7 +265,6 @@ namespace wServer.logic
                 new Shoot(10, projectileIndex: 1, predictive: 0.5, coolDown: 1200)
                 ),
             new Threshold(.01,
-                new ItemLoot("Talisman of Looting", 0.043333),
                 new TierLoot(5, ItemType.Weapon, 0.26),
                 new TierLoot(6, ItemType.Weapon, 0.18),
                 new TierLoot(7, ItemType.Weapon, 0.1),
@@ -388,7 +384,6 @@ namespace wServer.logic
                 new Shoot(10, projectileIndex: 1, predictive: 1)
                 ),
             new Threshold(.01,
-                new ItemLoot("Talisman of Looting", 0.043333),
                 new TierLoot(5, ItemType.Weapon, 0.26),
                 new TierLoot(6, ItemType.Weapon, 0.18),
                 new TierLoot(7, ItemType.Weapon, 0.1),
@@ -481,9 +476,6 @@ namespace wServer.logic
                     new Shoot(0, count: 10, shootAngle: 36, fixedAngle: 0),
                     new Decay(0)
                     )
-                ),
-            new Threshold(0.001,
-                new ItemLoot("Talisman of Looting", 0.043333)
                 ),
             new TierLoot(5, ItemType.Weapon, 0.04)
             )
@@ -729,7 +721,6 @@ namespace wServer.logic
                     )
                 ),
             new Threshold(.01,
-                new ItemLoot("Talisman of Looting", 0.043333),
                 new TierLoot(5, ItemType.Weapon, 0.26),
                 new TierLoot(6, ItemType.Weapon, 0.18),
                 new TierLoot(7, ItemType.Weapon, 0.1),
@@ -742,7 +733,8 @@ namespace wServer.logic
             )
         .Init("Kage Kami",
             new State(
-                new DropPortalOnDeath("Manor of the Immortals Portal", 0.5),
+                new ScaleHP2(30),
+                new DropPortalOnDeath("Manor of the Immortals Portal", 0.2),
                 /*            new State("Grave", // Bug
                 new SetAltTexture(0),
                 new HpLessTransition(.90,"yay i am good")
@@ -776,7 +768,14 @@ namespace wServer.logic
                     new Follow(0.8, 20, 1),
                     new Shoot(20, count: 2, shootAngle: 50, coolDown: 400),
                     new TimedTransition(4000, "Attack")
-                    )
+                   )
+                ),
+            new Threshold(.01,
+                new ItemLoot("Essence Eater", 0.0003),
+                new ItemLoot("Potion of Vitality", 1),
+                new ItemLoot("Potion of Dexterity", 1),
+                new ItemLoot("Potion of Defense", 1),
+                new ItemLoot("Potion of Speed", 1)
                 )
             )
         .Init("Specter Mine",

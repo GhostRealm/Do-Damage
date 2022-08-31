@@ -9,9 +9,9 @@ namespace wServer.core.objects
     {
         private const int BagSize = 8;
 
-        public Container(CoreServerManager manager, ushort objType, int? life, bool dying, RInventory dbLink = null) : base(manager, objType, life, false, dying, false) => Initialize(dbLink);
+        public Container(GameServer manager, ushort objType, int? life, bool dying, RInventory dbLink = null) : base(manager, objType, life, false, dying, false) => Initialize(dbLink);
 
-        public Container(CoreServerManager manager, ushort id) : base(manager, id, null, false, false, false) => Initialize(null);
+        public Container(GameServer manager, ushort id) : base(manager, id, null, false, false, false) => Initialize(null);
 
         public int[] BagOwners { get; set; }
         public RInventory DbLink { get; private set; }
@@ -20,7 +20,7 @@ namespace wServer.core.objects
 
         public override bool HitByProjectile(Projectile projectile, TickTime time) => false;
 
-        public override void Tick(TickTime time)
+        public override void Tick(ref TickTime time)
         {
             if (Inventory == null)
                 return;
@@ -40,10 +40,10 @@ namespace wServer.core.objects
             if (!hasItem)
                 World.LeaveWorld(this);
 
-            base.Tick(time);
+            base.Tick(ref time);
         }
 
-        protected override void ExportStats(IDictionary<StatDataType, object> stats)
+        protected override void ExportStats(IDictionary<StatDataType, object> stats, bool isOtherPlayer)
         {
             if (Inventory == null)
                 return;
@@ -66,7 +66,7 @@ namespace wServer.core.objects
             stats[StatDataType.InventoryData7] = Inventory.Data[7]?.GetData() ?? "{}";
             stats[StatDataType.OwnerAccountId] = BagOwners.Length == 1 ? BagOwners[0] : -1;
 
-            base.ExportStats(stats);
+            base.ExportStats(stats, isOtherPlayer);
         }
 
         private void Initialize(RInventory dbLink)
@@ -75,20 +75,21 @@ namespace wServer.core.objects
             BagOwners = new int[0];
             DbLink = dbLink;
 
-            var node = CoreServerManager.Resources.GameData.ObjectTypeToElement[ObjectType];
+            var objectDesc = GameServer.Resources.GameData.ObjectDescs[ObjectType];
+            SlotTypes = Utils.ResizeArray(objectDesc.SlotTypes, BagSize);
 
-            SlotTypes = Utils.ResizeArray(node.Element("SlotTypes").Value.CommaToArray<int>(), BagSize);
-
-            var eq = node.Element("Equipment");
-
-            if (eq != null)
+            if(objectDesc.Equipment != null)
             {
-                var inv = eq.Value.CommaToArray<ushort>().Select(_ => _ == 0xffff ? null : CoreServerManager.Resources.GameData.Items[_]).ToArray();
-
+                var inv = objectDesc.Equipment.Select(_ => _ == -1 ? null : GameServer.Resources.GameData.Items[(ushort)_]).ToArray();
                 Array.Resize(ref inv, BagSize);
-
                 Inventory.SetItems(inv);
             }
+        }
+
+        public override void Destroy()
+        {
+            Inventory = null;
+            base.Destroy();
         }
     }
 }

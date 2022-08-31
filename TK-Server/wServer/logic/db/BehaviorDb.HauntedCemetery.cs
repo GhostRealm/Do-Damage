@@ -735,21 +735,21 @@ namespace wServer.logic
             )
         .Init("Arena Skeleton",
             new State(
-                new Wander(0.5),
-                new Follow(0.4, 10, 3),
+                new Wander(0.3),
+                new Follow(2, 10, 3),
                 new Shoot(8, 1, projectileIndex: 0, coolDown: 500)
                 )
             )
         .Init("Troll 1",
             new State(
-                new Follow(0.6, 14, 2, 2000, coolDown: 2000),
+                new Follow(1, 14, 2, 2000, coolDown: 2000),
                 new Shoot(12, 1, projectileIndex: 0, coolDown: 450)
                 )
             )
         .Init("Troll 2",
             new State(
                 new Wander(0.3),
-                new Follow(0.7, 10, duration: 2000, coolDown: 3000),
+                new Follow(1, 10, duration: 2000, coolDown: 3000),
                 new Shoot(10, 1, projectileIndex: 0, coolDown: 550),
                 new Grenade(3, 85, 10, coolDown: 1000)
                 )
@@ -758,7 +758,7 @@ namespace wServer.logic
             new State(
                 new State("1",
                     new ConditionalEffect(ConditionEffectIndex.Invincible),
-                    new MoveTo(5, 0, 7),
+                    new MoveTo(1, 0, 7),
                     new TimedTransition(2000, "2")
                     ),
                 new State("2",
@@ -2002,7 +2002,7 @@ namespace wServer.logic
             new State(
                 new SetAltTexture(11),
                 new ConditionalEffect(ConditionEffectIndex.Invincible),
-                new DropPortalOnDeath("Realm Portal", 100),
+                new DropPortalOnDeath("Realm Portal", 1),
                 new State("Start",
                     new PlayerWithinTransition(4, "1")
                     ),
@@ -2457,7 +2457,7 @@ namespace wServer.logic
                 new ItemLoot("Potion of Vitality", 1)
                 ),
             new Threshold(0.05,
-                new ItemLoot("Potion of Wisdom", 0.1)
+                new ItemLoot("Potion of Wisdom", 1)
                 ),
             new Threshold(0.01,
                 new TierLoot(8, ItemType.Weapon, 0.2),
@@ -2479,8 +2479,9 @@ namespace wServer.logic
                 //new ItemLoot("Amulet of Resurrection", 0.01),
                 //new ItemLoot("Tamed Werewolf Cub Egg", 0.03),
                 new ItemLoot("Wine Cellar Incantation", 0.01),
-                new ItemLoot("Plague Poison", 0.01),
-                new ItemLoot("Resurrected Warrior's Armor", 0.01)
+                new ItemLoot("Dark Skeleton's Shield", 0.00025),
+                new ItemLoot("Plague Poison", 0.008),
+                new ItemLoot("Resurrected Warrior's Armor", 0.001)
                 )
             )
         .Init("Halloween Zombie Spawner",
@@ -2491,7 +2492,7 @@ namespace wServer.logic
                 new State("1",
                     new Spawn("Zombie Rise", maxChildren: 1),
                     new Reproduce("Zombie Rise", 1, 1, coolDown: 100),
-                    new EntityNotExistsTransition("Ghost of Skuld", 100, "2")
+                    new EntityNotExistsTransition("Ghost of Skuld", 40, "2")
                     ),
                 new State("2",
                     new Suicide()
@@ -2561,10 +2562,10 @@ namespace wServer.logic
             )
         .Init("Blue Zombie",
             new State(
-                new Follow(0.03, 100, 1),
+                new Follow(0.5, 100, 1),
                 new State("1",
                     new Shoot(10, 1, projectileIndex: 0, coolDown: 500),
-                    new EntityNotExistsTransition("Ghost of Skuld", 100, "2")
+                    new EntityNotExistsTransition("Ghost of Skuld", 40, "2")
                     ),
                 new State("2",
                     new Suicide()
@@ -2574,10 +2575,10 @@ namespace wServer.logic
         .Init("Flying Flame Skull",
             new State(
                 new ConditionalEffect(ConditionEffectIndex.Invulnerable),
-                new Orbit(1, 5, 10, target: "Ghost of Skuld"),
+                new Orbit(2, 5, 10, target: "Ghost of Skuld"),
                 new State("1",
                     new Shoot(100, 10, shootAngle: 36, projectileIndex: 0, coolDown: 500),
-                    new EntityNotExistsTransition("Ghost of Skuld", 100, "2")
+                    new EntityNotExistsTransition("Ghost of Skuld", 40, "2")
                     ),
                 new State("2",
                     new Suicide()

@@ -7,18 +7,7 @@ namespace wServer.networking.packets.outgoing
         public int Type { get; set; }
         public string Text { get; set; }
 
-        public override PacketId ID => PacketId.GLOBAL_NOTIFICATION;
-
-        public override Packet CreateInstance()
-        {
-            return new GlobalNotification();
-        }
-
-        protected override void Read(NReader rdr)
-        {
-            Type = rdr.ReadInt32();
-            Text = rdr.ReadUTF();
-        }
+        public override MessageId MessageId => MessageId.GLOBAL_NOTIFICATION;
 
         protected override void Write(NWriter wtr)
         {

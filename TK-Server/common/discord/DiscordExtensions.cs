@@ -9,8 +9,6 @@ namespace common.discord
     {
         public static bool CanSendLootNotification(this DiscordIntegration discord, int stars, string className) => discord.classes.Any(_ => _.name.ToLower().Equals(className)) && discord.stars.FindStar(stars).HasValue;
 
-        public static bool CanSendRealmEventNotification(this DiscordIntegration discord, string eventName) => discord.realmEvents.Any(realmEvent => realmEvent.name.Equals(eventName));
-
         public static StarModel? FindStar(this StarModel[] stars, int star)
         {
             for (var i = 0; i < stars.Length; i++)
@@ -29,39 +27,6 @@ namespace common.discord
             return null;
         }
 
-        public static DiscordEmbedBuilder MakeEventBuilder(this DiscordIntegration discord, string serverName, string worldName, string eventName)
-        {
-            var realmEvent = discord.realmEvents.First(rEvent => rEvent.name.Equals(eventName));
-
-            return new DiscordEmbedBuilder
-            {
-                Username = discord.botName,
-                Avatar = discord.webhookResourcesURL + discord.webhookBotImage,
-                Content = $"<@&{realmEvent.id}>",
-                Embeds = new[]
-                {
-                    new DiscordEmbed()
-                    {
-                        Author = new DiscordEmbedAuthor()
-                        {
-                            Name = serverName,
-                            Icon = discord.webhookResourcesURL + discord.webhookOryx1Image
-                        },
-                        Title = "Realm event spawned!",
-                        Description = $"Oryx spawned **{eventName}** on realm __{worldName}__!",
-                        Color = 0x7289DA,
-                        Thumbnail = new DiscordThumbnail() { Url = discord.webhookResourcesURL + discord.webhookLogoImage },
-                        Image = new DiscordImage() { Url = discord.webhookResourcesURL + realmEvent.image },
-                        Footer = new DiscordEmbedFooter()
-                        {
-                            Text = $"{discord.botName} - Game Notification!",
-                            Icon = discord.webhookResourcesURL + discord.webhookBotImage
-                        }
-                    }
-                }
-            };
-        }
-
         public static DiscordEmbedBuilder? MakeLootBuilder(
             this DiscordIntegration discord,
             ServerInfo info,
@@ -73,7 +38,7 @@ namespace common.discord
             string bagImage,
             string bagBanner,
             string playerName,
-            int rank,
+            RankingType rank,
             int stars,
             string itemName,
             string className,
@@ -83,14 +48,18 @@ namespace common.discord
             )
         {
             var star = discord.stars.FindStar(stars);
-
             if (!star.HasValue)
             {
                 logger.Log.Error($"Unhandled star value: {stars}");
                 return null;
             }
 
-            var cInfo = discord.classes.First(classInfo => classInfo.name.Equals(className.ToLower()));
+            var cInfo = discord.classes.FirstOrDefault(classInfo => classInfo.name.Equals(className.ToLower()));
+            if (string.IsNullOrWhiteSpace(cInfo.name))
+            {
+                logger.Log.Error($"Invalid Class Emoji: {className}");
+                cInfo = discord.classes.FirstOrDefault(classInfo => classInfo.name.Equals("wizard"));
+            }
 
             return new DiscordEmbedBuilder()
             {
@@ -106,7 +75,7 @@ namespace common.discord
                             Name = $"{rarity} Loot!",
                             Icon = discord.webhookResourcesURL + bagImage,
                         },
-                        Title = $"<:{star.Value.name}:{star.Value.id}> (D-{rank / 10}) {playerName}",
+                        Title = $"<:{star.Value.name}:{star.Value.id}> {(rank > RankingType.Regular && rank <= RankingType.Supporter5 ? $"(Supporter #{rank})" : "")}) {playerName}",
                         Description = $"Player looted **{itemName}** at {worldName}, __{info.name}__!",
                         Color = 0x7289DA,
                         Fields = new[]
@@ -160,30 +129,57 @@ namespace common.discord
             };
         }
 
-        public static DiscordEmbedBuilder MakeOryxBuilder(this DiscordIntegration discord, ServerInfo info, string worldName, int players, int maxPlayers)
+        public static DiscordEmbedBuilder? MakeDeathAnnounce(
+            this DiscordIntegration discord,
+            ServerInfo info,
+            string worldName,
+            int players,
+            int maxPlayers,
+            bool isDungeon,
+            string bagImage,
+            int charId,
+            string playerName,
+            int rank,
+            int stars,
+            string className,
+            int level,
+            int fame,
+            bool upgradeEnabled,
+            int maxedStats,
+            string killer,
+            string charRank
+            )
         {
-            var oryx = discord.realmEvents.First(realmEvent => realmEvent.name.Equals("Oryx"));
+            var star = discord.stars.FindStar(stars);
 
-            return new DiscordEmbedBuilder
+            if (!star.HasValue)
+            {
+                logger.Log.Error($"Unhandled star value: {stars}");
+                return null;
+            }
+
+            var cInfo = discord.classes.First(classInfo => classInfo.name.Equals(className.ToLower()));
+
+            return new DiscordEmbedBuilder()
             {
                 Username = discord.botName,
                 Avatar = discord.webhookResourcesURL + discord.webhookBotImage,
-                Content = $"<@&{oryx.id}>",
+                Content = "",
                 Embeds = new[]
                 {
                     new DiscordEmbed()
                     {
                         Author = new DiscordEmbedAuthor()
                         {
-                            Name = info.name,
-                            Icon = discord.webhookResourcesURL + discord.webhookOryx2Image
+                            Name = $"RIP!",
+                            Icon = discord.webhookResourcesURL + bagImage,
                         },
-                        Title = "Realm is closing!",
-                        Description = $"Oryx is preparing to close realm __{worldName}__ soon!",
+                        Title = $"<:{star.Value.name}:{star.Value.id}> (D-{rank / 10}) {playerName}",
+                        Description = $"Has been killed by __**{killer}**__!" + "\n" + $"They were ranked **#{charRank}** on the alive character leaderboards!",
                         Color = 0x7289DA,
                         Fields = new[]
                         {
-                            new DiscordEmbedField()
+                            new  DiscordEmbedField()
                             {
                                 Name = "In server:",
                                 Value = $"{info.players}/{info.maxPlayers}",
@@ -191,13 +187,36 @@ namespace common.discord
                             },
                             new DiscordEmbedField()
                             {
-                                Name = "In realm:",
+                                Name = $"In {(isDungeon ? "dungeon" : "realm")}:",
                                 Value = $"{players}/{maxPlayers}",
+                                InLine = true
+                            },
+                            new DiscordEmbedField()
+                            {
+                                Name = "Class:",
+                                Value = $"{className} <:{cInfo.name}:{cInfo.id}>",
+                                InLine = true
+                            },
+                            new DiscordEmbedField()
+                            {
+                                Name = "Level:",
+                                Value = level.ToString(),
+                                InLine = true
+                            },
+                            new DiscordEmbedField()
+                            {
+                                Name = "Fame:",
+                                Value = fame.ToString(),
+                                InLine = true
+                            },
+                            new DiscordEmbedField()
+                            {
+                                Name = "Stats:",
+                                Value = $"{maxedStats}{(upgradeEnabled ? "/16" : "/8")}",
                                 InLine = true
                             }
                         },
                         Thumbnail = new DiscordThumbnail() { Url = discord.webhookResourcesURL + discord.webhookLogoImage },
-                        Image = new DiscordImage() { Url = discord.webhookResourcesURL + oryx.image },
                         Footer = new DiscordEmbedFooter()
                         {
                             Text = $"{discord.botName} - Game Notification!",

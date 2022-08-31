@@ -25,13 +25,17 @@ namespace wServer.logic
                     ),
                 new State("Start Shooting",
                     new RemoveConditionalEffect(ConditionEffectIndex.Invulnerable),
-					 //new RingAttack(20, 3, 0, projectileIndex: 0, 0.15, 0, coolDown: 200),
-					new Shoot(10, 3, fixedAngle: 0, coolDownOffset: 0, coolDown: 1000),
-					new Shoot(10, 3, fixedAngle: 24, coolDownOffset: 200, coolDown: 1000),
-					new Shoot(10, 3, fixedAngle: 48, coolDownOffset: 400, coolDown: 1000),
-					new Shoot(10, 3, fixedAngle: 72, coolDownOffset: 600, coolDown: 1000),
-					new Shoot(10, 3, fixedAngle: 96, coolDownOffset: 800, coolDown: 1000),
-					new Shoot(20, 5, shootAngle: 5, projectileIndex: 4, coolDown: 1000, coolDownOffset: 500),
+                     //new RingAttack(20, 3, 0, projectileIndex: 0, 0.15, 0, coolDown: 200),
+                     new Shoot(30, 4, projectileIndex: 0, fixedAngle: 0, coolDown: 1600, coolDownOffset: 200),
+                    new Shoot(30, 4, projectileIndex: 0, fixedAngle: 15, coolDown: 1600, coolDownOffset: 400),
+                    new Shoot(30, 4, projectileIndex: 0, fixedAngle: 30, coolDown: 1600, coolDownOffset: 600),
+                    new Shoot(30, 4, projectileIndex: 0, fixedAngle: 55, coolDown: 1600, coolDownOffset: 800),
+                    new Shoot(30, 4, projectileIndex: 0, fixedAngle: 60, coolDown: 1600, coolDownOffset: 1000),
+                    new Shoot(30, 4, projectileIndex: 0, fixedAngle: 75, coolDown: 1600, coolDownOffset: 1200),
+                    new Shoot(30, 4, projectileIndex: 0, fixedAngle: 80, coolDown: 1600, coolDownOffset: 1400),
+                    new Shoot(30, 4, projectileIndex: 0, fixedAngle: 95, coolDown: 1600, coolDownOffset: 1600),
+
+                    new Shoot(20, 5, shootAngle: 5, projectileIndex: 4, coolDown: 1000, coolDownOffset: 500),
                     new HpLessTransition(0.75, "Second Phase")
                     ),
                 new State("Second Phase",
@@ -40,16 +44,19 @@ namespace wServer.logic
                     new TimedTransition(3000, "Second Phase Start")
                     ),
                 new State("Second Phase Start",
-				   // new RingAttack(20, 3, 0, projectileIndex: 0, 0.15, 0, coolDown: 200),
-				   new Shoot(10, 3, fixedAngle: 0, coolDownOffset: 0, coolDown: 1000),
-					new Shoot(10, 3, fixedAngle: 24, coolDownOffset: 200, coolDown: 1000),
-					new Shoot(10, 3, fixedAngle: 48, coolDownOffset: 400, coolDown: 1000),
-					new Shoot(10, 3, fixedAngle: 72, coolDownOffset: 600, coolDown: 1000),
-					new Shoot(10, 3, fixedAngle: 96, coolDownOffset: 800, coolDown: 1000),
-					new Shoot(20, 5, shootAngle: 5, projectileIndex: 4, coolDown: 1000, coolDownOffset: 500),
-                    new Reproduce("Lair Skeleton Mage 1", 50, 3, coolDown: 1500),
-                    new Reproduce("Lair Skeleton King 1", 50, 3, 1000),
-                    new ReproduceGroup("Lair Ghosts", 50, 3, coolDown: 1000),
+                   // new RingAttack(20, 3, 0, projectileIndex: 0, 0.15, 0, coolDown: 200),
+                   new Shoot(30, 4, projectileIndex: 0, fixedAngle: 0, coolDown: 1600, coolDownOffset: 200),
+                    new Shoot(30, 4, projectileIndex: 0, fixedAngle: 15, coolDown: 1600, coolDownOffset: 400),
+                    new Shoot(30, 4, projectileIndex: 0, fixedAngle: 30, coolDown: 1600, coolDownOffset: 600),
+                    new Shoot(30, 4, projectileIndex: 0, fixedAngle: 55, coolDown: 1600, coolDownOffset: 800),
+                    new Shoot(30, 4, projectileIndex: 0, fixedAngle: 60, coolDown: 1600, coolDownOffset: 1000),
+                    new Shoot(30, 4, projectileIndex: 0, fixedAngle: 75, coolDown: 1600, coolDownOffset: 1200),
+                    new Shoot(30, 4, projectileIndex: 0, fixedAngle: 80, coolDown: 1600, coolDownOffset: 1400),
+                    new Shoot(30, 4, projectileIndex: 0, fixedAngle: 95, coolDown: 1600, coolDownOffset: 1600),
+                    new Shoot(20, 5, shootAngle: 5, projectileIndex: 4, coolDown: 1000, coolDownOffset: 500),
+                    new Spawn("Lair Skeleton Mage 1", 3, 3, coolDown: 10000),
+                    new Spawn("Lair Skeleton King 1", 3, 3, 10000),
+                    new ReproduceGroup("Lair Ghosts", 50, 3, coolDown: 5000),
                     new HpLessTransition(0.50, "Third Phase")
                     ),
                 new State("Third Phase",
@@ -59,13 +66,16 @@ namespace wServer.logic
                     new TimedTransition(3000, "Third Phase Start")
                     ),
                 new State("Third Phase Start",
-					//new RingAttack(20, 4, 0, projectileIndex: 0, 0.15, 0, coolDown: 200),
-					new Shoot(10, 3, fixedAngle: 0, coolDownOffset: 0, coolDown: 1000),
-					new Shoot(10, 3, fixedAngle: 24, coolDownOffset: 200, coolDown: 1000),
-					new Shoot(10, 3, fixedAngle: 48, coolDownOffset: 400, coolDown: 1000),
-					new Shoot(10, 3, fixedAngle: 72, coolDownOffset: 600, coolDown: 1000),
-					new Shoot(10, 3, fixedAngle: 96, coolDownOffset: 800, coolDown: 1000),
-					new Shoot(20, 5, shootAngle: 5, projectileIndex: 4, coolDown: 1000, coolDownOffset: 500),
+                    //new RingAttack(20, 4, 0, projectileIndex: 0, 0.15, 0, coolDown: 200),
+                    new Shoot(30, 4, projectileIndex: 0, fixedAngle: 0, coolDown: 1600, coolDownOffset: 200),
+                    new Shoot(30, 4, projectileIndex: 0, fixedAngle: 15, coolDown: 1600, coolDownOffset: 400),
+                    new Shoot(30, 4, projectileIndex: 0, fixedAngle: 30, coolDown: 1600, coolDownOffset: 600),
+                    new Shoot(30, 4, projectileIndex: 0, fixedAngle: 55, coolDown: 1600, coolDownOffset: 800),
+                    new Shoot(30, 4, projectileIndex: 0, fixedAngle: 60, coolDown: 1600, coolDownOffset: 1000),
+                    new Shoot(30, 4, projectileIndex: 0, fixedAngle: 75, coolDown: 1600, coolDownOffset: 1200),
+                    new Shoot(30, 4, projectileIndex: 0, fixedAngle: 80, coolDown: 1600, coolDownOffset: 1400),
+                    new Shoot(30, 4, projectileIndex: 0, fixedAngle: 95, coolDown: 1600, coolDownOffset: 1600),
+                    new Shoot(20, 5, shootAngle: 5, projectileIndex: 4, coolDown: 1000, coolDownOffset: 500),
                     new RingAttack(20, 2, 0, projectileIndex: 2, 0.25, 0.30, coolDown: 200),
                     new HpLessTransition(0.25, "Rage")
                     ),
@@ -86,9 +96,6 @@ namespace wServer.logic
             new Threshold(0.01,
                 LootTemplates.DustLoot()
                 ),
-            new Threshold(0.03,
-                new ItemLoot("Cape of Septavius", 0.0014)
-                ),
             new Threshold(0.01,
                 new TierLoot(11, ItemType.Weapon, 0.07),
                 new TierLoot(11, ItemType.Armor, 0.07),
@@ -98,12 +105,12 @@ namespace wServer.logic
                 new TierLoot(5, ItemType.Ability, 0.07),
                 new ItemLoot("Potion of Wisdom", 1),
                 new ItemLoot("Potion of Wisdom", 1),
-                new ItemLoot("Doom Bow", 0.01),
-                new ItemLoot("Edictum Praetoris", 0.015),
-                new ItemLoot("Memento Mori", 0.015),
-                new ItemLoot("Toga Picta", 0.015),
-                new ItemLoot("Interregnum", 0.015),
-                new ItemLoot("Tormentor’s Wrath", 0.01),
+                new ItemLoot("Doom Bow", 0.001),
+                new ItemLoot("Edictum Praetoris", 0.0015),
+                new ItemLoot("Memento Mori", 0.0015),
+                new ItemLoot("Toga Picta", 0.0015),
+                new ItemLoot("Interregnum", 0.0015),
+                new ItemLoot("Tormentor's Wrath", 0.001),
                 new ItemLoot("Undead Lair Key", 0.001, 0, 0.03),
 
                 new ItemLoot("Magic Dust", 0.5)
@@ -125,21 +132,21 @@ namespace wServer.logic
                     new Protect(0.625, "Septavius the Ghost God", protectionRange: 6),
                     new Follow(0.75, range: 7)
                     ),
-                new Wander(0.25),
+                new Wander(0.4),
                 new Shoot(8, 1, coolDown: 1000)
                 )
             )
         .Init("Ghost Rogue of Septavius",
             new State(
                 new Follow(0.75, range: 1),
-                new Wander(0.25),
+                new Wander(0.4),
                 new Shoot(8, 1, coolDown: 1000)
                 )
             )
         .Init("Ghost Warrior of Septavius",
             new State(
                 new Follow(0.75, range: 1),
-                new Wander(0.25),
+                new Wander(0.4),
                 new Shoot(8, 1, coolDown: 1000)
                 )
             )
@@ -149,14 +156,14 @@ namespace wServer.logic
                     new Protect(0.625, "Septavius the Ghost God", protectionRange: 6),
                     new Follow(0.75, range: 7)
                     ),
-                new Wander(0.25),
+                new Wander(0.4),
                 new Shoot(8, 1, coolDown: 1000)
                 )
             )
         .Init("Lair Ghost Knight",
             new State(
                 new Follow(0.75, range: 1),
-                new Wander(0.25),
+                new Wander(0.4),
                 new Shoot(8, 1, coolDown: 1000)
                 )
             )
@@ -166,14 +173,14 @@ namespace wServer.logic
                     new Protect(0.625, "Septavius the Ghost God", protectionRange: 6),
                     new Follow(0.75, range: 7)
                     ),
-                new Wander(0.25),
+                new Wander(0.4),
                 new Shoot(8, 1, coolDown: 1000)
                 )
             )
         .Init("Lair Ghost Paladin",
             new State(
                 new Follow(0.75, range: 1),
-                new Wander(0.25),
+                new Wander(0.4),
                 new Shoot(8, 1, coolDown: 1000),
                 new HealSelf(coolDown: 5000)
                 )
@@ -181,7 +188,7 @@ namespace wServer.logic
         .Init("Lair Ghost Rogue",
             new State(
                 new Follow(0.75, range: 1),
-                new Wander(0.25),
+                new Wander(0.4),
                 new Shoot(8, 1, coolDown: 1000)
                 ),
             new ItemLoot("Magic Potion", 0.25),
@@ -190,7 +197,7 @@ namespace wServer.logic
         .Init("Lair Ghost Warrior",
             new State(
                 new Follow(0.75, range: 1),
-                new Wander(0.25),
+                new Wander(0.4),
                 new Shoot(8, 1, coolDown: 1000)
                 ),
             new ItemLoot("Magic Potion", 0.25),
@@ -252,17 +259,15 @@ namespace wServer.logic
                 new Shoot(10),
                 new Prioritize(
                     new Follow(1, range: 7),
-                    new Wander(0.4)
+                    new Wander(0.5)
                     )
                 )
             )
         .Init("Lair Skeleton Swordsman",
             new State(
                 new Shoot(5),
-                new Prioritize(
-                    new Follow(1, range: 1),
-                    new Wander(0.4)
-                    )
+                    new Follow(1, range: 5),
+                    new Wander(0.5)
                 ),
             new ItemLoot("Magic Potion", 0.05),
             new ItemLoot("Health Potion", 0.05)
@@ -271,7 +276,7 @@ namespace wServer.logic
             new State(
                 new Shoot(5),
                 new Prioritize(
-                    new Follow(1, range: 1),
+                    new Follow(1, range: 5),
                     new Wander(0.4)
                     )
                 ),

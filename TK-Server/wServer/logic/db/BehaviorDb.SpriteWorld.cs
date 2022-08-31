@@ -12,7 +12,7 @@ namespace wServer.logic
             new State(
                 new StayAbove(speed: 0.4, altitude: 95),
                 new Shoot(radius: 10, count: 2, shootAngle: 7, projectileIndex: 0, coolDown: 300),
-                new Wander(speed: 1.4)
+                new Wander(speed: 0.4)
                 ),
             new Threshold(0.01,
                 new TierLoot(tier: 5, type: ItemType.Weapon, probability: 0.02),
@@ -23,7 +23,7 @@ namespace wServer.logic
             new State(
                 new StayAbove(speed: 0.4, altitude: 105),
                 new Shoot(radius: 10, count: 3, shootAngle: 7, projectileIndex: 0, coolDown: 1000),
-                new Wander(speed: 1.4)
+                new Wander(speed: 0.4)
                 ),
             new Threshold(0.01,
                 new TierLoot(tier: 2, type: ItemType.Ability, probability: 0.04),
@@ -34,7 +34,7 @@ namespace wServer.logic
             new State(
                 new StayAbove(speed: 0.4, altitude: 115),
                 new Shoot(radius: 10, count: 4, shootAngle: 7, projectileIndex: 0, coolDown: 1000),
-                new Wander(speed: 1.4)
+                new Wander(speed: 0.4)
                 ),
             new Threshold(0.01,
                 new TierLoot(tier: 6, type: ItemType.Armor, probability: 0.01),
@@ -44,7 +44,7 @@ namespace wServer.logic
         .Init("Native Nature Sprite",
             new State(
                 new Shoot(radius: 10, count: 5, shootAngle: 7, projectileIndex: 0, coolDown: 1000),
-                new Wander(speed: 1.6)
+                new Wander(speed: 0.6)
                 ),
             new Threshold(0.01,
                 new ItemLoot(item: "Magic Potion", probability: 0.015),
@@ -55,7 +55,7 @@ namespace wServer.logic
         .Init("Native Darkness Sprite",
             new State(
                 new Shoot(radius: 10, count: 5, shootAngle: 7, projectileIndex: 0, coolDown: 1000),
-                new Wander(speed: 1.6)
+                new Wander(speed: 0.6)
                 ),
             new Threshold(0.01,
                 new ItemLoot(item: "Health Potion", probability: 0.015),
@@ -84,6 +84,7 @@ namespace wServer.logic
         .Init("Limon the Sprite God",
             new State(
                 new ScaleHP2(20),
+                new DropPortalOnDeath("Hideout of Limon Portal", 1),
                 new State("start_the_fun",
                     new ConditionalEffect(ConditionEffectIndex.Invulnerable),
                     new PlayerWithinTransition(dist: 11, targetState: "begin_teleport1", seeInvis: true)
@@ -155,19 +156,20 @@ namespace wServer.logic
                     new Spawn(children: "Ice Sprite", maxChildren: 1, initialSpawn: 0, coolDown: 500),
                     new TimedTransition(time: 11000, targetState: "begin_teleport1"),
                     new HpLessTransition(threshold: 0.2, targetState: "begin_teleport1")
-                    ),
-                new DropPortalOnDeath(target: "Glowing Realm Portal", probability: 1)
+                    )
                 ),
             new Threshold(0.01,
                 LootTemplates.DustLoot()
                 ),
             new Threshold(0.01,
                 new ItemLoot("Potion of Dexterity", 1, 1),
+                new ItemLoot("Celestial Dual Blades", 0.001),
+                new ItemLoot("Spatial Distortion", 0.001),
                 new ItemLoot("Sprite World Key", 0.1, 0, 0.03),
                 new ItemLoot("Potion of Defense", 1),
                 new ItemLoot("Sprite Wand", 0.01),
-                new ItemLoot("Cloak of the Planewalker", 0.01),
-                new ItemLoot("Staff of Extreme Prejudice", 0.01),
+                new ItemLoot("Cloak of the Planewalker", 0.001),
+                new ItemLoot("Staff of Extreme Prejudice", 0.001),
                 new TierLoot(4, ItemType.Ring, 0.12),
                 new TierLoot(10, ItemType.Armor, 0.12),
                 new TierLoot(4, ItemType.Ability, 0.07),

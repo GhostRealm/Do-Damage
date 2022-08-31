@@ -7,133 +7,199 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
+using wServer.core;
+using wServer.core.net.handlers;
 using wServer.core.worlds;
-using wServer.networking.packets;
 using wServer.networking.packets.outgoing;
 using wServer.utils;
 
+
 namespace wServer.networking.connection
 {
-    public sealed class NetworkHandler
+    public sealed class NetworkSendHandler
     {
-        private static readonly Logger Log = LogManager.GetCurrentClassLogger();
+        private readonly Client Client;
+        private readonly SocketAsyncEventArgs SocketAsyncEventArgs;
 
-        private readonly int BufferSize;
-        private readonly int PrefixLength;
-        private Client Client;
-        private ConcurrentQueue<Packet>[] Pending;
-        private SocketAsyncEventArgs Receive;
-        private SocketAsyncEventArgs Send;
-
-        public NetworkHandler(Client client, SocketAsyncEventArgs send, SocketAsyncEventArgs receive)
+        public NetworkSendHandler(Client client, SocketAsyncEventArgs e)
         {
-            PrefixLength = ReceiveToken.PrefixLength;
-            BufferSize = ConnectionListener.BufferSize;
             Client = client;
 
-            Receive = receive;
-            Receive.Completed += ProcessReceive;
-
-            Send = send;
-            Send.Completed += ProcessSend;
-
-            Pending = new ConcurrentQueue<Packet>[3];
-
-            for (var i = 0; i < 3; i++)
-                Pending[i] = new ConcurrentQueue<Packet>();
+            SocketAsyncEventArgs = e;
+            SocketAsyncEventArgs.Completed += OnCompleted;
         }
 
-        public void BeginHandling(Socket socket)
+        public void SendMessage(OutgoingMessage message)
         {
-            Send.AcceptSocket = socket;
-            Receive.AcceptSocket = socket;
-
-            Client.State = ProtocolState.Connected;
-
-            StartReceive(Receive);
-            StartSendAsync(Send);
+            var sendToken = (SendToken)SocketAsyncEventArgs.UserToken;
+            sendToken.Pending.Enqueue(message);
         }
 
-        public void Reset()
+        public void SetSocket(Socket socket)
         {
-            ((SendToken)Send.UserToken).Reset();
-            ((ReceiveToken)Receive.UserToken).Reset();
-
-            Pending = new ConcurrentQueue<Packet>[3];
-
-            for (var i = 0; i < 3; i++)
-                Pending[i] = new ConcurrentQueue<Packet>();
+            SocketAsyncEventArgs.AcceptSocket = socket;
+            StartSendAsync(SocketAsyncEventArgs);
         }
 
-        public void SendPacket(OutgoingMessage pkt, PacketPriority priority = PacketPriority.Normal)
+        private async void StartSendAsync(SocketAsyncEventArgs e, int delay = 0)
         {
-            if (priority == PacketPriority.Low && Client.IsLagging)
+            if (Client?.State == ProtocolState.Disconnected)
                 return;
 
-            Pending[(int)priority].Enqueue(pkt);
-        }
-
-        public void SendPackets(IEnumerable<OutgoingMessage> pkts, PacketPriority priority = PacketPriority.Normal)
-        {
-            if (priority == PacketPriority.Low && Client.IsLagging)
-                return;
-
-            foreach (var pkt in pkts)
-                Pending[(int)priority].Enqueue(pkt);
-        }
-
-        private static int ReadPacketBytes(SocketAsyncEventArgs e, ReceiveToken r, int bytesNotRead)
-        {
-            var offset = r.BufferOffset + e.BytesTransferred - bytesNotRead;
-            var remainingBytes = r.PacketLength - r.BytesRead;
-
-            if (bytesNotRead < remainingBytes)
+            try
             {
-                Buffer.BlockCopy(e.Buffer, offset, r.PacketBytes, r.BytesRead, bytesNotRead);
-                r.BytesRead += bytesNotRead;
-                return 0;
+                var s = (SendToken)e.UserToken;
+
+                if (delay > 0)
+                    await Task.Delay(delay);
+
+                if (s.BytesAvailable <= 0)
+                {
+                    s.Reset();
+                    if (!FlushPending(s).HasValue)
+                        return;
+                }
+
+                var willRaiseEvent = false;
+
+                try
+                {
+                    var bytesToSend = s.BytesAvailable > ConnectionListener.BUFFER_SIZE ? ConnectionListener.BUFFER_SIZE : s.BytesAvailable;
+
+                    e.SetBuffer(s.BufferOffset, bytesToSend);
+
+                    Buffer.BlockCopy(s.Data, s.BytesSent, e.Buffer, s.BufferOffset, bytesToSend);
+
+                    willRaiseEvent = e.AcceptSocket.SendAsync(e);
+                }
+                catch
+                {
+                }
+                finally
+                {
+                    if (!willRaiseEvent)
+                        OnCompleted(null, e);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"StartSend: {ex}");
+
+                Client.Player.SendError("Unknown error sent to nexus");
+                Client.Reconnect(new Reconnect()
+                {
+                    Host = "",
+                    Port = Client.GameServer.Configuration.serverInfo.port,
+                    GameId = World.NEXUS_ID,
+                    Name = "Nexus"
+                });
+            }
+        }
+
+        private void OnCompleted(object sender, SocketAsyncEventArgs e)
+        {
+            var s = (SendToken)e.UserToken;
+
+            if (Client.State == ProtocolState.Disconnected)
+            {
+                s.Reset();
+                return;
             }
 
-            Buffer.BlockCopy(e.Buffer, offset, r.PacketBytes, r.BytesRead, remainingBytes);
+            if (e.SocketError != SocketError.Success)
+            {
+                Client.Disconnect("Send SocketError = " + e.SocketError);
+                return;
+            }
 
-            r.BytesRead = r.PacketLength;
-            return bytesNotRead - remainingBytes;
+            s.BytesSent += e.BytesTransferred;
+            s.BytesAvailable -= s.BytesSent;
+
+            var delay = 0;
+            if (s.BytesAvailable <= 0)
+                delay = 200;
+
+            StartSendAsync(e, delay);
         }
 
         private bool? FlushPending(SendToken s)
         {
             try
             {
-                for (var i = 0; i < 3; i++)
-                    while (Pending[i].TryDequeue(out var packet))
+                while (s.Pending.TryDequeue(out var packet))
+                {
+                    var bytesWritten = packet.Write(s.Data, s.BytesAvailable);
+                    if (!bytesWritten.HasValue)
+                        continue;
+
+                    if (bytesWritten == 0)
                     {
-                        var bytesWritten = packet.Write(Client, s.Data, s.BytesAvailable);
-
-                        if (!bytesWritten.HasValue)
-                            continue;
-
-                        if (bytesWritten == 0)
-                        {
-                            Pending[i].Enqueue(packet);
-                            return true;
-                        }
-
-                        s.BytesAvailable += bytesWritten.Value;
+                        s.Pending.Enqueue(packet);
+                        return true;
                     }
+                    s.BytesAvailable += bytesWritten.Value;
+                }
 
                 if (s.BytesAvailable <= 0)
                     return false;
             }
             catch (Exception e)
             {
-                Log.Error(e);
+                StaticLogger.Instance.Error(e);
                 Client.Disconnect("Error when handling pending packets");
             }
 
             return true;
         }
 
-        private void ProcessReceive(object sender, SocketAsyncEventArgs e)
+        public void Reset()
+        {
+            ((SendToken)SocketAsyncEventArgs.UserToken).Clear();
+        }
+    }
+
+    public sealed class NetworkReceiveHandler
+    {
+        private readonly Client Client;
+        private readonly SocketAsyncEventArgs SocketAsyncEventArgs;
+
+        public NetworkReceiveHandler(Client client, SocketAsyncEventArgs e)
+        {
+            Client = client;
+
+            SocketAsyncEventArgs = e;
+            SocketAsyncEventArgs.Completed += OnCompleted;
+        }
+
+        public void SetSocket(Socket socket)
+        {
+            SocketAsyncEventArgs.AcceptSocket = socket;
+            StartReceive(SocketAsyncEventArgs);
+        }
+
+        private void StartReceive(SocketAsyncEventArgs e)
+        {
+            if (Client.State == ProtocolState.Disconnected)
+                return;
+
+            e.SetBuffer(e.Offset, ConnectionListener.BUFFER_SIZE);
+
+            bool willRaiseEvent;
+            try
+            {
+                willRaiseEvent = e.AcceptSocket.ReceiveAsync(e);
+            }
+            catch (Exception exception)
+            {
+                Client.Disconnect($"[{Client.Account?.Name}:{Client.Account?.AccountId} {Client.IpAddress}] {exception}");
+                return;
+            }
+
+            if (!willRaiseEvent)
+                OnCompleted(null, e);
+        }
+
+        private void OnCompleted(object sender, SocketAsyncEventArgs e)
         {
             var r = (ReceiveToken)e.UserToken;
 
@@ -164,7 +230,7 @@ namespace wServer.networking.connection
             {
                 bytesNotRead = ReadPacketBytes(e, r, bytesNotRead);
 
-                if (r.BytesRead == PrefixLength)
+                if (r.BytesRead == ReceiveToken.PrefixLength)
                 {
                     r.PacketLength = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(r.PacketBytes, 0));
 
@@ -175,7 +241,7 @@ namespace wServer.networking.connection
                         break;
                     }
 
-                    if (r.PacketLength < PrefixLength || r.PacketLength > BufferSize)
+                    if (r.PacketLength < ReceiveToken.PrefixLength || r.PacketLength > ConnectionListener.BUFFER_SIZE)
                     {
                         r.Reset();
                         break;
@@ -190,24 +256,35 @@ namespace wServer.networking.connection
                         var payload = r.GetPacketBody();
                         if (Client.Player == null) // read it instantly if there is no player otherwise we will append it to the world instance
                         {
-                            var packet = Packet.Packets[id].CreateInstance();
+                            var handler = MessageHandlers.GetHandler(id);
+                            if (handler == null)
+                            {
+                                Client.PacketSpamAmount++;
+                                if (Client.PacketSpamAmount > 32)
+                                    Client.Disconnect($"Packet Spam: {Client.IpAddress}");
+                                StaticLogger.Instance.Error($"Unknown MessageId: {id} - {Client.IpAddress}");
+                                continue;
+                            }
+
+                            // todo redo
                             try
                             {
-                                using (var rdr = new NReader(new MemoryStream(payload)))
-                                {
-                                    packet.ReadNew(rdr);
-                                }
-                                Client.ProcessPacket(packet);
+                                NReader rdr = null;
+                                if (payload.Length != 0)
+                                    rdr = new NReader(new MemoryStream(payload));
+                                var time = new TickTime();
+                                handler.Handle(Client, rdr, ref time);
+                                rdr?.Dispose();
                             }
                             catch (Exception exx)
                             {
                                 if (!(exx is EndOfStreamException))
-                                    SLogger.Instance.Error("Error processing packet ({0}, {1}, {2})\n{3}", (Client.Account != null) ? Client.Account.Name : "", Client.IpAddress, id, exx);
+                                    StaticLogger.Instance.Error($"Error processing packet ({((Client.Account != null) ? Client.Account.Name : "")}, {Client.IpAddress})\n{exx}");
                                 Client.Disconnect($"Read Error for packet: {id}");
                             }
                         }
                         else
-                            Client.Player.IncomingPackets.Enqueue(new InboundBuffer(Client, id, payload));
+                            Client.Player.IncomingMessages.Enqueue(new InboundBuffer(Client, id, payload));
                     }
                     r.Reset();
                 }
@@ -216,33 +293,27 @@ namespace wServer.networking.connection
             StartReceive(e);
         }
 
-        private void ProcessSend(object sender, SocketAsyncEventArgs e)
+        private static int ReadPacketBytes(SocketAsyncEventArgs e, ReceiveToken r, int bytesNotRead)
         {
-            var s = (SendToken)e.UserToken;
+            var offset = r.BufferOffset + e.BytesTransferred - bytesNotRead;
+            var remainingBytes = r.PacketLength - r.BytesRead;
 
-            if (Client.State == ProtocolState.Disconnected)
+            if (bytesNotRead < remainingBytes)
             {
-                s.Reset();
-                return;
+                Buffer.BlockCopy(e.Buffer, offset, r.PacketBytes, r.BytesRead, bytesNotRead);
+                r.BytesRead += bytesNotRead;
+                return 0;
             }
 
-            if (e.SocketError != SocketError.Success)
-            {
-                Client.Disconnect("Send SocketError = " + e.SocketError);
-                return;
-            }
+            Buffer.BlockCopy(e.Buffer, offset, r.PacketBytes, r.BytesRead, remainingBytes);
 
-            s.BytesSent += e.BytesTransferred;
-            s.BytesAvailable -= s.BytesSent;
-
-            StartSendAsync(e, 50);
+            r.BytesRead = r.PacketLength;
+            return bytesNotRead - remainingBytes;
         }
 
         private void SendPolicyFile()
         {
-            if (Client.Socket == null)
-                return;
-
+            Console.WriteLine("SendPolicyFile");
             try
             {
                 var s = new NetworkStream(Client.Socket);
@@ -256,84 +327,50 @@ namespace wServer.networking.connection
             }
             catch (Exception e)
             {
-                SLogger.Instance.Error(e.ToString());
+                StaticLogger.Instance.Error(e.ToString());
             }
         }
 
-        private void StartReceive(SocketAsyncEventArgs e)
+        public void Reset()
         {
-            if (Client.State == ProtocolState.Disconnected)
-                return;
+            ((ReceiveToken)SocketAsyncEventArgs.UserToken).Reset();
+        }
+    }
 
-            e.SetBuffer(e.Offset, BufferSize);
+    public sealed class NetworkHandler
+    {
+        private readonly Client Client;
+        private readonly NetworkSendHandler NetworkSendHandler;
+        private readonly NetworkReceiveHandler NetworkReceiveHandler;
 
-            bool willRaiseEvent;
-            try
-            {
-                willRaiseEvent = e.AcceptSocket.ReceiveAsync(e);
-            }
-            catch (Exception exception)
-            {
-                Client.Disconnect($"[{Client.Account?.Name}:{Client.Account?.AccountId} {Client.IpAddress}] {exception}");
-                return;
-            }
+        public NetworkHandler(Client client, SocketAsyncEventArgs send, SocketAsyncEventArgs receive)
+        {
+            Client = client;
 
-            if (!willRaiseEvent)
-                ProcessReceive(null, e);
+            NetworkSendHandler = new NetworkSendHandler(client, send);
+            NetworkReceiveHandler = new NetworkReceiveHandler(client, receive);
         }
 
-        private async void StartSendAsync(SocketAsyncEventArgs e, int delay = 0)
+        public void SetSocket(Socket socket)
         {
-            if (Client?.State == ProtocolState.Disconnected)
-                return;
+            Client.State = ProtocolState.Connected;
 
-            try
-            {
-                var s = (SendToken)e.UserToken;
+            NetworkSendHandler.SetSocket(socket);
+            NetworkReceiveHandler.SetSocket(socket);
+        }
 
-                if (s.BytesAvailable <= 0)
-                {
-                    s.Reset();
+        public void SendPacket(OutgoingMessage pkt) => NetworkSendHandler.SendMessage(pkt);
 
-                    if (!FlushPending(s).HasValue)
-                        return;
-                }
+        public void SendPackets(IEnumerable<OutgoingMessage> pkts)
+        {
+            foreach (var pkt in pkts)
+                SendPacket(pkt);
+        }
 
-                var willRaiseEvent = false;
-
-                if (delay != 0)
-                    await Task.Delay(delay);
-
-                try
-                {
-                    var bytesToSend = s.BytesAvailable > BufferSize ? BufferSize : s.BytesAvailable;
-
-                    e.SetBuffer(s.BufferOffset, bytesToSend);
-
-                    Buffer.BlockCopy(s.Data, s.BytesSent, e.Buffer, s.BufferOffset, bytesToSend);
-
-                    willRaiseEvent = e.AcceptSocket.SendAsync(e);
-                }
-                catch (Exception) { }
-                finally
-                {
-                    if (!willRaiseEvent)
-                        ProcessSend(null, e);
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"StartSend: {ex}");
-
-                Client.Player.SendError("Unknown error sent to nexus");
-                Client.Reconnect(new Reconnect()
-                {
-                    Host = "",
-                    Port = Client.CoreServerManager.ServerConfig.serverInfo.port,
-                    GameId = World.Nexus,
-                    Name = "Nexus"
-                });
-            }
+        public void Reset()
+        {
+            NetworkSendHandler.Reset();
+            NetworkReceiveHandler.Reset();
         }
     }
 }

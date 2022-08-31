@@ -14,44 +14,44 @@ namespace wServer.logic
                 new State("Start",
                     new ChangeSize(50, 120),
                     new Prioritize(
-                        new Follow(0.48, 8, 1),
-                        new Wander(0.45)
+                        new Follow(0.5, 8, 1),
+                        new Wander(0.3)
                         ),
-                    new Shoot(8.4, count: 3, projectileIndex: 0, shootAngle: 16, coolDown: 1000),
+                    new Shoot(8.4, count: 3, projectileIndex: 0, shootAngle: 16, coolDown: 800),
                     new TimedTransition(1000, "Vengeful")
                     ),
                 new State("Vengeful",
                     new Prioritize(
-                        new Follow(1, 8, 1),
-                        new Wander(0.45)
+                        new Follow(0.5, 8, 1),
+                        new Wander(0.3)
                         ),
-                    new Shoot(8.4, count: 3, projectileIndex: 0, shootAngle: 16, coolDown: 1645),
+                    new Shoot(8.4, count: 3, projectileIndex: 0, shootAngle: 16, coolDown: 1245),
                     new TimedTransition(3000, "Vengeful2")
                     ),
                 new State("Vengeful2",
-                    new ReturnToSpawn(speed: 0.6),
-                    new Shoot(8.4, count: 3, projectileIndex: 0, shootAngle: 16, coolDown: 1500),
+                    new ReturnToSpawn(speed: 1),
+                    new Shoot(8.4, count: 3, projectileIndex: 0, shootAngle: 16, coolDown: 750),
                     new TimedTransition(1500, "Vengeful")
                     )))
         .Init("Water Mine",
             new State(
                 new State("Seek",
                     new Prioritize(
-                        new Follow(0.45, 8, 1),
-                        new Wander(0.55)
+                        new Follow(.9, 8, 1),
+                        new Wander(0.3)
                         ),
                     new TimedTransition(3750, "Boom")
                     ),
                 new State("Boom",
-                    new Shoot(8.4, count: 10, projectileIndex: 0, coolDown: 1000),
+                    new Shoot(8.4, count: 10, projectileIndex: 0, coolDown: 700),
                     new Suicide()
                     )))
         .Init("Beach Spectre",
             new State(
                 new State("Fight",
-                    new Wander(0.03),
+                    new Wander(0.3),
                     new ChangeSize(10, 120),
-                    new Shoot(8.4, count: 3, projectileIndex: 0, shootAngle: 14, coolDown: 1750)
+                    new Shoot(8.4, count: 3, projectileIndex: 0, shootAngle: 14, coolDown: 1250)
                     )))
 
         .Init("Beach Spectre Spawner",
@@ -104,7 +104,7 @@ namespace wServer.logic
                     new TimedTransition(1, "CircleAndStorm")
                     ),
                 new State("CircleAndStorm",
-                    new Orbit(0.25, 9, 20, "Ghost Ship Anchor", speedVariance: 0.1),
+                    new Orbit(1, 9, 20, "Ghost Ship Anchor", speedVariance: 0.1),
                     new Shoot(8.4, count: 7, projectileIndex: 0, coolDown: 1000)
                     )))
         .Init("Ghost Ship Anchor",
@@ -150,7 +150,7 @@ namespace wServer.logic
                 new DropPortalOnDeath("Davy Jones' Locker Portal", 1, 120),
                 new State("idle",
                     new SetAltTexture(1),
-                    new Wander(0.1),
+                    new Wander(1),
                     new DamageTakenTransition(2000, "pause")
                     ),
                 new State("pause",
@@ -160,55 +160,55 @@ namespace wServer.logic
                     ),
                 new State("start",
                     new SetAltTexture(0),
-                    new Reproduce("Vengeful Spirit", densityMax: 2, coolDown: 1000),
+                    new Reproduce("Vengeful Spirit", densityMax: 2, coolDown: 2500),
                     new TimedTransition(15000, "midfight"),
                     new State("2",
                         new SetAltTexture(0),
                         new Prioritize(
-                            new Wander(0.45),
-                            new StayBack(0.3, 5)
+                            new Wander(0.1),
+                            new StayBack(0.1, 5)
                             ),
-                        new Shoot(8.4, count: 1, projectileIndex: 0, coolDown: 450),
-                        new Shoot(8.4, count: 3, projectileIndex: 0, shootAngle: 20, coolDown: 1750),
+                        new Shoot(12, count: 1, projectileIndex: 0, coolDown: 450),
+                        new Shoot(12, count: 3, projectileIndex: 0, shootAngle: 20, coolDown: 1050),
                         new TimedTransition(3250, "1")
                         ),
                     new State("1",
-                        new TossObject("Water Mine", 5, coolDown: 1500),
+                        new TossObject("Water Mine", 7, coolDown: 1000),
                         new ConditionalEffect(ConditionEffectIndex.Invulnerable),
-                        new ReturnToSpawn(speed: 0.4),
-                        new Shoot(8.4, count: 1, projectileIndex: 0, coolDown: 450),
-                        new Shoot(8.4, count: 3, projectileIndex: 0, shootAngle: 20, coolDown: 1750),
+                        new ReturnToSpawn(speed: 1),
+                        new Shoot(12, count: 1, projectileIndex: 0, coolDown: 450),
+                        new Shoot(12, count: 3, projectileIndex: 0, shootAngle: 20, coolDown: 1050),
                         new TimedTransition(1500, "2")
                         )
                     ),
 
                 new State("midfight",
                     new Order(100, "Ghost Ship Anchor", "tempestcloud"),
-                    new Reproduce("Vengeful Spirit", densityMax: 1, coolDown: 1000),
+                    new Reproduce("Vengeful Spirit", densityMax: 1, coolDown: 5000),
                     new TossObject("Water Mine", 5, coolDown: 2250),
                     new TimedTransition(10000, "countdown"),
                     new State("2",
                         new SetAltTexture(0),
-                        new ReturnToSpawn(speed: 0.4),
+                        new ReturnToSpawn(speed: 1),
                         new ConditionalEffect(ConditionEffectIndex.Invulnerable),
-                        new Shoot(10, count: 4, projectileIndex: 0, coolDownOffset: 1100, angleOffset: 270, coolDown: 1250),
-                        new Shoot(10, count: 4, projectileIndex: 0, coolDownOffset: 1100, angleOffset: 90, coolDown: 1250),
+                        new Shoot(10, count: 4, projectileIndex: 0, coolDownOffset: 800, angleOffset: 270, coolDown: 1000),
+                        new Shoot(10, count: 4, projectileIndex: 0, coolDownOffset: 800, angleOffset: 90, coolDown: 1000),
                         new Shoot(8.4, count: 1, projectileIndex: 1, coolDown: 1250),
                         new TimedTransition(3000, "1")
                         ),
                     new State("1",
                         new Prioritize(
-                            new Follow(0.45, 8, 1),
-                            new Wander(0.3)
+                            new Follow(0.8, 8, 1),
+                            new Wander(0.5)
                             ),
                         new Taunt(1.00, "Fire at will!"),
-                        new Shoot(8.4, count: 2, shootAngle: 25, projectileIndex: 1, coolDown: 3850),
-                        new Shoot(8.4, count: 6, projectileIndex: 0, shootAngle: 10, coolDown: 2750),
+                        new Shoot(8.4, count: 2, shootAngle: 25, projectileIndex: 1, coolDown: 1250),
+                        new Shoot(8.4, count: 6, projectileIndex: 0, shootAngle: 10, coolDown: 950),
                         new TimedTransition(4000, "2")
                         )
                     ),
                 new State("countdown",
-                    new Wander(0.1),
+                    new Wander(0.3),
                     new Timed(1000,
                         new Taunt(1.00, "Ready..")
                         ),
@@ -216,17 +216,17 @@ namespace wServer.logic
                         new Taunt(1.00, "Aim..")
                         ),
                     new Shoot(8.4, count: 1, projectileIndex: 0, coolDown: 450),
-                    new Shoot(8.4, count: 3, projectileIndex: 0, shootAngle: 20, coolDown: 750),
+                    new Shoot(8.4, count: 5, projectileIndex: 0, shootAngle: 20, coolDown: 750),
                     new TimedTransition(2000, "fire")
                     ),
                 new State("fire",
                     new Prioritize(
-                        new Follow(0.36, 8, 1),
-                        new Wander(0.12)
+                        new Follow(0.3, 8, 1),
+                        new Wander(0.1)
                         ),
-                    new Shoot(10, count: 4, projectileIndex: 1, coolDownOffset: 1100, angleOffset: 270, coolDown: 1250),
-                    new Shoot(10, count: 4, projectileIndex: 1, coolDownOffset: 1100, angleOffset: 90, coolDown: 1250),
-                    new Shoot(8.4, count: 10, projectileIndex: 0, coolDown: 3400),
+                    new Shoot(10, count: 4, projectileIndex: 1, coolDownOffset: 1100, angleOffset: 270, coolDown: 850),
+                    new Shoot(10, count: 4, projectileIndex: 1, coolDownOffset: 1100, angleOffset: 90, coolDown: 850),
+                    new Shoot(8.4, count: 10, projectileIndex: 0, coolDown: 1300),
                     new TimedTransition(3400, "midfight")
                     )
 
@@ -236,7 +236,9 @@ namespace wServer.logic
                 ),
             new ItemLoot("Ghost Pirate Rum", 1),
             new Threshold(0.03,
-                new ItemLoot("Cannon", 0.0014)
+                new ItemLoot("Cannon", 0.001),
+                new ItemLoot("Soul-Stealing Trap", 0.0014),
+                new ItemLoot("Talisman Fragment", 0.009)
                 ),
             new Threshold(0.001,
                 new TierLoot(4, ItemType.Ability, 0.07),

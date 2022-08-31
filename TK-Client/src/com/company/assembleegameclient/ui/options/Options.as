@@ -242,14 +242,12 @@ public class Options extends Sprite
       this.setSelected(this.tabs_[0]);
       stage.addEventListener(KeyboardEvent.KEY_DOWN,this.onKeyDown,false,1);
       stage.addEventListener(KeyboardEvent.KEY_UP,this.onKeyUp,false,1);
-      GameServerConnection.instance.options();
    }
 
    private function onRemovedFromStage(event:Event) : void
    {
       stage.removeEventListener(KeyboardEvent.KEY_DOWN,this.onKeyDown,false);
       stage.removeEventListener(KeyboardEvent.KEY_UP,this.onKeyUp,false);
-      GameServerConnection.instance.options();
    }
 
    private function onKeyDown(event:KeyboardEvent) : void
@@ -398,9 +396,11 @@ public class Options extends Sprite
    {
        if(Parameters.data_.FS){
            stage.scaleMode = StageScaleMode.NO_SCALE;
+          this.gs_.updateScaleForTextBox(0.9);
        }
        else{
            stage.scaleMode = StageScaleMode.EXACT_FIT;
+           this.gs_.updateScaleForTextBox(1.0);
        }
 
       Parameters.root.dispatchEvent(new Event(Event.RESIZE));
@@ -425,10 +425,8 @@ public class Options extends Sprite
    private function addHotKeys2Options() : void
    {
       this.addOption(new KeyMapper("reconGuildHall","Recon Guild Hall","Allows you to reconnect to the Guild Hall!"));
-      this.addOption(new KeyMapper("reconCloth","Recon Cloth Bazaar","Allows you to reconnect to the Cloth Bazaar!"));
       this.addOption(new KeyMapper("reconVault","Recon Vault","Allows you to reconnect to Vault!"));
       this.addOption(new KeyMapper("reconRealm","Recon Realm","Allows you to reconnect to Realm!"));
-      this.addOption(new KeyMapper("reconMarket","Recon Market","Allows you to reconnect to the Market!"));
       this.addOption(new KeyMapper("GPURenderToggle","GPU Render Toggle","Enable and Disable the Hardware Acceleration."));
       this.addOption(new KeyMapper("uiQualityToggle","UI Quality Toggle","Enable High/Low UI Quality."));
       this.addOption(new KeyMapper("partyInviteWorld","Invite World Party","Invite your members Party to your World!"));

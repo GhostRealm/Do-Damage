@@ -3,13 +3,17 @@ import com.company.util.KeyCodes;
 
 import flash.display.DisplayObject;
 import flash.events.Event;
+import flash.filesystem.File;
 import flash.net.SharedObject;
+import flash.net.URLRequest;
+import flash.net.navigateToURL;
 import flash.utils.Dictionary;
 
 public class Parameters {
-    public static const BUILD_VERSION:String = "7.23";
-    public static const MINOR_VERSION:String = "";
-    public static const ENABLE_ENCRYPTION:Boolean = false;
+    public static const BUILD_VERSION:String = "2";
+    public static const MINOR_VERSION:String = "5";
+    public static const PATCH_VERSION:String = "2";
+    public static const FULL_BUILD_VERSION:String = BUILD_VERSION + "." + MINOR_VERSION + "." + PATCH_VERSION;
     public static const PORT:int = 2050;
     public static const FELLOW_GUILD_COLOR:uint = 10944349;
     public static const PARTY_MEMBER_COLOR:uint = 0xffc0cb;
@@ -26,12 +30,10 @@ public class Parameters {
     public static const GUILD_CREATION_PRICE:int = 1000;
     public static const NEXUS_GAMEID:int = -2;
     public static const MAPTEST_GAMEID:int = -6;
-    public static const INTERPOLATION_THRESHOLD:int = 128;
+    public static const INTERPOLATION_THRESHOLD:int = 1000;
     public static const MAX_SINK_LEVEL:Number = 18;
     public static const TERMS_OF_USE_URL:String = "https://www.kabam.com/corporate/terms-of-service";
     public static const PRIVACY_POLICY_URL:String = "https://www.kabam.com/corporate/privacy-policy";
-    public static const OUTGOING_TOKEN:String = "5E44602511D8A86A416EE138DFAAE2F9";
-    public static const INCOMING_TOKEN:String = "1AE3517CCC0486ADEB5DE0D5B5247789";
     public static const RSA_PUBLIC_KEY:String =
             "-----BEGIN PUBLIC KEY-----\n" +
             "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDTa2VXtjKzQ8HO2hCRuXZPhezl\n" +
@@ -89,17 +91,15 @@ public class Parameters {
     }
 
     public static function setDefaults():void {
+        setDefaultKey("tpToCaller", KeyCodes.UNSET);
         setDefaultKey("partyJoinWorld", KeyCodes.UNSET);
         setDefaultKey("partyInviteWorld", KeyCodes.UNSET);
         setDefaultKey("partyChat", KeyCodes.P);
         setDefaultKey("uiQualityToggle", KeyCodes.UNSET);
         setDefaultKey("GPURenderToggle", KeyCodes.UNSET);
-        setDefaultKey("reconMarket", KeyCodes.UNSET);
         setDefaultKey("reconGuildHall", KeyCodes.UNSET);
-        setDefaultKey("reconMarket", KeyCodes.UNSET);
         setDefaultKey("reconVault", KeyCodes.UNSET);
         setDefaultKey("reconRealm", KeyCodes.UNSET);
-        setDefaultKey("reconCloth", KeyCodes.UNSET);
         setDefaultKey("moveLeft", KeyCodes.A);
         setDefaultKey("moveRight", KeyCodes.D);
         setDefaultKey("moveUp", KeyCodes.W);

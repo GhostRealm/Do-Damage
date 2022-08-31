@@ -20,55 +20,45 @@ namespace common.resources
         public Dictionary<string, ushort> IdToTileType = new Dictionary<string, ushort>();
         public Dictionary<ushort, Item> Items = new Dictionary<ushort, Item>();
         public Dictionary<ushort, ObjectDesc> ObjectDescs = new Dictionary<ushort, ObjectDesc>();
-        public Dictionary<ushort, XElement> ObjectTypeToElement = new Dictionary<ushort, XElement>();
         public Dictionary<ushort, string> ObjectTypeToId = new Dictionary<ushort, string>();
         public Dictionary<ushort, PortalDesc> Portals = new Dictionary<ushort, PortalDesc>();
         public Dictionary<ushort, SkinDesc> Skins = new Dictionary<ushort, SkinDesc>();
         public Dictionary<int, ItemType> SlotTypeToItemType = new Dictionary<int, ItemType>();
         public Dictionary<ushort, TileDesc> Tiles = new Dictionary<ushort, TileDesc>();
-        public Dictionary<ushort, XElement> TileTypeToElement = new Dictionary<ushort, XElement>();
         public Dictionary<ushort, string> TileTypeToId = new Dictionary<ushort, string>();
+
         private readonly Dictionary<string, WorldResource> Worlds = new Dictionary<string, WorldResource>();
         private readonly Dictionary<string, byte[]> WorldDataCache = new Dictionary<string, byte[]>();
-
         private static readonly Logger Log = LogManager.GetCurrentClassLogger();
 
-        private readonly List<string> _gameXmls;
-        public IList<string> GameXmls { get; }
+        private Dictionary<int, TalismanDesc> Talismans { get; set; } = new Dictionary<int, TalismanDesc>();
 
-        public byte[] ZippedXMLS { get; private set; }
+        public TalismanDesc GetTalisman(int type) => Talismans.TryGetValue(type, out var ret) ? ret : null;
 
-        public XmlData(string dir, bool isFromMetis = false, Action<float, float, string, bool> progress = null)
+        public ItemDusts ItemDusts { get; private set; }
+
+        public XElement ObjectCombinedXML;
+        public XElement CombinedXMLPlayers;
+        public XElement GroundCombinedXML;
+        public XElement SkinsCombinedXML;
+        public XElement TalismansCombinedXML;
+
+        public void Initialize(bool exportXmls)
         {
-            if (!isFromMetis) Log.Info("Loading XmlData...");
-
-            //Make the list to handle all the xmls
-            GameXmls = new ReadOnlyCollection<string>(_gameXmls = new List<string>());
-
-            LoadXmls(dir, "*.xml", isFromMetis, progress);
-            LoadXmls(dir, "*.dat", isFromMetis, progress);
-            
-            //zip all the xmls in binary/bytes
-            ZippedXMLS = ZipGameXmls();
-        }
-
-        //convert xmls to byte
-        //ZippedXMLS is used in getServerXmls in server/char/getServerXmls.cs
-        private byte[] ZipGameXmls()
-        {
-            using (var ms = new MemoryStream())
+            if (exportXmls)
             {
-                var wtr = new NWriter(ms);
-                wtr.Write(GameXmls.Count);
-                foreach (var xml in GameXmls)
-                    wtr.Write32UTF(xml);
-
-                return ms.ToArray();//Utils.Deflate();
+                ObjectCombinedXML = new XElement("Objects");
+                CombinedXMLPlayers = new XElement("Objects");
+                GroundCombinedXML = new XElement("Grounds");
+                SkinsCombinedXML = new XElement("Objects");
             }
         }
 
-        private void AddGrounds(XElement root) => root.Elements("Ground").Select(e =>
+        private void AddGrounds(XElement root, bool exportXmls = false) => root.Elements("Ground").Select(e =>
         {
+            if (exportXmls)
+                GroundCombinedXML.Add(e);
+
             var id = e.GetAttribute<string>("id");
             var type = e.GetAttribute<ushort>("type");
 
@@ -79,7 +69,6 @@ namespace common.resources
                 Log.Warn("'0x{0:x4}' and '0x{1:x4}' have the same id of '{2}'", type, IdToTileType[id], id);
 
             TileTypeToId[type] = id;
-            TileTypeToElement[type] = e;
             IdToTileType[id] = type;
 
             Tiles[type] = new TileDesc(type, e);
@@ -87,86 +76,80 @@ namespace common.resources
             return e;
         }).ToArray();
 
-        private void AddObjects(XElement root, bool isFromMetis) => root.Elements("Object").Select(e =>
-         {
-             var cls = e.GetValue<string>("Class");
+        private void AddObjects(XElement root, bool exportXmls = false)
+        {
+            foreach (var e in root.Elements("Object"))
+            {
+                if (exportXmls)
+                {
+                    if (e.Element("Player") != null)
+                        CombinedXMLPlayers.Add(e);
+                    else if (e.Element("Skin") != null)
+                        SkinsCombinedXML.Add(e);
+                    else
+                        ObjectCombinedXML.Add(e);
+                }
 
+                var cls = e.GetValue<string>("Class");
+                if (string.IsNullOrWhiteSpace(cls)) 
+                    continue;
 
-             if (string.IsNullOrWhiteSpace(cls)) return e;
+                ushort type = 0;
+                try
+                {
+                    type = e.GetAttribute<ushort>("type");
+                }
+                catch
+                {
+                    Log.Error("XML Error: " + e);
+                }
 
-             ushort type = 0;
-             try
-             {
-                 type = e.GetAttribute<ushort>("type");
-             }
-             catch
-             {
-                 Log.Error("XML Error: " + e);
-             }
+                var id = e.GetAttribute<string>("id");
+                var displayId = e.GetValue<string>("DisplayId");
+                var displayName = string.IsNullOrWhiteSpace(displayId) ? id : displayId;
 
+                if (ObjectTypeToId.ContainsKey(type))
+                    Log.Warn("'{0}' and '{1}' have the same type of '0x{2:x4}'", id, ObjectTypeToId[type], type);
 
-             if (isFromMetis)
-             {
-                 switch (cls)
-                 {
-                     case "Equipment":
-                         Items[type] = new Item(type, e);
-                         break;
+                if (IdToObjectType.ContainsKey(id))
+                    Log.Warn("'0x{0:x4}' and '0x{1:x4}' have the same id of '{2}'", type, IdToObjectType[id], id);
 
-                     default: break;
-                 }
+                ObjectTypeToId[type] = id;
+                IdToObjectType[id] = type;
+                DisplayIdToObjectType[displayName] = type;
 
-                 return e;
-             }
+                switch (cls)
+                {
+                    case "Equipment":
+                    case "Dye":
+                        Items[type] = new Item(type, e);
+                        break;
 
-             var id = e.GetAttribute<string>("id");
-             var displayId = e.GetValue<string>("DisplayId");
-             var displayName = string.IsNullOrWhiteSpace(displayId) ? id : displayId;
+                    case "Player":
+                        var pDesc = Classes[type] = new PlayerDesc(type, e);
+                        ObjectDescs[type] = Classes[type];
+                        SlotTypeToItemType[pDesc.SlotTypes[0]] = ItemType.Weapon;
+                        SlotTypeToItemType[pDesc.SlotTypes[1]] = ItemType.Ability;
+                        SlotTypeToItemType[pDesc.SlotTypes[2]] = ItemType.Armor;
+                        SlotTypeToItemType[pDesc.SlotTypes[3]] = ItemType.Ring;
+                        break;
 
-             if (ObjectTypeToId.ContainsKey(type))
-                 Log.Warn("'{0}' and '{1}' have the same type of '0x{2:x4}'", id, ObjectTypeToId[type], type);
+                    case "GuildHallPortal":
+                    case "Portal":
+                        Portals[type] = new PortalDesc(type, e);
+                        ObjectDescs[type] = Portals[type];
+                        break;
 
-             if (IdToObjectType.ContainsKey(id))
-                 Log.Warn("'0x{0:x4}' and '0x{1:x4}' have the same id of '{2}'", type, IdToObjectType[id], id);
+                    case "Skin":
+                        Skins[type] = new SkinDesc(type, e);
+                        break;
 
-             ObjectTypeToId[type] = id;
-             ObjectTypeToElement[type] = e;
-             IdToObjectType[id] = type;
-             DisplayIdToObjectType[displayName] = type;
-
-             switch (cls)
-             {
-                 case "Equipment":
-                 case "Dye":
-                     Items[type] = new Item(type, e);
-                     break;
-
-                 case "Player":
-                     var pDesc = Classes[type] = new PlayerDesc(type, e);
-                     ObjectDescs[type] = Classes[type];
-                     SlotTypeToItemType[pDesc.SlotTypes[0]] = ItemType.Weapon;
-                     SlotTypeToItemType[pDesc.SlotTypes[1]] = ItemType.Ability;
-                     SlotTypeToItemType[pDesc.SlotTypes[2]] = ItemType.Armor;
-                     SlotTypeToItemType[pDesc.SlotTypes[3]] = ItemType.Ring;
-                     break;
-
-                 case "GuildHallPortal":
-                 case "Portal":
-                     Portals[type] = new PortalDesc(type, e);
-                     ObjectDescs[type] = Portals[type];
-                     break;
-
-                 case "Skin":
-                     Skins[type] = new SkinDesc(type, e);
-                     break;
-
-                 default:
-                     ObjectDescs[type] = new ObjectDesc(type, e);
-                     break;
-             }
-
-             return e;
-         }).ToArray();
+                    default:
+                        ObjectDescs[type] = new ObjectDesc(type, e);
+                        break;
+                }
+            }
+        }
 
         public void LoadMaps(string basePath)
         {
@@ -202,38 +185,23 @@ namespace common.resources
             }
         }
 
-        private void LoadXmls(string basePath, string ext, bool isFromMetis, Action<float, float, string, bool> progress)
+        public void LoadXmls(string basePath, string ext, bool exportXmls = false)
         {
-            var xmls = Directory.EnumerateFiles(basePath, ext, SearchOption.AllDirectories).ToArray();
-            var current = 0;
-            var total = xmls.Length;
-            var xmlRange = Enumerable.Range(0, xmls.Length);
-            xmlRange.Select(i =>
+            var xmls = Directory.GetFiles(basePath, ext, SearchOption.AllDirectories);
+            for(var i = 0; i < xmls.Length; i++)
             {
                 var xml = File.ReadAllText(xmls[i]);
 
-                if (!xmls[i].Contains("TK_Worlds.xml"))
-                    _gameXmls.Add(xml);
-
-                if (isFromMetis)
-                {
-                    Interlocked.Increment(ref current);
-
-                    progress.Invoke(current, total, xmls[i], current == total);
-                }
-
                 try
                 {
-                    ProcessXml(XElement.Parse(xml), isFromMetis);
+                    ProcessXml(XElement.Parse(xml), exportXmls);
                 }
                 catch (Exception e)
                 {
                     Log.Error("Exception: " + e);
                     Log.Error("XML Path Error: " + xmls[i]);
                 }
-
-                return i;
-            }).ToArray();
+            }
         }
 
         public WorldResource GetWorld(string dungeonName)
@@ -261,11 +229,29 @@ namespace common.resources
             }
         }
         
-        private void ProcessXml(XElement root, bool isFromMetis)
+        private void ProcessXml(XElement root, bool exportXmls = false)
         {
+            if (root.Name.LocalName == "Talismans")
+            { 
+                TalismansCombinedXML = root;
+
+                foreach (var e in root.Elements("Talisman"))
+                {
+                    var desc = new TalismanDesc(e);
+                    Talismans.Add(desc.Type, desc);
+                }
+                return;
+            }
+
+            if (root.Name.LocalName == "Dusts") 
+            {
+                ItemDusts = new ItemDusts(root);
+                return;
+            } 
+
             AddWorlds(root);
-            AddObjects(root, isFromMetis);
-            if (!isFromMetis) AddGrounds(root);
+            AddObjects(root, exportXmls);
+            AddGrounds(root, exportXmls);
         }
     }
 }

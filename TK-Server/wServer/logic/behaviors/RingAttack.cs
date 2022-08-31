@@ -43,7 +43,7 @@ namespace wServer.logic.behaviors
             if (Host == null || Host.World == null)
                 return;
 
-            if (Host.HasConditionEffect(ConditionEffects.Stunned))
+            if (Host.HasConditionEffect(ConditionEffectIndex.Stunned))
                 return;
 
             var dist = (float)_radius;
@@ -80,7 +80,7 @@ namespace wServer.logic.behaviors
                         angle = entity == null ? _offset : (float)Math.Atan2(entity.Y - chr.Y, entity.X - chr.X) + _offset;
 
                     var count = _count;
-                    if (Host.HasConditionEffect(ConditionEffects.Dazed))
+                    if (Host.HasConditionEffect(ConditionEffectIndex.Dazed))
                         count = Math.Max(1, count / 2);
 
                     var dmg = Random.Next(desc.MinDamage + enemyClasified, desc.MaxDamage + enemyClasified);
@@ -95,7 +95,7 @@ namespace wServer.logic.behaviors
                     {
                         var prj = Host.CreateProjectile(desc, Host.ObjectType, dmg, time.TotalElapsedMs, prjPos, (float)(startAngle + angle * i));
 
-                        Host.World.EnterWorld(prj);
+                        Host.World.AddProjectile(prj);
 
                         if (i == 0)
                             prjId = prj.ProjectileId;
@@ -116,13 +116,16 @@ namespace wServer.logic.behaviors
                     };
 
                     if (isQuest)
-                        Host.World.PlayersBroadcastAsParallel(_ => _.Client.SendPacket(pkt));
+                        Host.World.ForeachPlayer(_ => _.Client.SendPacket(pkt));
                     else
                     {
-                        var players = Host.World.Players
-                            .ValueWhereAsParallel(_ => _.DistSqr(Host) < PlayerUpdate.VISIBILITY_RADIUS_SQR);
-                        for (var i = 0; i < players.Length; i++)
-                            players[i].Client.SendPacket(pkt);
+                        // replaced to this
+                        Host.World.BroadcastIfVisible(pkt, Host);
+                        
+                        // from this
+                        //var players = Host.World.Players.Values.Where(_ => _.DistSqr(Host) < PlayerUpdate.VISIBILITY_RADIUS_SQR);
+                        //for (var i = 0; i < players.Length; i++)
+                        //    players[i].Client.SendPacket(pkt);
                     }
                 }
 

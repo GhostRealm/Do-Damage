@@ -36,7 +36,7 @@ namespace wServer.logic.behaviors
                 if (!host.World.IsPassable(x, y, true))
                     continue;
 
-                var entity = Entity.Resolve(host.CoreServerManager, children[Random.Next(children.Length)]);
+                var entity = Entity.Resolve(host.GameServer, children[Random.Next(children.Length)]);
                 entity.Move(x, y);
 
                 var enemyEntity = entity as Enemy;
@@ -48,7 +48,7 @@ namespace wServer.logic.behaviors
                     if (enemyHost.Spawned)
                     {
                         enemyEntity.Spawned = true;
-                        enemyEntity.ApplyConditionEffect(new ConditionEffect() { Effect = ConditionEffectIndex.Invisible, DurationMS = -1 });
+                        enemyEntity.ApplyConditionEffect(ConditionEffectIndex.Invisible, -1);
                     }
                 }
 
@@ -72,7 +72,7 @@ namespace wServer.logic.behaviors
                     return;
                 }
 
-                var entity = Entity.Resolve(host.CoreServerManager, children[Random.Next(children.Length)]);
+                var entity = Entity.Resolve(host.GameServer, children[Random.Next(children.Length)]);
                 entity.Move(x, y);
 
                 var enemyEntity = entity as Enemy;
@@ -84,7 +84,7 @@ namespace wServer.logic.behaviors
                     if (enemyHost.Spawned)
                     {
                         enemyEntity.Spawned = true;
-                        enemyEntity.ApplyConditionEffect(new ConditionEffect() { Effect = ConditionEffectIndex.Invisible, DurationMS = -1 });
+                        enemyEntity.ApplyConditionEffect(ConditionEffectIndex.Invisible, -1);
                     }
                 }
 

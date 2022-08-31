@@ -10,7 +10,7 @@
     <Projectile id="0">
       <ObjectId>Red Star</ObjectId>
       <Speed>66</Speed>
-      <Damage>150</Damage>
+      <Damage>100</Damage>
       <Size>100</Size>
       <LifetimeMS>760</LifetimeMS>
       <MultiHit />
@@ -238,6 +238,7 @@
   </Object>
   <Object type="0x6db" id="Kage Kami">
     <Enemy />
+	<StasisImmune />
     <NoMiniMap />
     <Class>Character</Class>
     <Group>Heros</Group>
@@ -277,7 +278,7 @@
     </AltTexture>
     <HitSound>monster/medusa_hit</HitSound>
     <DeathSound>monster/undead_dwarves_hit</DeathSound>
-    <MaxHitPoints>3000</MaxHitPoints>
+    <MaxHitPoints>45000</MaxHitPoints>
     <Defense>63</Defense>
     <XpMult>1.4</XpMult>
     <Size>120</Size>
@@ -287,7 +288,7 @@
       <Damage>50</Damage>
       <Speed>55</Speed>
       <Size>80</Size>
-      <LifetimeMS>2000</LifetimeMS>
+      <LifetimeMS>45000</LifetimeMS>
       <ConditionEffect duration="4">Sick</ConditionEffect>
       <ConditionEffect duration="1">Confused</ConditionEffect>
     </Projectile>

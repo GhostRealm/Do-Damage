@@ -75,7 +75,14 @@ namespace wServer.logic
         .Init("Confuse Puppet",
             new State(
                 new State("1",
-                    new Orbit(1.5, 10, 15, "Puppet Master v2"),
+                    new Prioritize(
+                    new Orbit(4, 10, 15, "Puppet Master v2", orbitClockwise: false)),
+                    new Shoot(15, 3, 360 / 3, 0, 45, coolDown: 1250),
+                    new Shoot(15, 3, 360 / 3, 2, 100, coolDown: 1250),
+                    new HpLessTransition(0.5, "chase")
+                    ),
+                new State("chase",
+                    new Follow(1.3, 15),
                     new Shoot(15, 3, 360 / 3, 0, 45, coolDown: 1250),
                     new Shoot(15, 3, 360 / 3, 2, 100, coolDown: 1250)
                     )
@@ -83,14 +90,15 @@ namespace wServer.logic
             )
         .Init("Bleed Puppet",
             new State(
-                new Orbit(0.5, 3, 15, "Puppet Master v2"),
+                new Prioritize(
+                new Orbit(3, 3, 15, "Puppet Master v2")),
                 new State("1",
                     new Shoot(15, 4, 360 / 4, 0, 45, coolDown: 750),
-                    new TimedTransition(750, "2")
+                    new HpLessTransition(0.5, "chase")
                     ),
-                new State("2",
-                    new Shoot(15, 4, 360 / 4, 1, 90, coolDown: 750),
-                    new TimedTransition(750, "1")
+                new State("chase",
+                    new Follow(1.3, 15),
+                    new Shoot(15, 4, 360 / 4, 1, 90, coolDown: 750)
                     )
                 )
             )
@@ -654,6 +662,7 @@ namespace wServer.logic
                 ),
             new Threshold(0.01,
                 new ItemLoot("Potion of Attack", 1),
+                new ItemLoot("Soul of Attack", 1),
                 new ItemLoot("Potion of Defense", 1),
                 new ItemLoot("Potion of Mana", 0.5),
                 new ItemLoot("Potion of Attack", 1),
@@ -661,8 +670,9 @@ namespace wServer.logic
                 new ItemLoot("Potion of Mana", 0.5)
                 ),
             new Threshold(0.03,
-                new ItemLoot("Thousand Shot", 0.0014, threshold: 0.03),
-                new ItemLoot("Puppet Master's Encore Key", 0.01, 0, 0.03)
+                new ItemLoot("Thousand Shot", 0.001, threshold: 0.0003),
+                new ItemLoot("Laughing Gas", 0.001),
+                new ItemLoot("Puppet Master's Encore Key", 0.001, 0, 0.003)
                 ),
             new Threshold(0.02,
                 new TierLoot(12, ItemType.Armor, 0.15),

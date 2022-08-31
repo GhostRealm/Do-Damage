@@ -1,7 +1,7 @@
-﻿using System;
+﻿using common;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using wServer.core.terrain;
 using wServer.core.worlds;
 using wServer.networking;
@@ -28,7 +28,7 @@ namespace wServer.core.objects
                     if (circumferenceCheck)
                         flag &= x * x + y * y > VISIBILITY_CIRCUMFERENCE_SQR;
                     if (flag)
-                        ret.Add(new IntPoint(x, y));
+                        _ = ret.Add(new IntPoint(x, y));
                 }
 
             return ret;
@@ -43,8 +43,7 @@ namespace wServer.core.objects
         private HashSet<IntPoint> ActiveTiles { get; set; }
         private UpdatedHashSet NewObjects { get; set; }
         private HashSet<WmapTile> NewStaticObjects { get; set; }
-        private int NewTimeCooldown { get; set; } = 0;
-        private byte[,] SeenTiles { get; set; }
+        private Dictionary<int, byte> SeenTiles { get; set; }
 
         public PlayerUpdate(Player player)
         {
@@ -53,7 +52,7 @@ namespace wServer.core.objects
 
             NewObjects = new UpdatedHashSet(this);
             NewStaticObjects = new HashSet<WmapTile>();
-            SeenTiles = new byte[World.Map.Width, World.Map.Height];
+            SeenTiles = new Dictionary<int, byte>();
             ActiveTiles = new HashSet<IntPoint>();
 
             UpdateTiles = true;
@@ -78,6 +77,7 @@ namespace wServer.core.objects
                 });
         }
 
+        // todo mabye not use unsafe code
         public void CalculatePath(HashSet<IntPoint> points)
         {
             var px = (int)Player.X;
@@ -85,12 +85,6 @@ namespace wServer.core.objects
 
             var pathMap = new bool[World.Map.Width, World.Map.Height];
             StepPath(points, pathMap, px, py, px, py);
-        }
-
-        public void DeleteEntry(Entity entity)
-        {
-            if (StatsUpdates.ContainsKey(entity))
-                StatsUpdates.Remove(entity);
         }
 
         public HashSet<IntPoint> DetermineSight()
@@ -122,14 +116,9 @@ namespace wServer.core.objects
                     }
             }
 
-            var newObjs = NewObjects.ToArray();
-            for (var i = 0; i < newObjs.Length; i++)
+            foreach(var entity in NewObjects)
             {
-                var entity = newObjs[i];
-                if (entity == Player.Quest && !entity.IsRemovedFromWorld)
-                    continue;
-
-                if (entity.IsRemovedFromWorld)
+                if(entity.IsRemovedFromWorld)
                 {
                     drops.Add(entity.Id);
                     update.Drops.Add(entity.Id);
@@ -144,9 +133,9 @@ namespace wServer.core.objects
             }
 
             if (drops.Count != 0)
-                NewObjects.RemoveWhere(_ => Array.IndexOf(drops.ToArray(), _.Id) != -1);
+                NewObjects.RemoveWhere(_ => drops.Contains(_.Id));
             if (staticDrops.Count != 0)
-                NewStaticObjects.RemoveWhere(_ => Array.IndexOf(staticDrops.ToArray(), _.ObjId) != -1);
+                _ = NewStaticObjects.RemoveWhere(_ => staticDrops.Contains(_.ObjId));
         }
 
         public void GetNewObjects(Update update)
@@ -168,9 +157,19 @@ namespace wServer.core.objects
             }
 
             var players = World.GetPlayers();
+
+            var count = 0;
             foreach (var player in players)
+            {   
                 if ((player.AccountId == Player.AccountId || player.Client.Account != null && player.CanBeSeenBy(Player)) && NewObjects.Add(player))
-                    update.NewObjs.Add(player.ToDefinition());
+                {
+                    update.NewObjs.Add(player.ToDefinition(player.AccountId != Player.AccountId));
+                    count++;
+
+                    if (count > 12) // 12 players per tick max
+                        break;
+                }
+            }
 
             foreach (var entity in World.PlayersCollision.HitTest(x, y, VISIBILITY_RADIUS))
                 if ((entity is Decoy || entity is Pet) && NewObjects.Add(entity))
@@ -202,6 +201,15 @@ namespace wServer.core.objects
                     update.NewObjs.Add(entity.ToDefinition());
             }
 
+            foreach (var entity in World.Portals.Values)
+            {
+                intPoint.X = (int)entity.X;
+                intPoint.Y = (int)entity.Y;
+
+                if (ActiveTiles.Contains(intPoint) && NewObjects.Add(entity))
+                    update.NewObjs.Add(entity.ToDefinition());
+            }
+
             if (Player.Quest != null && NewObjects.Add(Player.Quest))
                 update.NewObjs.Add(Player.Quest.ToDefinition());
         }
@@ -222,10 +230,14 @@ namespace wServer.core.objects
                 ActiveTiles.Add(new IntPoint(playerX, playerY));
 
                 var tile = World.Map[playerX, playerY];
-                if (tile == null || SeenTiles[playerX, playerY] >= tile.UpdateCount)
+
+                var hash = (playerX << 16) | playerY;
+                _ = SeenTiles.TryGetValue(hash, out var updateCount);
+
+                if (tile == null || updateCount >= tile.UpdateCount)
                     continue;
 
-                SeenTiles[playerX, playerY] = tile.UpdateCount;
+                SeenTiles[hash] = tile.UpdateCount;
 
                 var tileData = new Update.TileData(playerX, playerY, tile.TileId);
                 update.Tiles.Add(tileData);
@@ -233,19 +245,15 @@ namespace wServer.core.objects
             Player.FameCounter.TileSent(update.Tiles.Count); // adds the new amount to the tiles been sent
         }
 
-        private object StatsUpdateLock = new object();
-
         public void HandleStatChanges(object entity, StatChangedEventArgs statChange)
         {
-            lock (StatsUpdateLock)
+            if (!(entity is Entity e) || e.Id != Player.Id && statChange.UpdateSelfOnly)
+                return;
+
+            if (e.Id == Player.Id && statChange.Stat == StatDataType.None)
+                return;
+            lock (StatsUpdates)
             {
-
-                if (!(entity is Entity e) || e.Id != Player.Id && statChange.UpdateSelfOnly)
-                    return;
-
-                if (e.Id == Player.Id && statChange.Stat == StatDataType.None)
-                    return;
-
                 if (!StatsUpdates.ContainsKey(e))
                     StatsUpdates[e] = new Dictionary<StatDataType, object>();
 
@@ -254,60 +262,41 @@ namespace wServer.core.objects
             }
         }
 
-        public void Dispose()
-        {
-            SeenTiles = null;
-            ActiveTiles.Clear();
-            NewStaticObjects.Clear();
-            StatsUpdates.Clear();
-            NewObjects.Dispose();
-        }
-
         public void SendNewTick(int delta)
         {
-            lock (StatsUpdateLock)
+            TickId++;
+
+            var newTick = new NewTick()
             {
-                TickId++;
+                TickId = TickId,
+                TickTime = delta
+            };
 
-                var newTick = new NewTick()
+            lock (StatsUpdates)
+            {
+                newTick.Statuses = StatsUpdates.Select(_ => new ObjectStats()
                 {
-                    TickId = TickId,
-                    TickTime = delta
-                };
-
-                if (StatsUpdates.Count > 0)
-                {
-                    var statsUpdate = StatsUpdates.Where(ent => ent.Key != null && !ent.Key.IsRemovedFromWorld).ToArray();
-
-                    for (var i = 0; i < statsUpdate.Length; i++)
+                    Id = _.Key.Id,
+                    Position = new Position()
                     {
-                        var entity = statsUpdate[i].Key;
-                        var statUpdate = statsUpdate[i].Value;
-                        var objStats = new ObjectStats()
-                        {
-                            Id = entity.Id,
-                            Position = new Position()
-                            {
-                                X = entity.RealX,
-                                Y = entity.RealY
-                            },
-                            Stats = statUpdate.ToArray()
-                        };
-
-                        newTick.Statuses.Add(objStats);
-                    }
-                }
-
-                Player.Client.SendPacket(newTick, PacketPriority.High);
-                Player.AwaitMove(TickId);
+                        X = _.Key.RealX,
+                        Y = _.Key.RealY
+                    },
+                    Stats = _.Value.ToArray()
+                }).ToList();
             }
+
+            StatsUpdates.Clear();
+
+            Player.Client.SendPacket(newTick);
+            Player.AwaitMove(TickId);
         }
 
         public void SendUpdate()
         {
             var update = new Update();
 
-            if (UpdateTiles) // this might help alittle with server logic exec time
+            if (UpdateTiles) 
             {
                 GetNewTiles(update);
                 UpdateTiles = false;
@@ -318,7 +307,7 @@ namespace wServer.core.objects
 
             if (update.Tiles.Count == 0 && update.NewObjs.Count == 0 && update.Drops.Count == 0)
                 return;
-            Player.Client.SendPacket(update, PacketPriority.High);
+            Player.Client.SendPacket(update);
         }
 
         // does this still error?
@@ -326,6 +315,7 @@ namespace wServer.core.objects
         {
             if (!World.Map.Contains(x, y))
                 return;
+
             if (pathMap[x, y])
                 return;
             pathMap[x, y] = true;
@@ -333,16 +323,36 @@ namespace wServer.core.objects
             var point = new IntPoint(x - px, y - py);
             if (!SightPoints.Contains(point))
                 return;
-            points.Add(point);
+            _ = points.Add(point);
 
             var t = World.Map[x, y];
             if (!(t.ObjType != 0 && t.ObjDesc != null && t.ObjDesc.BlocksSight))
-                for (var dx = -1; dx <= 1; dx++)
-                    for (var dy = -1; dy <= 1; dy++)
-                        StepPath(points, pathMap, x + dx, y + dy, px, py);
+                //for (var dx = -1; dx <= 1; dx++)
+                //    for (var dy = -1; dy <= 1; dy++)
+                        //StepPath(points, pathMap, x + dx, y + dy, px, py);
+                foreach(var p in Points)
+                    StepPath(points, pathMap, x + p.X, y + p.Y, px, py);
         }
 
-        public void DrawLine(int x, int y, int x2, int y2, Func<int, int, bool> func)
+        private static IntPoint[] Points = new IntPoint[5]
+        {
+            new IntPoint(0, 0),
+            new IntPoint(1, 0),
+            new IntPoint(0, 1),
+            new IntPoint(-1, 0),
+            new IntPoint(0, -1)
+        };
+
+        public void Dispose()
+        {
+            SeenTiles = null;
+            ActiveTiles.Clear();
+            NewStaticObjects.Clear();
+            StatsUpdates.Clear();
+            NewObjects.Dispose();
+        }
+
+        public static void DrawLine(int x, int y, int x2, int y2, Func<int, int, bool> func)
         {
             var w = x2 - x;
             var h = y2 - y;

@@ -12,26 +12,11 @@ namespace wServer.networking.packets.outgoing
         public int KeyTime { get; set; }
         public byte[] Key { get; private set; }
 
-        public override PacketId ID => PacketId.RECONNECT;
-
-        public override Packet CreateInstance()
-        {
-            return new Reconnect();
-        }
+        public override MessageId MessageId => MessageId.RECONNECT;
 
         public Reconnect()
         {
             Key = Guid.NewGuid().ToByteArray();
-        }
-
-        protected override void Read(NReader rdr)
-        {
-            Name = rdr.ReadUTF();
-            Host = rdr.ReadUTF();
-            Port = rdr.ReadInt32();
-            GameId = rdr.ReadInt32();
-            KeyTime = rdr.ReadInt32();
-            Key = rdr.ReadBytes(rdr.ReadInt16());
         }
 
         protected override void Write(NWriter wtr)

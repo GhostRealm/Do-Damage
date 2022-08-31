@@ -1,4 +1,5 @@
-﻿using System;
+﻿using common.resources;
+using System;
 using System.Linq;
 using wServer.core.objects;
 using wServer.utils;
@@ -58,13 +59,13 @@ namespace wServer.core
                     }
                     catch (NullReferenceException e)
                     {
-                        SLogger.Instance.Info(e);
+                        StaticLogger.Instance.Info(e);
                         continue;
                     }
                 }
                 if (_player.Inventory[i].ObjectId == "Cerberus's Right Claw" && _player.Inventory[i] != null)
                 {
-                    var acc = _player.CoreServerManager.Database.GetAccount(_player.AccountId);
+                    var acc = _player.GameServer.Database.GetAccount(_player.AccountId);
                     var enemiesKilled = acc.EnemiesKilled;
                     var countHPBoost = 0;
                     for (int k = 0; k < enemiesKilled; k++)
@@ -111,7 +112,7 @@ namespace wServer.core
             //CheckItems();
             CheckItemsNoStack();
             IncrementStatBoost();
-            IncrementSkillBoosts();
+            ApplyTalismanBonus();
 
             for (var i = 0; i < _boost.Length; i++)
                 _boostSV[i].SetValue(_boost[i]);
@@ -139,6 +140,31 @@ namespace wServer.core
             }
         }
 
+        private void ApplyTalismanBonus()
+        {
+            foreach(var type in _player.ActiveTalismans)
+            {
+                var talisman = _player.GetTalisman(type);
+                if (talisman == null)
+                    throw new Exception($"Unknown talisman type: {type}");
+
+                var desc = _player.GameServer.Resources.GameData.GetTalisman(type);
+                if(desc == null)
+                    throw new Exception($"Unknown talisman desc type: {type}");
+
+                var tierDesc = desc.GetTierDesc(talisman.Tier);
+                if(tierDesc == null)
+                    throw new Exception($"Unknown talisman tier: {talisman.Tier}");
+
+                foreach (var stat in tierDesc.StatTypes)
+                {
+                    // scale by level or by flat value
+                    var scale = (int)(stat.ScalesPerLevel ? stat.Amount * talisman.Level : stat.Amount);
+                    IncrementBoost((StatDataType)stat.StatType, scale);
+                }
+            }
+        }
+
         private void FixedStat(StatDataType stat, int value)
         {
             var i = StatsManager.GetStatIndex(stat);
@@ -160,78 +186,6 @@ namespace wServer.core
                 amount = (i == 0) ? -_parent.Base[i] + 1 : -_parent.Base[i];
 
             _boost[i] += amount;
-        }
-
-        private void IncrementSkillBoosts()
-        {
-            if (_player == null || _player.Client == null || _player.Client.Account == null)
-                return;
-
-            var life = 0;
-            var mana = 1;
-            var att = 2;
-            var def = 3;
-            var spd = 4;
-            var dex = 5;
-            var vit = 6;
-            var wis = 7;
-
-            /* <StatToBoost> += <Percentage> * <StatToBoost> / 100;*/
-            //_boost[life] += IncreasePercentage(_player.Node3Med * _player.Node3Med == 2 ? 30 : 0, life);
-            //_boost[mana] += IncreasePercentage(_player.SmallSkill2 * 2, mana);
-            //_boost[def] += IncreasePercentage(_player.Node3Med * _player.Node3Med == 1 ? 5 : _player.Node3Med == 3 ? 10 : 0, def);
-            //_boost[spd] += IncreasePercentage(_player.SmallSkill5 * 2, spd);
-            //_boost[vit] += IncreasePercentage(_player.SmallSkill7 * 2, vit);
-            //_boost[wis] += IncreasePercentage(_player.Node2Med * _player.Node2Med == 1 ? 5 : _player.Node2Med == 3 ? 10 : 0, wis);
-
-            switch (_player.Node1Med)
-            {
-                case 1: _boost[att] += IncreasePercentage(5, att); break;
-                case 2: _boost[att] += IncreasePercentage(5, att); _boost[dex] += IncreasePercentage(5, dex); break;
-                case 3: _boost[att] += IncreasePercentage(10, att); _boost[dex] += IncreasePercentage(5, dex); break;
-                default: break;
-            }
-
-            switch (_player.Node2Med)
-            {
-                case 1: _boost[wis] += IncreasePercentage(5, wis); break;
-                case 2: _boost[wis] += IncreasePercentage(5, wis); _boost[mana] += IncreasePercentage(30, mana); break;
-                case 3: _boost[wis] += IncreasePercentage(10, wis); _boost[mana] += IncreasePercentage(30, mana); break;
-                default: break;
-            }
-
-            switch (_player.Node3Med)
-            {
-                case 1: _boost[def] += IncreasePercentage(5, def); break;
-                case 2: _boost[def] += IncreasePercentage(5, def); _boost[life] += IncreasePercentage(30, life); break;
-                case 3: _boost[def] += IncreasePercentage(10, def); _boost[life] += IncreasePercentage(30, life); break;
-                default: break;
-            }
-
-            switch (_player.Node4Med)
-            {
-                case 1: _boost[def] += IncreasePercentage(5, def); break;
-                case 2: _boost[def] += IncreasePercentage(5, def); _boost[life] += IncreasePercentage(40, life); break;
-                case 3: _boost[def] += IncreasePercentage(10, def); _boost[life] += IncreasePercentage(40, life); break;
-                default: break;
-            }
-
-
-            _boost[life] -= _player.Node1Big > 0 ? IncreasePercentage(15, life) : 0;
-
-            _boost[att] -= _player.Node2Big > 0 ? IncreasePercentage(15, att) : 0;
-
-            _boost[mana] -= _player.Node3Big > 0 ? IncreasePercentage(50, mana) : 0;
-
-            _boost[def] -= _player.Node4Big > 0 ? IncreasePercentage(15, def) : 0;
-
-            _boost[mana] += _player.Node2TickMin * 10;
-            _boost[att] += _player.Node1TickMaj;
-            _boost[def] += _player.Node3TickMaj * 2;
-            _boost[spd] += _player.Node4TickMaj;
-            _boost[dex] += _player.Node1TickMin + _player.Node4TickMin;
-            _boost[wis] += _player.Node2TickMaj;
-            _boost[vit] += _player.Node3TickMin * 4;
         }
 
         private void IncrementStatBoost()

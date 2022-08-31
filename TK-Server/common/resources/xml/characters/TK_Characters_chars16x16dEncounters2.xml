@@ -1,4 +1,32 @@
 <Objects>
+  <Object type="0x5005" id="Talisman King's Golden Guardian Left Statue">
+    <Class>Character</Class>
+    <AnimatedTexture>
+      <File>chars16x16dEncounters2</File>
+      <Index>3</Index>
+    </AnimatedTexture>
+    <HitSound>monster/rocks_hit</HitSound>
+    <DeathSound>monster/rocks_death</DeathSound>
+	<MaxHitPoints>100000</MaxHitPoints>
+	<Enemy/>
+    <OccupySquare />
+	  <Invincible />
+  </Object>
+	
+  <Object type="0x5006" id="Talisman King's Golden Guardian Right Statue">
+    <Class>Character</Class>
+    <AnimatedTexture>
+      <File>chars16x16dEncounters</File>
+      <Index>21</Index>
+    </AnimatedTexture>
+    <HitSound>monster/rocks_hit</HitSound>
+    <DeathSound>monster/rocks_death</DeathSound>
+	<MaxHitPoints>100000</MaxHitPoints>
+    <Enemy/>
+    <OccupySquare />
+	  <Invincible />
+  </Object>
+	
   <Object type="0x5e2c" id="Golden Oryx Effigy">
     <Class>Character</Class>
     <Enemy />
@@ -30,14 +58,14 @@
     <Defense>30</Defense>
     <Projectile id="1">
       <ObjectId>Golden Blast</ObjectId>
-      <Damage>80</Damage>
+      <Damage>130</Damage>
       <Speed>60</Speed>
       <LifetimeMS>3000</LifetimeMS>
       <Size>150</Size>
     </Projectile>
     <Projectile id="2">
       <ObjectId>Gold Fireball</ObjectId>
-      <Damage>90</Damage>
+      <Damage>150</Damage>
       <Speed>60</Speed>
       <LifetimeMS>3000</LifetimeMS>
       <Size>150</Size>
@@ -59,7 +87,7 @@
     <Defense>30</Defense>
     <Projectile id="1">
       <ObjectId>Golden Blast</ObjectId>
-      <Damage>80</Damage>
+      <Damage>140</Damage>
       <Speed>30</Speed>
       <LifetimeMS>3000</LifetimeMS>
       <Size>125</Size>
@@ -153,7 +181,8 @@
     <StasisImmune />
     <StunImmune />
   </Object>
-  <Object type="0x5e49" id="Candy Gnome">
+	<!--
+	<Object type="0x5e49" id="Candy Gnome">
     <Enemy />
     <Class>Character</Class>
     <AnimatedTexture>
@@ -169,7 +198,7 @@
     <Terrain>MidPlains</Terrain>
     <XpMult>2.5</XpMult>
     <SpawnProb>0.04</SpawnProb>
-  </Object>
+  </Object> -->
   <Object type="0x734d" id="shtrs Defense System">
     <DisplayId>Avatar of the Forgotten King</DisplayId>
     <Enemy />
@@ -771,9 +800,10 @@
     <ShadowSize>40</ShadowSize>
     <Z>0.2</Z>
     <Flying />
-    <MaxHitPoints>200000</MaxHitPoints>
+    <MaxHitPoints>65000</MaxHitPoints>
     <Defense>60</Defense>
     <XpMult>0.9</XpMult>
+	  <ConditionalEffect duration="5" target="1">Stasis</ConditionalEffect>  
     <LeachHealth />
     <God />
     <StasisImmune />
@@ -781,18 +811,19 @@
     <Level>1</Level>
     <Projectile id="0">
       <ObjectId>Dagger</ObjectId>
-      <Damage>100</Damage>
+      <Damage>130</Damage>
       <Speed>50</Speed>
       <Size>100</Size>
       <LifetimeMS>2400</LifetimeMS>
     </Projectile>
     <Projectile id="1">
       <ObjectId>Ruthven Shot</ObjectId>
-      <Damage>90</Damage>
+      <Damage>120</Damage>
       <Speed>65</Speed>
       <Size>100</Size>
       <LifetimeMS>3400</LifetimeMS>
       <MultiHit />
+		<ArmorPierce />
     </Projectile>
   </Object>
   <Object type="0x6e8" id="Lucky Ent God">
@@ -848,6 +879,7 @@
     <Size>100</Size>
     <MaxHitPoints>125000</MaxHitPoints>
     <Defense>40</Defense>
+	  <StasisImmune />
     <Terrain>Mountains</Terrain>
     <PerRealmMax>1</PerRealmMax>
     <SpawnProb>1</SpawnProb>
@@ -865,6 +897,8 @@
     <DisplayId>Thessal the Mermaid Goddess</DisplayId>
     <Group>Ocean Trench</Group>
     <Enemy />
+	  <Quest/>
+	  <Event/>
     <Class>Character</Class>
     <StasisImmune />
     <AnimatedTexture>
@@ -879,7 +913,7 @@
     </AltTexture>
     <HitSound>monster/medusa_hit</HitSound>
     <DeathSound>monster/medusa_death</DeathSound>
-    <MaxHitPoints>960000</MaxHitPoints>
+    <MaxHitPoints>65000</MaxHitPoints>
     <ShadowSize>0</ShadowSize>
     <God />
     <Quest />
@@ -1053,8 +1087,8 @@
     <Size>120</Size>
     <Defense>40</Defense>
   </Object>
-  <Object type="0x0d79" id="Oryx Stone Guardian Left">
-    <DisplayId>Stone Guardian</DisplayId>
+  <Object type="0x0d79" id="Talisman King's Golden Guardian Left">
+    <DisplayId>Golden Guardian</DisplayId>
     <Group>Oryx Minions</Group>
     <Enemy />
     <Class>Character</Class>
@@ -1774,16 +1808,6 @@
       <Size>150</Size>
       <ConditionEffect duration="4">Dazed</ConditionEffect>
     </Projectile>
-  </Object>
-  <Object type="0xa005" id="Bdwubz Bee">
-    <Class>Character</Class>
-    <Group>Hexable</Group>
-    <AnimatedTexture>
-      <File>chars16x16dEncounters2</File>
-      <Index>95</Index>
-    </AnimatedTexture>
-    <NoMiniMap />
-    <Size>120</Size>
   </Object>
   <Object type="0x1621" id="Lil' Oryx">
     <Class>Character</Class>

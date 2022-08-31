@@ -8,16 +8,11 @@ namespace wServer.logic
     partial class BehaviorDb
     {
         private _ OryxCastle = () => Behav()
-        .Init("Oryx Stone Guardian Right",
+        .Init("Talisman King's Golden Guardian Right",
             new State(
                 new ScaleHP2(20),
                 new State("Idle",
-                    new ConditionalEffect(ConditionEffectIndex.Invulnerable, true),
-                    new PlayerWithinTransition(2, "Order")
-                    ),
-                new State("Order",
-                    new Order(10, "Oryx Stone Guardian Left", "Start"),
-                    new TimedTransition(0, "Start")
+                    new ConditionalEffect(ConditionEffectIndex.Invulnerable, true)
                     ),
                 new State("Start",
                     new ConditionalEffect(ConditionEffectIndex.Invulnerable),
@@ -25,7 +20,7 @@ namespace wServer.logic
                     new TimedTransition(1500, "Lets go")
                     ),
                 new State("Together is better",
-                    //new EntityNotExistsTransition("Oryx Stone Guardian Left", 100, "Forever Alone"),
+                    //new EntityNotExistsTransition("Talisman King's Golden Guardian Left", 100, "Forever Alone"),
                     new State("Lets go",
                         new TimedTransition(10000, "Circle"),
                         new State("Imma Follow",
@@ -38,59 +33,59 @@ namespace wServer.logic
                                 new StayCloseToSpawn(0.5, 3),
                                 new Wander(0.5)
                                 ),
-                            new Shoot(0, 10, projectileIndex: 2, fixedAngle: 0, coolDown: 1000),
+                            new Shoot(10, 10, projectileIndex: 2, fixedAngle: 0, coolDown: 1000),
                             new TimedTransition(5000, "Imma Follow")
                             )
                         ),
                     new State("Circle",
                         new State("Prepare",
-                            new MoveTo(speed: 1, x: 127.5f, y: 39.5f),
-                            new EntityExistsTransition("Oryx Stone Guardian Left", 1, "Prepare2")
+                            //new MoveTo(speed: 1, x: 127.5f, y: 39.5f),
+                            new EntityExistsTransition("Talisman King's Golden Guardian Left", 1, "Prepare2")
                             ),
                         new State("Prepare2",
-                            new MoveTo(speed: 1, x: 130.5f, y: 39.5f),
+                            //new MoveTo(speed: 1, x: 130.5f, y: 39.5f),
                             new TimedTransition(1000, "PrepareEnd")
                             ),
                         new State("PrepareEnd",
                             new Orbit(1, 5, target: "Oryx Guardian TaskMaster"),
                             new State("cpe_1",
-                                new Shoot(0, 2, fixedAngle: 0, projectileIndex: 1),
+                                new Shoot(20, 2, fixedAngle: 0, projectileIndex: 1),
                                 new TimedTransition(200, "cpe_2")
                                 ),
                             new State("cpe_2",
-                                new Shoot(0, 2, fixedAngle: 36, projectileIndex: 1),
+                                new Shoot(20, 2, fixedAngle: 36, projectileIndex: 1),
                                 new TimedTransition(200, "cpe_3")
                                 ),
                             new State("cpe_3",
-                                new Shoot(0, 2, fixedAngle: 72, projectileIndex: 1),
+                                new Shoot(15, 2, fixedAngle: 72, projectileIndex: 1),
                                 new TimedTransition(200, "cpe_4")
                                 ),
                             new State("cpe_4",
-                                new Shoot(0, 2, fixedAngle: 108, projectileIndex: 1),
+                                new Shoot(10, 2, fixedAngle: 108, projectileIndex: 1),
                                 new TimedTransition(200, "cpe_5")
                                 ),
                             new State("cpe_5",
-                                new Shoot(0, 2, fixedAngle: 144, projectileIndex: 1),
+                                new Shoot(20, 2, fixedAngle: 144, projectileIndex: 1),
                                 new TimedTransition(200, "cpe_6")
                                 ),
                             new State("cpe_6",
-                                new Shoot(0, 2, fixedAngle: 180, projectileIndex: 1),
+                                new Shoot(20, 2, fixedAngle: 180, projectileIndex: 1),
                                 new TimedTransition(200, "cpe_7")
                                 ),
                             new State("cpe_7",
-                                new Shoot(0, 2, fixedAngle: 216, projectileIndex: 1),
+                                new Shoot(20, 2, fixedAngle: 216, projectileIndex: 1),
                                 new TimedTransition(200, "cpe_8")
                                 ),
                             new State("cpe_8",
-                                new Shoot(0, 2, fixedAngle: 252, projectileIndex: 1),
+                                new Shoot(20, 2, fixedAngle: 252, projectileIndex: 1),
                                 new TimedTransition(200, "cpe_9")
                                 ),
                             new State("cpe_9",
-                                new Shoot(0, 2, fixedAngle: 288, projectileIndex: 1),
+                                new Shoot(20, 2, fixedAngle: 288, projectileIndex: 1),
                                 new TimedTransition(200, "cpe_10")
                                 ),
                             new State("cpe_10",
-                                new Shoot(0, 2, fixedAngle: 324, projectileIndex: 1),
+                                new Shoot(20, 2, fixedAngle: 324, projectileIndex: 1),
                                 new TimedTransition(200, "checkEntities")
                                 ),
                             new State("checkEntities",
@@ -109,7 +104,7 @@ namespace wServer.logic
                                         new StayCloseToSpawn(0.5, 3),
                                         new Wander(0.5)
                                         ),
-                                    new Shoot(0, 10, projectileIndex: 2, fixedAngle: 0, coolDown: 1000),
+                                    new Shoot(10, 10, projectileIndex: 2, fixedAngle: 0, coolDown: 1000),
                                     new TimedTransition(2500, "cpe_Imma Follow")
                                     )
                                 )
@@ -117,30 +112,30 @@ namespace wServer.logic
                         ),
                     new State("Move Sideways",
                         new State("msw_prepare",
-                            new MoveTo(speed: 1, x: 141.5f, y: 39.5f),
+                            //new MoveTo(speed: 1, x: 141.5f, y: 39.5f),
                             new TimedTransition(1500, "msw_shoot")
                             ),
                         new State("msw_shoot",
-                            new Shoot(0, 2, fixedAngle: 90, coolDownOffset: 0),
-                            new Shoot(0, 2, fixedAngle: 85.5, coolDownOffset: 100),
-                            new Shoot(0, 2, fixedAngle: 81, coolDownOffset: 200),
-                            new Shoot(0, 2, fixedAngle: 76.5, coolDownOffset: 300),
-                            new Shoot(0, 2, fixedAngle: 72, coolDownOffset: 400),
-                            new Shoot(0, 2, fixedAngle: 67.5, coolDownOffset: 500),
-                            new Shoot(0, 2, fixedAngle: 63, coolDownOffset: 600),
-                            new Shoot(0, 2, fixedAngle: 58.5, coolDownOffset: 700),
-                            new Shoot(0, 2, fixedAngle: 54, coolDownOffset: 800),
-                            new Shoot(0, 2, fixedAngle: 49.5, coolDownOffset: 900),
-                            new Shoot(0, 2, fixedAngle: 45, coolDownOffset: 1000),
-                            new Shoot(0, 2, fixedAngle: 40.5, coolDownOffset: 1100),
-                            new Shoot(0, 2, fixedAngle: 36, coolDownOffset: 1200),
-                            new Shoot(0, 2, fixedAngle: 31.5, coolDownOffset: 1300),
-                            new Shoot(0, 2, fixedAngle: 27, coolDownOffset: 1400),
-                            new Shoot(0, 2, fixedAngle: 22.5, coolDownOffset: 1500),
-                            new Shoot(0, 2, fixedAngle: 18, coolDownOffset: 1600),
-                            new Shoot(0, 2, fixedAngle: 13.5, coolDownOffset: 1700),
-                            new Shoot(0, 2, fixedAngle: 9, coolDownOffset: 1800),
-                            new Shoot(0, 2, fixedAngle: 4.5, coolDownOffset: 1900)
+                            new Shoot(20, 2, fixedAngle: 90, coolDownOffset: 0),
+                            new Shoot(20, 2, fixedAngle: 85.5, coolDownOffset: 100),
+                            new Shoot(20, 2, fixedAngle: 81, coolDownOffset: 200),
+                            new Shoot(20, 2, fixedAngle: 76.5, coolDownOffset: 300),
+                            new Shoot(20, 2, fixedAngle: 72, coolDownOffset: 400),
+                            new Shoot(20, 2, fixedAngle: 67.5, coolDownOffset: 500),
+                            new Shoot(20, 2, fixedAngle: 63, coolDownOffset: 600),
+                            new Shoot(20, 2, fixedAngle: 58.5, coolDownOffset: 700),
+                            new Shoot(20, 2, fixedAngle: 54, coolDownOffset: 800),
+                            new Shoot(20, 2, fixedAngle: 49.5, coolDownOffset: 900),
+                            new Shoot(20, 2, fixedAngle: 45, coolDownOffset: 1000),
+                            new Shoot(20, 2, fixedAngle: 40.5, coolDownOffset: 1100),
+                            new Shoot(20, 2, fixedAngle: 36, coolDownOffset: 1200),
+                            new Shoot(20, 2, fixedAngle: 31.5, coolDownOffset: 1300),
+                            new Shoot(20, 2, fixedAngle: 27, coolDownOffset: 1400),
+                            new Shoot(20, 2, fixedAngle: 22.5, coolDownOffset: 1500),
+                            new Shoot(20, 2, fixedAngle: 18, coolDownOffset: 1600),
+                            new Shoot(20, 2, fixedAngle: 13.5, coolDownOffset: 1700),
+                            new Shoot(20, 2, fixedAngle: 9, coolDownOffset: 1800),
+                            new Shoot(20, 2, fixedAngle: 4.5, coolDownOffset: 1900)
                             )
                         )
                     )
@@ -149,7 +144,8 @@ namespace wServer.logic
                 LootTemplates.DustLoot()
                 ),
             new Threshold(0.03,
-                new ItemLoot("Ancient Stone Sword", 0.0014)
+                new ItemLoot("Ancient Stone Sword", 0.0014),
+                new ItemLoot("Glowing Talisman", 0.0014)
                 ),
             new Threshold(0.01,
                 new ItemLoot("Potion of Defense", 1),
@@ -160,16 +156,23 @@ namespace wServer.logic
                 )
 
             )
-        .Init("Oryx Stone Guardian Left",
+        .Init("Talisman King's Golden Guardian Left Statue",
+            new State(
+                new ConditionalEffect(ConditionEffectIndex.Invincible, true),
+                new TransformOnDeath("Talisman King's Golden Guardian Left")
+                )
+            )
+        .Init("Talisman King's Golden Guardian Right Statue",
+            new State(
+                new ConditionalEffect(ConditionEffectIndex.Invincible, true),
+                new TransformOnDeath("Talisman King's Golden Guardian Right")
+                )
+            )
+        .Init("Talisman King's Golden Guardian Left",
             new State(
                 new ScaleHP2(20),
                 new State("Idle",
-                    new ConditionalEffect(ConditionEffectIndex.Invulnerable, true),
-                    new PlayerWithinTransition(2, "Order")
-                    ),
-                new State("Order",
-                    new Order(10, "Oryx Stone Guardian Right", "Start"),
-                    new TimedTransition(0, "Start")
+                    new ConditionalEffect(ConditionEffectIndex.Invulnerable, true)
                     ),
                 new State("Start",
                     new ConditionalEffect(ConditionEffectIndex.Invulnerable),
@@ -177,72 +180,71 @@ namespace wServer.logic
                     new TimedTransition(1500, "Together is better")
                     ),
                 new State("Together is better",
-                    //new EntityNotExistsTransition("Oryx Stone Guardian Right", 100, "Forever Alone"),
                     new State("Lets go",
                         new TimedTransition(10000, "Circle"),
                         new State("Imma Follow",
-                            new Follow(1, 2, 0.3),
-                            new Shoot(5, 5, shootAngle: 5, coolDown: 1000),
+                            new Follow(2, 2, 0.3),
+                            new Shoot(15, 5, shootAngle: 5, coolDown: 500),
                             new TimedTransition(5000, "Imma chill")
                             ),
                         new State("Imma chill",
                             new Prioritize(
-                                new StayCloseToSpawn(0.5, 3),
+                                new StayCloseToSpawn(1, 3),
                                 new Wander(0.5)
                                 ),
-                            new Shoot(0, 10, projectileIndex: 2, fixedAngle: 0, coolDown: 1000),
+                            new Shoot(20, 10, projectileIndex: 2, fixedAngle: 0, coolDown: 600),
                             new TimedTransition(5000, "Imma Follow")
                             )
                         ),
                     new State("Circle",
                         new State("Prepare",
-                            new MoveTo(speed: 1, x: 127.5f, y: 39.5f),
-                            new EntityExistsTransition("Oryx Stone Guardian Right", 1, "Prepare2")
+                            //new MoveTo(speed: 1, x: 127.5f, y: 39.5f),
+                            new EntityExistsTransition("Talisman King's Golden Guardian Right", 1, "Prepare2")
                             ),
                         new State("Prepare2",
-                            new MoveTo(speed: 1, x: 124.5f, y: 39.5f),
+                            //new MoveTo(speed: 1, x: 124.5f, y: 39.5f),
                             new TimedTransition(1000, "PrepareEnd")
                             ),
                         new State("PrepareEnd",
                             new Orbit(1, 5, target: "Oryx Guardian TaskMaster"),
                             new State("cpe_1",
-                                new Shoot(0, 2, fixedAngle: 0, projectileIndex: 1),
+                                new Shoot(20, 2, fixedAngle: 0, projectileIndex: 1),
                                 new TimedTransition(200, "cpe_2")
                                 ),
                             new State("cpe_2",
-                                new Shoot(0, 2, fixedAngle: 36, projectileIndex: 1),
+                                new Shoot(20, 2, fixedAngle: 36, projectileIndex: 1),
                                 new TimedTransition(200, "cpe_3")
                                 ),
                             new State("cpe_3",
-                                new Shoot(0, 2, fixedAngle: 72, projectileIndex: 1),
+                                new Shoot(20, 2, fixedAngle: 72, projectileIndex: 1),
                                 new TimedTransition(200, "cpe_4")
                                 ),
                             new State("cpe_4",
-                                new Shoot(0, 2, fixedAngle: 108, projectileIndex: 1),
+                                new Shoot(20, 2, fixedAngle: 108, projectileIndex: 1),
                                 new TimedTransition(200, "cpe_5")
                                 ),
                             new State("cpe_5",
-                                new Shoot(0, 2, fixedAngle: 144, projectileIndex: 1),
+                                new Shoot(20, 2, fixedAngle: 144, projectileIndex: 1),
                                 new TimedTransition(200, "cpe_6")
                                 ),
                             new State("cpe_6",
-                                new Shoot(0, 2, fixedAngle: 180, projectileIndex: 1),
+                                new Shoot(20, 2, fixedAngle: 180, projectileIndex: 1),
                                 new TimedTransition(200, "cpe_7")
                                 ),
                             new State("cpe_7",
-                                new Shoot(0, 2, fixedAngle: 216, projectileIndex: 1),
+                                new Shoot(20, 2, fixedAngle: 216, projectileIndex: 1),
                                 new TimedTransition(200, "cpe_8")
                                 ),
                             new State("cpe_8",
-                                new Shoot(0, 2, fixedAngle: 252, projectileIndex: 1),
+                                new Shoot(20, 2, fixedAngle: 252, projectileIndex: 1),
                                 new TimedTransition(200, "cpe_9")
                                 ),
                             new State("cpe_9",
-                                new Shoot(0, 2, fixedAngle: 288, projectileIndex: 1),
+                                new Shoot(20, 2, fixedAngle: 288, projectileIndex: 1),
                                 new TimedTransition(200, "cpe_10")
                                 ),
                             new State("cpe_10",
-                                new Shoot(0, 2, fixedAngle: 324, projectileIndex: 1),
+                                new Shoot(20, 2, fixedAngle: 324, projectileIndex: 1),
                                 new TimedTransition(200, "checkEntities")
                                 ),
                             new State("checkEntities",
@@ -269,30 +271,30 @@ namespace wServer.logic
                         ),
                     new State("Move Sideways",
                         new State("msw_prepare",
-                            new MoveTo(speed: 1, x: 113.5f, y: 39.5f),
+                            //new MoveTo(speed: 1, x: 113.5f, y: 39.5f),
                             new TimedTransition(1500, "msw_shoot")
                             ),
                         new State("msw_shoot",
-                            new Shoot(0, 2, fixedAngle: 90, coolDownOffset: 0),
-                            new Shoot(0, 2, fixedAngle: 85.5, coolDownOffset: 100),
-                            new Shoot(0, 2, fixedAngle: 81, coolDownOffset: 200),
-                            new Shoot(0, 2, fixedAngle: 76.5, coolDownOffset: 300),
-                            new Shoot(0, 2, fixedAngle: 72, coolDownOffset: 400),
-                            new Shoot(0, 2, fixedAngle: 67.5, coolDownOffset: 500),
-                            new Shoot(0, 2, fixedAngle: 63, coolDownOffset: 600),
-                            new Shoot(0, 2, fixedAngle: 58.5, coolDownOffset: 700),
-                            new Shoot(0, 2, fixedAngle: 54, coolDownOffset: 800),
-                            new Shoot(0, 2, fixedAngle: 49.5, coolDownOffset: 900),
-                            new Shoot(0, 2, fixedAngle: 45, coolDownOffset: 1000),
-                            new Shoot(0, 2, fixedAngle: 40.5, coolDownOffset: 1100),
-                            new Shoot(0, 2, fixedAngle: 36, coolDownOffset: 1200),
-                            new Shoot(0, 2, fixedAngle: 31.5, coolDownOffset: 1300),
-                            new Shoot(0, 2, fixedAngle: 27, coolDownOffset: 1400),
-                            new Shoot(0, 2, fixedAngle: 22.5, coolDownOffset: 1500),
-                            new Shoot(0, 2, fixedAngle: 18, coolDownOffset: 1600),
-                            new Shoot(0, 2, fixedAngle: 13.5, coolDownOffset: 1700),
-                            new Shoot(0, 2, fixedAngle: 9, coolDownOffset: 1800),
-                            new Shoot(0, 2, fixedAngle: 4.5, coolDownOffset: 1900)
+                            new Shoot(20, 2, fixedAngle: 90, coolDownOffset: 0),
+                            new Shoot(20, 2, fixedAngle: 85.5, coolDownOffset: 100),
+                            new Shoot(20, 2, fixedAngle: 81, coolDownOffset: 200),
+                            new Shoot(20, 2, fixedAngle: 76.5, coolDownOffset: 300),
+                            new Shoot(20, 2, fixedAngle: 72, coolDownOffset: 400),
+                            new Shoot(20, 2, fixedAngle: 67.5, coolDownOffset: 500),
+                            new Shoot(20, 2, fixedAngle: 63, coolDownOffset: 600),
+                            new Shoot(20, 2, fixedAngle: 58.5, coolDownOffset: 700),
+                            new Shoot(20, 2, fixedAngle: 54, coolDownOffset: 800),
+                            new Shoot(20, 2, fixedAngle: 49.5, coolDownOffset: 900),
+                            new Shoot(20, 2, fixedAngle: 45, coolDownOffset: 1000),
+                            new Shoot(20, 2, fixedAngle: 40.5, coolDownOffset: 1100),
+                            new Shoot(20, 2, fixedAngle: 36, coolDownOffset: 1200),
+                            new Shoot(20, 2, fixedAngle: 31.5, coolDownOffset: 1300),
+                            new Shoot(20, 2, fixedAngle: 27, coolDownOffset: 1400),
+                            new Shoot(20, 2, fixedAngle: 22.5, coolDownOffset: 1500),
+                            new Shoot(20, 2, fixedAngle: 18, coolDownOffset: 1600),
+                            new Shoot(20, 2, fixedAngle: 13.5, coolDownOffset: 1700),
+                            new Shoot(20, 2, fixedAngle: 9, coolDownOffset: 1800),
+                            new Shoot(20, 2, fixedAngle: 4.5, coolDownOffset: 1900)
                             )
                         )
                     )
@@ -301,7 +303,8 @@ namespace wServer.logic
                 LootTemplates.DustLoot()
                 ),
             new Threshold(0.03,
-                new ItemLoot("Ancient Stone Sword", 0.0014)
+                new ItemLoot("Ancient Stone Sword", 0.0014),
+                new ItemLoot("Glowing Talisman", 0.0014)
                 ),
             new Threshold(0.01,
                 new ItemLoot("Potion of Defense", 1),
@@ -314,8 +317,19 @@ namespace wServer.logic
         .Init("Oryx Guardian TaskMaster",
             new State(
                 new ConditionalEffect(ConditionEffectIndex.Invincible, true),
-                new State("Idle",
-                    new EntitiesNotExistsTransition(100, "Death", "Oryx Stone Guardian Right", "Oryx Stone Guardian Left")
+                new State("WaitingChange",
+                    new EntitiesNotExistsTransition(100, "WaitingChange", "Talisman King's Golden Guardian Right Statue", "Talisman King's Golden Guardian Left Statue")
+                    ),
+                new State("WaitingChange",
+                    new PlayerWithinTransition(15, "Activate", true)
+                    ),
+                new State("Activate",
+                    new Order(15, "Talisman King's Golden Guardian Left", "Start"),
+                    new Order(15, "Talisman King's Golden Guardian Right", "Start"),
+                    new TimedTransition(1000, "Waiting")
+                    ),
+                new State("Waiting",
+                    new EntitiesNotExistsTransition(100, "Death", "Talisman King's Golden Guardian Right", "Talisman King's Golden Guardian Left")
                     ),
                 new State("Death",
                     //new Spawn("Wine Cellar Portal", 1, 1),
@@ -337,7 +351,7 @@ namespace wServer.logic
                 new State("Shoot and Toss",
                     new NoPlayerWithinTransition(21, "Idle"),
                     new NoPlayerWithinTransition(6, "Toss"),
-                    new Shoot(0, 18, fixedAngle: 0, coolDown: new Cooldown(750, 250)),
+                    new Shoot(10, 18, fixedAngle: 0, coolDown: new Cooldown(750, 250)),
                     new TossObject("Quiet Bomb", 10, coolDown: 1000)
                     )
                 )

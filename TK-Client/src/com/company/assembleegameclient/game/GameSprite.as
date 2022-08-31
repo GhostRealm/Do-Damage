@@ -13,6 +13,7 @@ import com.company.assembleegameclient.tutorial.Tutorial;
 import com.company.assembleegameclient.ui.GuildText;
 import com.company.assembleegameclient.ui.RankText;
 import com.company.assembleegameclient.ui.TextBox;
+import com.company.assembleegameclient.ui.menu.PlayerMenu;
 import com.company.assembleegameclient.util.TextureRedrawer;
 import com.company.ui.SimpleText;
 import com.company.util.BitmapUtil;
@@ -26,6 +27,7 @@ import flash.display.BitmapData;
 import flash.display.Sprite;
 import flash.display.StageScaleMode;
 import flash.events.Event;
+import flash.events.MouseEvent;
 import flash.external.ExternalInterface;
 import flash.filters.ColorMatrixFilter;
 import flash.filters.DropShadowFilter;
@@ -64,6 +66,7 @@ public class GameSprite extends Sprite
    public var textBox_:TextBox;
    public var tutorial_:Tutorial;
    public var isNexus_:Boolean = false;
+   public var isVault_:Boolean = false;
    public var idleWatcher_:IdleWatcher;
    public var hudView:HUDView;
    public var rankText_:RankText;
@@ -80,6 +83,7 @@ public class GameSprite extends Sprite
    private var isGameStarted:Boolean;
    private var displaysPosY:uint = 4;
    public var dmgCounter:SimpleText;
+   public var chatPlayerMenu:PlayerMenu;
 
    public function GameSprite(server:Server, gameId:int, createCharacter:Boolean, charId:int, keyTime:int, key:ByteArray, model:PlayerModel, mapJSON:String)
    {
@@ -93,12 +97,27 @@ public class GameSprite extends Sprite
       this.mui_ = new MapUserInput(this);
       this.textBox_ = new TextBox(this,600,600);
       addChild(this.textBox_);
+      this.textBox_.addEventListener(MouseEvent.MOUSE_DOWN,this.onChatDown);
+      this.textBox_.addEventListener(MouseEvent.MOUSE_UP,this.onChatUp);
       this.idleWatcher_ = new IdleWatcher();
       this.dmgCounter = new SimpleText(14,16777215,false,0,0);
       this.dmgCounter.setBold(true);
       this.dmgCounter.filters = [new DropShadowFilter(0,0,0)];
       this.dmgCounter.x = 0;
       this.dmgCounter.y = 400;
+
+      if(Parameters.data_.FS){
+         this.updateScaleForTextBox(0.9);
+      }
+      else{
+         this.updateScaleForTextBox(1.0);
+      }
+   }
+
+   public function updateScaleForTextBox(percentage:Number):void{
+      this.textBox_.scaleX = percentage;
+      this.textBox_.scaleY = percentage;
+      this.textBox_.y = this.textBox_.h_ - (this.textBox_.h_ * this.textBox_.scaleY);
    }
 
    public function setFocus(focus:GameObject) : void
@@ -109,7 +128,7 @@ public class GameSprite extends Sprite
 
    public function applyMapInfo(mapInfo:MapInfo) : void
    {
-      this.map.setProps(mapInfo.width_,mapInfo.height_,mapInfo.name_,mapInfo.background_,mapInfo.allowPlayerTeleport_,mapInfo.showDisplays_);
+      this.map.setProps(mapInfo.width_,mapInfo.height_,mapInfo.name_,mapInfo.background_,mapInfo.allowPlayerTeleport_,mapInfo.showDisplays_,mapInfo.disableShooting_,mapInfo.disableAbilitites_);
       this.showPreloader(mapInfo);
    }
 
@@ -156,6 +175,10 @@ public class GameSprite extends Sprite
          isNexus_ = true;
       }
 
+      if (this.map.name_ == "Vault")
+      {
+         isVault_ = true;
+      }
       //Parameters.save();
       this.hidePreloader();
       stage.dispatchEvent(new Event(Event.RESIZE));
@@ -483,6 +506,39 @@ public class GameSprite extends Sprite
       var delta:int = getTimer() - time;
       this.monitor.dispatch("GameSprite.loop",delta);
       this.DamageCounter();
+   }
+
+   public function onChatDown(param1:MouseEvent) : void
+   {
+      if(this.chatPlayerMenu != null)
+      {
+         this.removeChatPlayerMenu();
+      }
+      this.mui_.onMouseDown(param1);
+   }
+
+   public function onChatUp(param1:MouseEvent) : void
+   {
+      this.mui_.onMouseUp(param1);
+   }
+
+   public function addChatPlayerMenu(param1:Player, param2:Number, param3:Number) : void
+   {
+      this.removeChatPlayerMenu();
+      this.chatPlayerMenu = new PlayerMenu();
+      this.chatPlayerMenu.init(this,param1);
+      stage.addChild(this.chatPlayerMenu);
+      this.chatPlayerMenu.x = param2;
+      this.chatPlayerMenu.y = param3 - this.chatPlayerMenu.height;
+   }
+
+   public function removeChatPlayerMenu() : void
+   {
+      if(this.chatPlayerMenu != null && this.chatPlayerMenu.parent != null)
+      {
+         removeChild(this.chatPlayerMenu);
+         this.chatPlayerMenu = null;
+      }
    }
 }
 }

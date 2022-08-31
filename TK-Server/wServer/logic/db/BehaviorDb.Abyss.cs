@@ -10,9 +10,10 @@ namespace wServer.logic
         private _ Abyss = () => Behav()
         .Init("Archdemon Malphas",
             new State(
-                new MoveTo2(0.5f, 0.5f, isMapPosition: false, instant: true),
+                new MoveTo2(1f, 1f, isMapPosition: false, instant: true),
                 new ConditionalEffect(ConditionEffectIndex.Invulnerable, true),
                 new ScaleHP2(10),
+                new StayCloseToSpawn(3, 10),
                 new DropPortalOnDeath("Hideout of Malphas Portal", 1, 0, 0, 0, 120),
                 new State("Check Player",
                     new PlayerWithinTransition(10, "Start Flashing", false)
@@ -122,7 +123,7 @@ namespace wServer.logic
                     new TimedTransition(1500, "Third Phase Start")
                     ),
                 new State("Third Phase Start",
-                    new Follow(2, 12),
+                    new Follow(1, 12),
                     new Shoot(30, 4, projectileIndex: 1, fixedAngle: 0, coolDown: 7400, coolDownOffset: 200),
                     new Shoot(30, 4, projectileIndex: 1, fixedAngle: 5, coolDown: 7400, coolDownOffset: 400),
                     new Shoot(30, 4, projectileIndex: 1, fixedAngle: 10, coolDown: 7400, coolDownOffset: 600),
@@ -170,7 +171,7 @@ namespace wServer.logic
                     new TimedTransition(1500, "Four Phase Start")
                     ),
                 new State("Four Phase Start",
-                    new Follow(2.5, 12),
+                    new Follow(1, 12),
                      new Shoot(30, 4, projectileIndex: 1, fixedAngle: -0, coolDown: 7400, coolDownOffset: 200),
                     new Shoot(30, 4, projectileIndex: 1, fixedAngle: -5, coolDown: 7400, coolDownOffset: 400),
                     new Shoot(30, 4, projectileIndex: 1, fixedAngle: -10, coolDown: 7400, coolDownOffset: 600),
@@ -217,13 +218,13 @@ namespace wServer.logic
                 LootTemplates.DustLoot()
                 ),
             new Threshold(0.01,
-                new ItemLoot("Abyssal Sword", 0.005),
-                new ItemLoot("Archdemon’s Remains", 0.005),
-                new ItemLoot("Seal of the Underworld", 0.007),
-                new ItemLoot("Demon’s Sigil", 0.009),
-                new ItemLoot("Abyss of Demons Key", 0.0001, 0, 0.03),
-                new ItemLoot("Demon Blade", 0.005),
-                new ItemLoot("Sword of Illumination", 0.001),
+                new ItemLoot("Abyssal Sword", 0.01),
+                new ItemLoot("Archdemon's Remains", 0.01),
+                new ItemLoot("Seal of the Underworld", 0.01),
+                new ItemLoot("Demon's Sigil", 0.01),
+                new ItemLoot("Abyss of Demons Key", 0.01, 0, 0.03),
+                new ItemLoot("Demon Blade", 0.01),
+                new ItemLoot("Sword of Illumination", 0.01),
                 new ItemLoot("Potion of Vitality", 1, 1),
                 new ItemLoot("Potion of Defense", 1, 1),
                 new ItemLoot("Potion of Vitality", 1, 1),
@@ -243,7 +244,7 @@ namespace wServer.logic
             )
         .Init("Malphas Missile",
             new State(
-                new Follow(1, 20, 0),
+                new Follow(1, 12, 0),
                 new PlayerWithinTransition(0, "Explode"),
                 new State("Explode",
                     new Flash(0xFFFFFF, 0.1, 5),
@@ -262,7 +263,7 @@ namespace wServer.logic
             )
         .Init("Imp of the Abyss",
             new State(
-                new Wander(0.2),
+                new Wander(.3),
                 new Shoot(8, 5, 10, coolDown: 3200)
                 ),
             new ItemLoot("Magic Potion", 0.1),
@@ -270,15 +271,12 @@ namespace wServer.logic
             new Threshold(0.5,
                 new ItemLoot("Cloak of the Red Agent", 0.01),
                 new ItemLoot("Felwasp Toxin", 0.01)
-                ),
-            new Threshold(0.01,
-                new ItemLoot("Talisman of Looting", 0.02)
                 )
             )
         .Init("Demon of the Abyss",
             new State(
                 new Prioritize(
-                    new Follow(3, 8, 5),
+                    new Follow(1, 8, 5),
                     new Wander(0.25)
                     ),
                 new Shoot(8, 3, shootAngle: 10, coolDown: 5000)
@@ -286,21 +284,15 @@ namespace wServer.logic
             new ItemLoot("Fire Bow", 0.05),
             new Threshold(0.5,
                 new ItemLoot("Mithril Armor", 0.01)
-                ),
-            new Threshold(0.01,
-                new ItemLoot("Talisman of Looting", 0.02)
                 )
             )
         .Init("Demon Warrior of the Abyss",
             new State(
                 new Prioritize(
-                    new Follow(2, 8, 5),
+                    new Follow(1, 8, 5),
                     new Wander(0.25)
                     ),
                 new Shoot(8, 3, shootAngle: 10, coolDown: 3000)
-                ),
-            new Threshold(0.01,
-                new ItemLoot("Talisman of Looting", 0.02)
                 ),
             new ItemLoot("Fire Sword", 0.025),
             new ItemLoot("Steel Shield", 0.025)
@@ -308,7 +300,7 @@ namespace wServer.logic
         .Init("Demon Mage of the Abyss",
             new State(
                 new Prioritize(
-                    new Follow(2, 8, 5),
+                    new Follow(1, 8, 5),
                     new Wander(0.25)
                     ),
                 new Shoot(8, 3, shootAngle: 10, coolDown: 3400)
@@ -325,7 +317,7 @@ namespace wServer.logic
         .Init("Brute of the Abyss",
             new State(
                 new Prioritize(
-                    new Follow(3, 8, 1),
+                    new Follow(1, 8, 1),
                     new Wander(0.25)
                     ),
                 new Shoot(8, 3, shootAngle: 10, coolDown: 800)
@@ -339,8 +331,8 @@ namespace wServer.logic
         .Init("Brute Warrior of the Abyss",
             new State(
                 new Prioritize(
-                    new Follow(2, 8, 1),
-                    new Wander(0.25)
+                    new Follow(1, 8, 1),
+                    new Wander(0.4)
                     ),
                 new Shoot(8, 3, shootAngle: 10, coolDown: 800)
                 ),

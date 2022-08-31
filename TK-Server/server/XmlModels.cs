@@ -276,6 +276,7 @@ namespace server
         public bool FirstDeath { get; private set; }
 
         public int Credits { get; private set; }
+        public int AmountDonated { get; private set; }
         public int NextCharSlotPrice { get; private set; }
         public int NextCharSlotCurrency { get; private set; }
         public string MenuMusic { get; private set; }
@@ -289,17 +290,19 @@ namespace server
 
         public static Account FromDb(DbAccount acc)
         {
+            var rank = new DbRank(acc.Database, acc.AccountId);
             return new Account()
             {
                 AccountId = acc.AccountId,
                 Name = acc.Name,
 
                 NameChosen = acc.NameChosen,
-                Admin = acc.Admin,
+                Admin = rank.IsAdmin,
                 FirstDeath = acc.FirstDeath,
 
                 Credits = acc.Credits,
-                NextCharSlotPrice = GetCharSlotPrice(acc.Rank),
+                AmountDonated = rank.TotalAmountDonated,
+                NextCharSlotPrice = Program.Resources.Settings.NewAccounts.SlotCost,
                 NextCharSlotCurrency = (int)Program.Resources.Settings.NewAccounts.SlotCurrency,
                 MenuMusic = Program.Resources.Settings.MenuMusic,
                 DeadMusic = Program.Resources.Settings.DeadMusic,
@@ -310,27 +313,6 @@ namespace server
 
                 Skins = acc.Skins ?? new ushort[0],
             };
-        }
-
-        public static int GetCharSlotPrice(int rank)
-        {
-            switch(rank)
-            {
-                case 10:
-                    return 850;
-                case 20:
-                    return 700;
-                case 30:
-                    return 550;
-                case 40:
-                    return 400;
-                case 50:
-                    return 250;
-                case 60:
-                    return 100;
-                default:
-                    return Program.Resources.Settings.NewAccounts.SlotCost;
-            }
         }
 
         public XElement ToXml()
@@ -345,6 +327,7 @@ namespace server
                     FirstDeath ? new XElement("isFirstDeath", "") : null,
 
                     new XElement("Credits", Credits),
+                    new XElement("AmountDonated", AmountDonated),
                     new XElement("NextCharSlotPrice", NextCharSlotPrice),
                     new XElement("NextCharSlotCurrency", NextCharSlotCurrency),
                     new XElement("MenuMusic", MenuMusic),

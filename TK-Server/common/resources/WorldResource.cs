@@ -26,6 +26,11 @@ namespace common.resources
         public readonly byte VisibilityType;
         public readonly List<string> MapJM;
         public readonly List<string> Music;
+        public readonly bool AllowTeleport;
+        public readonly bool ShowDisplays;
+        public readonly bool DisableShooting;
+        public readonly bool DisableAbilities;
+        public readonly bool CreateInstance;
 
         public WorldResource(XElement elem)
         {
@@ -35,10 +40,15 @@ namespace common.resources
             Height = elem.GetValue<int>("Height");
             Capacity = elem.GetValue<int>("Capacity", 65);
             Instance = elem.Element("Instance") == null ? WorldResourceInstanceType.Dungeon : (WorldResourceInstanceType)Enum.Parse(typeof(WorldResourceInstanceType), elem.Element("Instance").GetAttribute("enum", "dungeon"), true);
-            Persists = elem.GetValue<bool>("Persists");
+            Persists = elem.HasElement("Persists");
             Difficulty = elem.GetValue<byte>("Difficulty");
             Background = elem.GetValue<byte>("Background");
             VisibilityType = (byte)elem.GetValue<int>("VisibilityType");
+            AllowTeleport = !elem.HasElement("DisableTeleport");
+            ShowDisplays = elem.HasElement("ShowDisplays");
+            DisableShooting = elem.HasElement("DisableShooting");
+            DisableAbilities = elem.HasElement("DisableAbilities");
+            CreateInstance = elem.HasElement("CreateInstance");
 
             MapJM = new List<string>();
             foreach (var map in elem.Elements("MapJM"))

@@ -10,6 +10,7 @@ import com.company.assembleegameclient.map.GroundLibrary;
 import com.company.assembleegameclient.map.Map;
 import com.company.assembleegameclient.map.mapoverlay.CharacterStatusText;
 import com.company.assembleegameclient.objects.Container;
+import com.company.assembleegameclient.objects.Engine;
 import com.company.assembleegameclient.objects.FlashDescription;
 import com.company.assembleegameclient.objects.GameObject;
 import com.company.assembleegameclient.objects.Merchant;
@@ -69,6 +70,7 @@ import kabam.lib.net.impl.Message;
 import kabam.lib.net.impl.SocketServer;
 import kabam.rotmg.BountyBoard.SubscriptionUI.signals.BountyMemberListSendSignal;
 import kabam.rotmg.account.core.Account;
+import kabam.rotmg.application.api.ApplicationSetup;
 import kabam.rotmg.classes.model.CharacterClass;
 import kabam.rotmg.classes.model.ClassesModel;
 import kabam.rotmg.constants.GeneralConstants;
@@ -91,6 +93,7 @@ import kabam.rotmg.market.signals.MemMarketMyOffersSignal;
 import kabam.rotmg.market.signals.MemMarketRemoveSignal;
 import kabam.rotmg.market.signals.MemMarketSearchSignal;
 import kabam.rotmg.messaging.impl.data.ForgeItem;
+import kabam.rotmg.messaging.impl.data.FuelEngine;
 import kabam.rotmg.messaging.impl.data.GroundTileData;
 import kabam.rotmg.messaging.impl.data.ObjectData;
 import kabam.rotmg.messaging.impl.data.ObjectStatusData;
@@ -137,8 +140,8 @@ import kabam.rotmg.messaging.impl.incoming.market.MarketMyOffersResult;
 import kabam.rotmg.messaging.impl.incoming.market.MarketRemoveResult;
 import kabam.rotmg.messaging.impl.incoming.market.MarketSearchResult;
 import kabam.rotmg.messaging.impl.incoming.party.InvitedToParty;
+import kabam.rotmg.messaging.impl.incoming.talisman.TalismanEssenceData;
 import kabam.rotmg.messaging.impl.outgoing.AcceptTrade;
-import kabam.rotmg.messaging.impl.outgoing.BigSkillTree;
 import kabam.rotmg.messaging.impl.outgoing.Buy;
 import kabam.rotmg.messaging.impl.outgoing.CancelTrade;
 import kabam.rotmg.messaging.impl.outgoing.ChangeGuildRank;
@@ -150,6 +153,7 @@ import kabam.rotmg.messaging.impl.outgoing.EditAccountList;
 import kabam.rotmg.messaging.impl.outgoing.EnemyHit;
 import kabam.rotmg.messaging.impl.outgoing.Escape;
 import kabam.rotmg.messaging.impl.outgoing.ForgeFusion;
+import kabam.rotmg.messaging.impl.outgoing.FuelEngineAction;
 import kabam.rotmg.messaging.impl.outgoing.GotoAck;
 import kabam.rotmg.messaging.impl.outgoing.GroundDamage;
 import kabam.rotmg.messaging.impl.outgoing.GuildInvite;
@@ -160,7 +164,6 @@ import kabam.rotmg.messaging.impl.outgoing.InvSwap;
 import kabam.rotmg.messaging.impl.outgoing.JoinGuild;
 import kabam.rotmg.messaging.impl.outgoing.Load;
 import kabam.rotmg.messaging.impl.outgoing.Move;
-import kabam.rotmg.messaging.impl.outgoing.Options;
 import kabam.rotmg.messaging.impl.outgoing.OtherHit;
 import kabam.rotmg.messaging.impl.outgoing.PlayerHit;
 import kabam.rotmg.messaging.impl.outgoing.PlayerShoot;
@@ -169,7 +172,6 @@ import kabam.rotmg.messaging.impl.outgoing.Pong;
 import kabam.rotmg.messaging.impl.outgoing.PotionStorageInteraction;
 import kabam.rotmg.messaging.impl.outgoing.RequestTrade;
 import kabam.rotmg.messaging.impl.outgoing.Reskin;
-import kabam.rotmg.messaging.impl.outgoing.SmallSkillTree;
 import kabam.rotmg.messaging.impl.outgoing.SquareHit;
 import kabam.rotmg.messaging.impl.outgoing.Teleport;
 import kabam.rotmg.messaging.impl.outgoing.UpgradeStat;
@@ -187,6 +189,7 @@ import kabam.rotmg.messaging.impl.outgoing.party.JoinParty;
 import kabam.rotmg.messaging.impl.outgoing.party.PartyInvite;
 import kabam.rotmg.messaging.impl.outgoing.potionStorage.PotionStorage;
 import kabam.rotmg.messaging.impl.outgoing.potionStorage.PotionStorage;
+import kabam.rotmg.messaging.impl.outgoing.talisman.TalismanEssenceAction;
 import kabam.rotmg.minimap.control.UpdateGameObjectTileSignal;
 import kabam.rotmg.minimap.control.UpdateGroundTileSignal;
 import kabam.rotmg.minimap.model.UpdateGroundTileVO;
@@ -290,9 +293,6 @@ public class GameServerConnection
       /* Magician */
       public static const UPGRADESTAT:int = 71;
 
-      /* Skill Tree */
-      public static const SMALLSKILLTREE:int = 72;
-
       /* Music */
       public static const SWITCH_MUSIC:int = 73;
 
@@ -310,7 +310,6 @@ public class GameServerConnection
       public static const MARKET_REMOVE_RESULT:int = 82;
       public static const MARKET_MY_OFFERS:int = 83;
       public static const MARKET_MY_OFFERS_RESULT:int = 84;
-      public static const OPTIONS:int = 85;
 
       /* Bounty */
       public static const BOUNTYREQUEST:int = 86; /* Start the Bounty */
@@ -324,6 +323,11 @@ public class GameServerConnection
       public static const POTION_STORAGE_INTERACTION:int = 92;
       public static const POTIONSTORAGEREQUEST:int = 93;
       public static const USEPOTION:int = 94;
+
+      public static const TALISMAN_ESSENCE_DATA:int = 100;
+      public static const TALISMAN_ESSENCE_ACTION:int = 101;
+
+      public static const ENGINE_FUEL_ACTION:int = 102;
 
       private static const TO_MILLISECONDS:int = 1000;
 
@@ -473,10 +477,9 @@ public class GameServerConnection
          messages.map(CHANGEGUILDRANK).toMessage(ChangeGuildRank);
          messages.map(EDITACCOUNTLIST).toMessage(EditAccountList);
          messages.map(UPGRADESTAT).toMessage(UpgradeStat);
-         messages.map(SMALLSKILLTREE).toMessage(SmallSkillTree);
          messages.map(FORGEFUSION).toMessage(ForgeFusion);
+         messages.map(ENGINE_FUEL_ACTION).toMessage(FuelEngineAction);
          messages.map(ESCAPE).toMessage(Escape);
-         messages.map(OPTIONS).toMessage(Options);
 
          /* Bounty */
          messages.map(BOUNTYREQUEST).toMessage(BountyRequest);
@@ -538,6 +541,9 @@ public class GameServerConnection
 
          messages.map(POTION_STORAGE_INTERACTION).toMessage(PotionStorageInteraction);
          messages.map(USEPOTION).toMessage(UsePotion);
+
+         messages.map(TALISMAN_ESSENCE_DATA).toMessage(TalismanEssenceData).toMethod(this.onTalismanEssenceData);
+         messages.map(TALISMAN_ESSENCE_ACTION).toMessage(TalismanEssenceAction);
       }
 
       private function unmapMessages() : void {
@@ -608,10 +614,9 @@ public class GameServerConnection
          messages.unmap(INVITEDTOGUILD);
          messages.unmap(PLAYSOUND);
          messages.unmap(UPGRADESTAT);
-         messages.unmap(SMALLSKILLTREE);
          messages.unmap(FORGEFUSION);
+         messages.unmap(ENGINE_FUEL_ACTION);
          messages.unmap(ESCAPE);
-         messages.unmap(OPTIONS);
 
          /* Market */
          messages.unmap(MARKET_SEARCH);
@@ -638,23 +643,21 @@ public class GameServerConnection
 
          /* Music */
          messages.unmap(SWITCH_MUSIC);
+
+         messages.unmap(TALISMAN_ESSENCE_DATA);
+         messages.unmap(TALISMAN_ESSENCE_ACTION);
+      }
+
+      private function onTalismanEssenceData(talismanEssenceData:TalismanEssenceData):void {
+         this.gs_.map.player_.essence_ = talismanEssenceData.essence_;
+         this.gs_.map.player_.essenceCap_ = talismanEssenceData.essenceCap_;
+         for(var i:int = 0; i < talismanEssenceData.talismans_.length; i++){
+            this.gs_.map.player_.addTalisman(talismanEssenceData.talismans_[i]);
+         }
       }
 
       private function onSwitchMusic(sm:SwitchMusic):void {
          Music.load(sm.music);
-      }
-
-      public function options() : void {
-         var options:Options = this.messages.require(OPTIONS) as Options;
-         options.allyShots = Parameters.data_.allyShots;
-         this.serverConnection.sendMessage(options);
-      }
-
-      public function potionStorage(statType:int, interactionType:int):void {
-         var potionStorage:PotionStorage = this.messages.require(POTION_STORAGE_INTERACTION) as PotionStorage;
-         potionStorage.statType_ = Parameters.data_.allyShots;
-         potionStorage.interactionType_ = interactionType;
-         this.serverConnection.sendMessage(potionStorage);
       }
 
       public function getNextDamage(minDamage:uint, maxDamage:uint) : uint
@@ -678,6 +681,15 @@ public class GameServerConnection
          }
       }
 
+      public function talismanAction(actionType:int, type:int, amount:int):void
+      {
+         var action:TalismanEssenceAction = this.messages.require(TALISMAN_ESSENCE_ACTION) as TalismanEssenceAction;
+         action.actionType_ = actionType;
+         action.type_ = type;
+         action.amount_ = amount;
+         this.serverConnection.sendMessage(action);
+      }
+
       private function create() : void
       {
          var charClass:CharacterClass = this.classesModel.getSelected();
@@ -692,7 +704,6 @@ public class GameServerConnection
          var load:Load = this.messages.require(LOAD) as Load;
          load.charId_ = this.charId_;
          this.serverConnection.sendMessage(load);
-         GameServerConnection.instance.options();
       }
 
       public function playerShoot(time:int, proj:Projectile) : void
@@ -1059,6 +1070,13 @@ public class GameServerConnection
          this.serverConnection.sendMessage(forgeFusion);
       }
 
+      public function acceptFuel(myInventory:Vector.<FuelEngine>) : void
+      {
+         var fuelEngine:FuelEngineAction = this.messages.require(ENGINE_FUEL_ACTION) as FuelEngineAction;
+         fuelEngine.myInv = myInventory;
+         this.serverConnection.sendMessage(fuelEngine);
+      }
+
       public function cancelTrade() : void
       {
          this.serverConnection.sendMessage(this.messages.require(CANCELTRADE));
@@ -1102,7 +1120,7 @@ public class GameServerConnection
       {
          var account:Account = StaticInjectorContext.getInjector().getInstance(Account);
          var hello:Hello = this.messages.require(HELLO) as Hello;
-         hello.buildVersion_ = Parameters.BUILD_VERSION;
+         hello.buildVersion_ = Parameters.FULL_BUILD_VERSION;
          hello.gameId_ = this.gameId_;
          hello.guid_ = rsaEncrypt(account.getUserId());
          hello.password_ = rsaEncrypt(account.getPassword());
@@ -1429,7 +1447,6 @@ public class GameServerConnection
                map.addObj(e,showEffect.pos1_.x_,showEffect.pos1_.y_);
                break;
             case ShowEffect.THROW_EFFECT_TYPE:
-               if(showEffect.pos2_.x_ != 222 && showEffect.targetObjectId_ != this.playerId_ && Parameters.data_.disableAllParticles) return;
                go = map.goDict_[showEffect.targetObjectId_];
                start = go != null?new Point(go.x_,go.y_):showEffect.pos2_.toPoint();
                e = new ThrowEffect(start,showEffect.pos1_.toPoint(),showEffect.color_, showEffect.duration_ * 1000);
@@ -1536,7 +1553,6 @@ public class GameServerConnection
                go.flash_ = new FlashDescription(getTimer(),showEffect.color_,showEffect.pos1_.x_,showEffect.pos1_.y_);
                break;
             case ShowEffect.THROW_PROJECTILE_EFFECT_TYPE:
-               if(showEffect.targetObjectId_ != this.playerId_ && Parameters.data_.disableAllParticles) return;
                go = map.goDict_[showEffect.targetObjectId_];
                start = (((start) != null) ? new Point(go.x_, go.y_) : showEffect.pos2_.toPoint());
                e = new ThrowProjectileEffect(showEffect.objectType, showEffect.pos1_.toPoint(), start, showEffect.duration_ * 1000);
@@ -1651,13 +1667,17 @@ public class GameServerConnection
                   go.setTex2(value);
                   continue;
                case StatData.MERCHANDISE_TYPE_STAT:
-                  merchant.setMerchandiseType(value);
+                  if(merchant != null) {
+                     merchant.setMerchandiseType(value);
+                  }
                   continue;
                case StatData.CREDITS_STAT:
                   player.setCredits(value);
                   continue;
                case StatData.MERCHANDISE_PRICE_STAT:
-                  (go as SellableObject).setPrice(value);
+                       if(go is SellableObject) {
+                          (go as SellableObject).setPrice(value);
+                       }
                   continue;
                case StatData.ACTIVE_STAT:
                   (go as Portal).active_ = value != 0;
@@ -1669,25 +1689,35 @@ public class GameServerConnection
                   player.fame_ = value;
                   continue;
                case StatData.MERCHANDISE_CURRENCY_STAT:
-                  (go as SellableObject).setCurrency(value);
+                  if(go is SellableObject) {
+                     (go as SellableObject).setCurrency(value);
+                  }
                   continue;
                case StatData.CONNECT_STAT:
                   go.connectType_ = value;
                   continue;
                case StatData.MERCHANDISE_COUNT_STAT:
-                  merchant.count_ = value;
-                  merchant.untilNextMessage_ = 0;
+                  if(merchant != null) {
+                     merchant.count_ = value;
+                     merchant.untilNextMessage_ = 0;
+                  }
                   continue;
                case StatData.MERCHANDISE_MINS_LEFT_STAT:
-                  merchant.minsLeft_ = value;
-                  merchant.untilNextMessage_ = 0;
+                  if(merchant != null) {
+                     merchant.minsLeft_ = value;
+                     merchant.untilNextMessage_ = 0;
+                  }
                   continue;
                case StatData.MERCHANDISE_DISCOUNT_STAT:
-                  merchant.discount_ = value;
-                  merchant.untilNextMessage_ = 0;
+                  if(merchant != null) {
+                     merchant.discount_ = value;
+                     merchant.untilNextMessage_ = 0;
+                  }
                   continue;
                case StatData.MERCHANDISE_RANK_REQ_STAT:
-                  (go as SellableObject).setRankReq(value);
+                  if(go is SellableObject) {
+                     (go as SellableObject).setRankReq(value);
+                  }
                   continue;
                case StatData.MAX_HP_BOOST_STAT:
                   player.maxHPBoost_ = value;
@@ -1876,121 +1906,19 @@ public class GameServerConnection
                      player.SPS_Modal.draw();
                   }
                   break;
+               case StatData.ENGINE_VALUE:
+                  (go as Engine).currentValue_ = value;
+                  break;
+
+               case StatData.ENGINE_TIME:
+                  (go as Engine).engineTime_ = value;
+                  break;
 
                case StatData.BASESTAT:
-                  trace(player == null ? "Player Null": "Player Not Null");
                   player.baseStat = value;
                   continue;
                case StatData.POINTS:
                   player.points = value;
-                  continue;
-               case StatData.MAXEDLIFE:
-                  player.maxedLife = Boolean(value);
-                  continue;
-               case StatData.MAXEDMANA:
-                  player.maxedMana = Boolean(value);
-                  continue;
-               case StatData.MAXEDATT:
-                  player.maxedAtt = Boolean(value);
-                  continue;
-               case StatData.MAXEDDEF:
-                  player.maxedDef = Boolean(value);
-                  continue;
-               case StatData.MAXEDSPD:
-                  player.maxedSpd = Boolean(value);
-                  continue;
-               case StatData.MAXEDDEX:
-                  player.maxedDex = Boolean(value);
-                  continue;
-               case StatData.MAXEDVIT:
-                  player.maxedVit = Boolean(value);
-                  continue;
-               case StatData.MAXEDWIS:
-                  player.maxedWis = Boolean(value);
-                  continue;
-               case StatData.SUPERMAXEDLIFE:
-                  player.superMaxedLife = Boolean(value);
-                  continue;
-               case StatData.SUPERMAXEDMANA:
-                  player.superMaxedMana = Boolean(value);
-                  continue;
-               case StatData.SUPERMAXEDATT:
-                  player.superMaxedAtt = Boolean(value);
-                  continue;
-               case StatData.SUPERMAXEDDEF:
-                  player.superMaxedDef = Boolean(value);
-                  continue;
-               case StatData.SUPERMAXEDSPD:
-                  player.superMaxedSpd = Boolean(value);
-                  continue;
-               case StatData.SUPERMAXEDDEX:
-                  player.superMaxedDex = Boolean(value);
-                  continue;
-               case StatData.SUPERMAXEDVIT:
-                  player.superMaxedVit = Boolean(value);
-                  continue;
-               case StatData.SUPERMAXEDWIS:
-                  player.superMaxedWis = Boolean(value);
-                  continue;
-               case StatData.NODE1TICKMIN:
-                  player.node1TickMin = value;
-                  continue;
-               case StatData.NODE1TICKMAJ:
-                  player.node1TickMaj = value;
-                  continue;
-               case StatData.NODE1MED:
-                  player.node1Med = value;
-                  continue;
-               case StatData.NODE1BIG:
-                  player.node1Big = value;
-                  continue;
-               case StatData.NODE2TICKMIN:
-                  player.node2TickMin = value;
-                  continue;
-               case StatData.NODE2TICKMAJ:
-                  player.node2TickMaj = value;
-                  continue;
-               case StatData.NODE2MED:
-                  player.node2Med = value;
-                  continue;
-               case StatData.NODE2BIG:
-                  player.node2Big = value;
-                  continue;
-               case StatData.NODE3TICKMIN:
-                  player.node3TickMin = value;
-                  continue;
-               case StatData.NODE3TICKMAJ:
-                  player.node3TickMaj = value;
-                  continue;
-               case StatData.NODE3MED:
-                  player.node3Med = value;
-                  continue;
-               case StatData.NODE3BIG:
-                  player.node3Big = value;
-                  continue;
-               case StatData.NODE4TICKMIN:
-                  player.node4TickMin = value;
-                  continue;
-               case StatData.NODE4TICKMAJ:
-                  player.node4TickMaj = value;
-                  continue;
-               case StatData.NODE4MED:
-                  player.node4Med = value;
-                  continue;
-               case StatData.NODE4BIG:
-                  player.node4Big = value;
-                  continue;
-               case StatData.NODE5TICKMIN:
-                  player.node5TickMin = value;
-                  continue;
-               case StatData.NODE5TICKMAJ:
-                  player.node5TickMaj = value;
-                  continue;
-               case StatData.NODE5MED:
-                  player.node5Med = value;
-                  continue;
-               case StatData.NODE5BIG:
-                  player.node5Big = value;
                   continue;
                case StatData.GLOW_ENEMY_COLOR:
                   go.setGlowEnemy(value);
@@ -2045,6 +1973,11 @@ public class GameServerConnection
                   index = stat.statType_ - StatData.BACKPACKDATA0 + GeneralConstants.NUM_EQUIPMENT_SLOTS + GeneralConstants.NUM_INVENTORY_SLOTS;
                   (go as Player).equipData_[index] = JSON.parse(stat.strStatValue_);
                   continue;
+
+               case StatData.NO_MANA_BAR:
+                  (go as Player).talismanNoManaBar_ = stat.statValue_ == 1;
+                  this.gs_.hudView.draw();
+                  break;
                default:
                   trace("unhandled stat: " + stat.statType_);
                   continue;
@@ -2194,13 +2127,6 @@ public class GameServerConnection
          pong.serial_ = ping.serial_;
          pong.time_ = getTimer();
          this.serverConnection.sendMessage(pong);
-      }
-
-      private function parseXML(xmlString:String) : void
-      {
-         var extraXML:XML = XML(xmlString);
-         GroundLibrary.parseFromXML(extraXML);
-         ObjectLibrary.parseFromXML(extraXML, false);
       }
 
       private function onMapInfo(mapInfo:MapInfo) : void
@@ -2418,7 +2344,7 @@ public class GameServerConnection
 
       private function handleIncorrectVersionFailure(event:Failure) : void
       {
-         var dialog:Dialog = new Dialog("Client version: " + Parameters.BUILD_VERSION + "\nServer version: " + event.errorDescription_,"Client Update Needed","Ok",null);
+         var dialog:Dialog = new Dialog("Client version: " + Parameters.FULL_BUILD_VERSION + "\nServer version: " + event.errorDescription_,"Client Update Needed","Ok",null);
          dialog.addEventListener(Dialog.BUTTON1_EVENT,this.onDoClientUpdate);
          this.gs_.stage.addChild(dialog);
          this.retryConnection_ = false;

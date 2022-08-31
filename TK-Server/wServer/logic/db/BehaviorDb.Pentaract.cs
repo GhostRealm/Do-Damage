@@ -19,7 +19,7 @@ namespace wServer.logic
             )
         .Init("Pentaract Tower",
             new State(
-                new ScaleHP2(20),
+                new ScaleHP2(50),
                 new Spawn("Pentaract Eye", 5, coolDown: 5000, givesNoXp: false),
                 new Grenade(4, 100, 8, coolDown: 5000),
                 new TransformOnDeath("Pentaract Tower Corpse"),
@@ -57,13 +57,13 @@ namespace wServer.logic
                 new ItemLoot("Potion of Defense", 1)
                 ),
             new Threshold(0.2,
-                new ItemLoot("Crafting Material 1", 0.01),
                 new ItemLoot("Potion of Speed", 1),
                 new ItemLoot("Potion of Wisdom", 1)
                 ),
             new Threshold(0.03,
-                new ItemLoot("Seal of Blasphemous Prayer", 0.0014, threshold: 0.03),
-                new ItemLoot("Midnight Star", 0.0014, threshold: 0.03)
+                new ItemLoot("Seal of Blasphemous Prayer", 0.00014, threshold: 0.03),
+                new ItemLoot("Talisman Fragment", 0.0005),
+                new ItemLoot("Midnight Star", 0.00014, threshold: 0.03)
                 ),
             new Threshold(0.001,
                 new TierLoot(8, ItemType.Weapon, .03),

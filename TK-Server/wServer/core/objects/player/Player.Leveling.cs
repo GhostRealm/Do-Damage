@@ -1,5 +1,4 @@
-﻿using CA.Extensions.Concurrent;
-using System;
+﻿using System;
 using System.Linq;
 using wServer.core.worlds.logic;
 using wServer.networking;
@@ -9,28 +8,30 @@ namespace wServer.core.objects
 {
     public partial class Player
     {
-        //public Entity AvatarQuest { get; private set; }
-        //public Entity CrystalQuest { get; private set; }
         public Entity Quest { get; private set; }
-        //public Entity SpookyQuest { get; private set; }
 
         public static int GetExpGoal(int level) => 50 + (level - 1) * 100;
 
         public static int GetFameGoal(int fame)
         {
             if (fame >= 2000) return 0;
-            else if (fame >= 800) return 2000;
-            else if (fame >= 400) return 800;
-            else if (fame >= 150) return 400;
-            else if (fame >= 20) return 150;
-            else return 20;
+            if (fame >= 800) return 2000;
+            if (fame >= 400) return 800;
+            if (fame >= 150) return 400;
+            if (fame >= 20) return 150;
+            return 20;
+        }
+
+        public static int GetTalismanEssenceCap(int stars)
+        {
+            var baseCount = 1000;
+            return baseCount + (stars * baseCount);
         }
 
         public static int GetLevelExp(int level)
         {
             if (level == 1)
                 return 0;
-
             return 50 * (level - 1) + (level - 2) * (level - 1) * 50;
         }
 
@@ -51,17 +52,30 @@ namespace wServer.core.objects
                     ObjectId = Id,
                     Color = new ARGB(0xFF00FF00),
                     Message = "Quest Complete!"
-                }, this, PacketPriority.Low);
+                }, this);
+                var prevStars = Stars;
                 Stars = GetStars();
+
+                if (Stars != prevStars)
+                {
+                    var cap = Client.Account.EssenceCap;
+                    UpdateEssenceCap();
+                    var newCap = Client.Account.EssenceCap;
+                    SendInfo($"Your 'Talisman Essence' capacity has increased by {newCap - cap}!");
+                }
             }
             else if (newFame != Fame)
             {
-                World.BroadcastIfVisible(new Notification()
+                var delta = (newFame - Fame);
+                if (delta > 0)
                 {
-                    ObjectId = Id,
-                    Color = new ARGB(0xFFE25F00),
-                    Message = "+" + (newFame - Fame) + "Fame"
-                }, this, PacketPriority.Low);
+                    World.BroadcastIfVisible(new Notification()
+                    {
+                        ObjectId = Id,
+                        Color = new ARGB(0xFFE25F00),
+                        Message = $"+{delta}"
+                    }, this);
+                }
             }
 
             Fame = newFame;
@@ -81,8 +95,6 @@ namespace wServer.core.objects
             }
         }
 
-        public bool CheckLevel() => CheckLevelUp();
-
         public bool EnemyKilled(Enemy enemy, int exp, bool killer)
         {
             if (enemy == Quest)
@@ -92,12 +104,20 @@ namespace wServer.core.objects
                     ObjectId = Id,
                     Color = new ARGB(0xFF00FF00),
                     Message = "Quest Complete!"
-                }, this, PacketPriority.Low);
+                }, this);
                 Quest = null;
             }
 
             if (exp != 0)
-                Experience += exp;
+            {
+                if (XPBoosted)
+                    exp *= 2;
+
+                if(TalismanFameGainBonus > 0.0)
+                    Experience = (int)(exp + exp * TalismanFameGainBonus);
+                else
+                    Experience += exp;
+            }
 
             FameCounter.Killed(enemy, killer);
             return CheckLevelUp();
@@ -127,35 +147,13 @@ namespace wServer.core.objects
                 CheckForEncounter();
         }
 
-        //public void HandleSpecialEnemies(TickTime time, bool force = false)
-        //{
-        //    if (this == null || World == null || World.SpecialEnemies == null || time.TickCount % 500 != 0)
-        //        return;
-
-        //    if (force || SpookyQuest == null || AvatarQuest == null || CrystalQuest == null)
-        //    {
-        //        var newSpooky = FindSpecialEnemy("Spectral Sentry");
-        //        if (newSpooky != null && newSpooky != SpookyQuest)
-        //            SpookyQuest = newSpooky;
-
-        //        var newAvatar = FindSpecialEnemy("shtrs Defense System");
-        //        if (newAvatar != null && newAvatar != AvatarQuest)
-        //            AvatarQuest = newAvatar;
-
-        //        var newCrystal = FindSpecialEnemy("Crystal Prisoner");
-        //        if (newCrystal != null && newCrystal != CrystalQuest)
-        //            CrystalQuest = newCrystal;
-        //    }
-        //}
-
         private bool CheckLevelUp()
         {
-            var statInfo = CoreServerManager.Resources.GameData.Classes[ObjectType].Stats;
+            var statInfo = GameServer.Resources.GameData.Classes[ObjectType].Stats;
             if (Experience - GetLevelExp(Level) >= ExperienceGoal && Level < 20)
             {
                 Level++;
                 ExperienceGoal = GetExpGoal(Level);
-                var rand = new Random();
                 for (var i = 0; i < statInfo.Length; i++)
                 {
                     if (Level < 20)
@@ -175,7 +173,7 @@ namespace wServer.core.objects
                     }
                     var min = statInfo[i].MinIncrease;
                     var max = statInfo[i].MaxIncrease + 1;
-                    Stats.Base[i] += rand.Next(min, max);
+                    Stats.Base[i] += World.Random.Next(min, max);
                     if (Stats.Base[i] > statInfo[i].MaxValue && !UpgradeEnabled)
                         Stats.Base[i] = statInfo[i].MaxValue;
                 }
@@ -183,7 +181,7 @@ namespace wServer.core.objects
                 MP = Stats[1];
 
                 if (Level == 20)
-                    World.PlayersBroadcastAsParallel(_ => _.SendInfo($"{Name} achieved level 20"));
+                    World.ForeachPlayer(_ => _.SendInfo($"{Name} achieved level 20"));
                 else
                     // to get exp scaled to new exp goal
                     InvokeStatChange(StatDataType.Experience, Experience - GetLevelExp(Level), true);
@@ -255,12 +253,5 @@ namespace wServer.core.objects
             }
             return ret;
         }
-
-        private Enemy FindSpecialEnemy(string objectId)
-            => World.SpecialEnemies
-                .ValueWhereAsParallel(_ => _ != null
-                    && _.ObjectDesc != null
-                    && _.ObjectDesc.ObjectId.Equals(objectId))
-                .FirstOrDefault();
     }
 }

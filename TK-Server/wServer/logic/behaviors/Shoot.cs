@@ -45,8 +45,6 @@ namespace wServer.logic.behaviors
             _seeInvis = seeInvis;
         }
 
-        private static double GetMultiplier => _multiplier == -1 ? _multiplier = Program.CoreServerManager.GetEnemyDamageRate() : _multiplier;
-
         protected override void OnStateEntry(Entity host, TickTime time, ref object state) => state = _coolDownOffset;
 
         protected override void TickCore(Entity host, TickTime time, ref object state)
@@ -57,12 +55,12 @@ namespace wServer.logic.behaviors
 
             if (cool <= 0)
             {
-                if (host.HasConditionEffect(ConditionEffects.Stunned))
+                if (host.HasConditionEffect(ConditionEffectIndex.Stunned))
                     return;
 
                 var count = _count;
 
-                if (host.HasConditionEffect(ConditionEffects.Dazed))
+                if (host.HasConditionEffect(ConditionEffectIndex.Dazed))
                     count = (int)Math.Ceiling(_count / 2.0);
 
                 var player = host.AttackTarget ?? (_shootLowHp ? host.GetLowestHpEntity(_radius, null, _seeInvis) : host.GetNearestEntity(_radius, null, _seeInvis));
@@ -93,10 +91,8 @@ namespace wServer.logic.behaviors
 
                     var dmg = (double)Random.Next(desc.MinDamage, desc.MaxDamage);
 
-                    if (host.HasConditionEffect(ConditionEffects.Weak))
+                    if (host.HasConditionEffect(ConditionEffectIndex.Weak))
                         dmg /= 2;
-
-                    dmg *= GetMultiplier;
 
                     var startAngle = a - _shootAngle * (count - 1) / 2;
 
@@ -112,7 +108,7 @@ namespace wServer.logic.behaviors
 
                         var prj = host.CreateProjectile(desc, host.ObjectType, (int)dmg, time.TotalElapsedMs, prjPos, startAngle + _shootAngle * i);
 
-                        host.World.EnterWorld(prj);
+                        host.World.AddProjectile(prj);
 
                         if (i == 0)
                             prjId = prj.ProjectileId;
@@ -132,10 +128,14 @@ namespace wServer.logic.behaviors
                         NumShots = (byte)count,
                     };
 
-                    var players = host.World.Players
-                        .ValueWhereAsParallel(_ => _.DistSqr(host) < PlayerUpdate.VISIBILITY_RADIUS_SQR);
-                    for (var i = 0; i < players.Length; i++)
-                        players[i].Client.SendPacket(pkt);
+                    // changed to this
+                    host.World.BroadcastIfVisible(pkt, host);
+                    
+                    // from this
+                    //var players = host.World.Players
+                    //    .Values.Where(_ => _.DistSqr(host) < PlayerUpdate.VISIBILITY_RADIUS_SQR);
+                    //for (var i = 0; i < players.Length; i++)
+                    //    players[i].Client.SendPacket(pkt);
                 }
 
                 cool = _coolDown.Next(Random);

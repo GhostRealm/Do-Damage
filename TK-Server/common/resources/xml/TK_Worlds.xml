@@ -8,8 +8,10 @@
 	<World id="Realm of the Mad God">
 		<Width>2048</Width>
 		<Height>2048</Height>
-		<Capacity>85</Capacity>
 		<MapJM>realm.jm</MapJM>
+		<Music>
+			<Track>wanderlust</Track>
+		</Music>
 		<Persists/>
 	</World>
 	<World id="Nexus">
@@ -20,9 +22,12 @@
 		<Instance enum="nexus"/>
 		<Music>
 			<Track>wanderlust</Track>
-			<Track>sorc</Track>
 		</Music>
 		<Persists/>
+		<ShowDisplays/>
+		<DisableShooting/>
+		<DisableAbilities/>
+		<DisableTeleport/>
 	</World>
 	<World id="Vault">
 		<Width>256</Width>
@@ -30,31 +35,43 @@
 		<Capacity>1</Capacity>
 		<MapJM>vault.jm</MapJM>
 		<Instance enum="vault"/>
+		<CreateInstance/>
 		<Persists/>
+		<DisableShooting/>
+		<DisableAbilities/>
+		<DisableTeleport/>
 	</World>
 	<World id="Guild Hall 1">
 		<Width>256</Width>
 		<Height>256</Height>
 		<MapJM>guild/guild_hall1.jm</MapJM>
 		<Instance enum="guild"/>
+		<DisableShooting/>
+		<DisableAbilities/>
 	</World>
 	<World id="Guild Hall 2">
 		<Width>256</Width>
 		<Height>256</Height>
 		<MapJM>guild/guild_hall2.jm</MapJM>
 		<Instance enum="guild"/>
+		<DisableShooting/>
+		<DisableAbilities/>
 	</World>
 	<World id="Guild Hall 3">
 		<Width>256</Width>
 		<Height>256</Height>
 		<MapJM>guild/guild_hall3.jm</MapJM>
 		<Instance enum="guild"/>
+		<DisableShooting/>
+		<DisableAbilities/>
 	</World>
 	<World id="Guild Hall 4">
 		<Width>256</Width>
 		<Height>256</Height>
 		<MapJM>guild/guild_hall4.jm</MapJM>
 		<Instance enum="guild"/>
+		<DisableShooting/>
+		<DisableAbilities/>
 	</World>
 	<World id="Undead Lair">
 		<Width>256</Width>
@@ -71,7 +88,7 @@
 		<Width>256</Width>
 		<Height>256</Height>
 		<MapJM>snake_pit.jm</MapJM>
-		<VisibilityType>2</VisibilityType>
+		<VisibilityType>1</VisibilityType>
 		<Dungeon/>
 	</World>
 	<World id="Hideout of Septavius">
@@ -87,6 +104,7 @@
 		<MapJM>wine_cellar.jm</MapJM>
 		<VisibilityType>1</VisibilityType>
 		<Dungeon/>
+		<DisableTeleport/>
 	</World>
 	<World id="Hideout of Malphas">
 		<Width>256</Width>
@@ -108,17 +126,17 @@
 		<MapJM>belladonna.jm</MapJM>
 		<Dungeon/>
 	</World>
+	<World id="Defiled Graveyard">
+		<Width>256</Width>
+		<Height>256</Height>
+		<MapJM>mortomus_hideout.jm</MapJM>
+		<DisableTeleport/>
+		<Dungeon/>
+	</World>
 	<World id="Bilgewater's Grotto">
 		<Width>256</Width>
 		<Height>256</Height>
 		<MapJM>bilge_grotto.jm</MapJM>
-		<VisibilityType>1</VisibilityType>
-		<Dungeon/>
-	</World>
-	<World id="Cave of Eternal Frost">
-		<Width>256</Width>
-		<Height>256</Height>
-		<MapJM>cave_of_eternal_frost.jm</MapJM>
 		<VisibilityType>1</VisibilityType>
 		<Dungeon/>
 	</World>
@@ -133,6 +151,7 @@
 		<Height>256</Height>
 		<MapJM>cloth_bazaar.jm</MapJM>
 		<Dungeon/>
+		<Persists/>
 	</World>
 	<World id="Oryx's Castle">
 		<Width>256</Width>
@@ -140,11 +159,19 @@
 		<MapJM>oryx_castle.jm</MapJM>
 		<VisibilityType>2</VisibilityType>
 		<Dungeon/>
+		<DisableTeleport/>
 	</World>
 	<World id="Tomb of the Ancients">
 		<Width>256</Width>
 		<Height>256</Height>
 		<MapJM>tomb_of_the_ancients.jm</MapJM>
+		<VisibilityType>1</VisibilityType>
+		<Dungeon/>
+	</World>
+	<World id="Garden of Horror">
+		<Width>256</Width>
+		<Height>256</Height>
+		<MapJM>garden_of_horror.jm</MapJM>
 		<VisibilityType>1</VisibilityType>
 		<Dungeon/>
 	</World>
@@ -189,6 +216,34 @@
 		<VisibilityType>2</VisibilityType>
 		<Dungeon/>
 	</World>
+	<World id="Hideout of Thessal">
+		<Width>256</Width>
+		<Height>256</Height>
+		<MapJM>hideout_of_thessal.jm</MapJM>
+		<VisibilityType>2</VisibilityType>
+		<Dungeon/>
+	</World>
+	<World id="Hideout of Limon">
+		<Width>256</Width>
+		<Height>256</Height>
+		<MapJM>hideout_of_limon.jm</MapJM>
+		<VisibilityType>2</VisibilityType>
+		<Dungeon/>
+	</World>
+	<World id="Puppet Master's Theatre">
+		<Width>256</Width>
+		<Height>256</Height>
+		<MapJM>puppet.jm</MapJM>
+		<VisibilityType>2</VisibilityType>
+		<Dungeon/>
+	</World>
+	<World id="Haunted Cemetery">
+		<Width>256</Width>
+		<Height>256</Height>
+		<MapJM>haunted_cemetery.jm</MapJM>
+		<VisibilityType>2</VisibilityType>
+		<Dungeon/>
+	</World>
 	<World id="Lost Halls">
 		<Width>256</Width>
 		<Height>256</Height>
@@ -220,6 +275,13 @@
 		<Width>256</Width>
 		<Height>256</Height>
 		<MapJM>cave_of_thousand_treasures.jm</MapJM>
+		<VisibilityType>1</VisibilityType>
+		<Dungeon/>
+	</World>
+	<World id="Cave of Eternal Frost">
+		<Width>256</Width>
+		<Height>256</Height>
+		<MapJM>cave_of_eternal_frost.jm</MapJM>
 		<VisibilityType>1</VisibilityType>
 		<Dungeon/>
 	</World>
@@ -262,6 +324,7 @@
 		<Width>256</Width>
 		<Height>256</Height>
 		<MapJM>shatters.jm</MapJM>
+		<DisableTeleport/>
 		<VisibilityType>2</VisibilityType>
 		<Dungeon/>
 	</World>
@@ -277,7 +340,7 @@
 		<Height>256</Height>
 		<MapJM>the_crawling_depths.jm</MapJM>
 		<Dungeon/>
-		<VisibilityType>2</VisibilityType>
+		<VisibilityType>1</VisibilityType>
 	</World>
 	<World id="Stanleys Hideout">
 		<Width>256</Width>
@@ -308,6 +371,14 @@
 		<Height>256</Height>
 		<MapJM>woodland_labyrinth.jm</MapJM>
 		<VisibilityType>1</VisibilityType>
+		<Dungeon/>
+	</World>
+	<World id="Trial of Souls">
+		<Width>256</Width>
+		<Height>256</Height>
+		<MapJM>trials_of_souls.jm</MapJM>
+		<VisibilityType>1</VisibilityType>
+		<CreateInstance/>
 		<Dungeon/>
 	</World>
 </Worlds>

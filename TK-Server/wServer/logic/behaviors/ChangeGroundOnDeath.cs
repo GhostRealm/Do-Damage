@@ -23,11 +23,11 @@ namespace wServer.logic.behaviors
             this.dist = dist;
         }
 
-        protected internal override void Resolve(State parent) => parent.Death += (sender, e) =>
+        public override void OnDeath(Entity host, ref TickTime time)
         {
-            var dat = e.Host.CoreServerManager.Resources.GameData;
-            var w = e.Host.World;
-            var pos = new IntPoint((int)e.Host.X - (dist / 2), (int)e.Host.Y - (dist / 2));
+            var dat = host.GameServer.Resources.GameData;
+            var w = host.World;
+            var pos = new IntPoint((int)host.X - (dist / 2), (int)host.Y - (dist / 2));
 
             if (w == null)
                 return;
@@ -47,7 +47,7 @@ namespace wServer.logic.behaviors
                             {
                                 tile.TileId = dat.IdToTileType[targetType[r]];
 
-                                var tileDesc = Program.CoreServerManager.Resources.GameData.Tiles[tile.TileId];
+                                var tileDesc = host.GameServer.Resources.GameData.Tiles[tile.TileId];
 
                                 tile.TileDesc = tileDesc;
 
@@ -61,14 +61,14 @@ namespace wServer.logic.behaviors
 
                         tile.TileId = dat.IdToTileType[targetType[r]];
 
-                        var tileDesc = Program.CoreServerManager.Resources.GameData.Tiles[tile.TileId];
+                        var tileDesc = host.GameServer.Resources.GameData.Tiles[tile.TileId];
 
                         tile.TileDesc = tileDesc;
 
                         w.Map[x + pos.X, y + pos.Y].SetTile(tile);
                     }
                 }
-        };
+        }
 
         protected override void TickCore(Entity host, TickTime time, ref object state)
         { }

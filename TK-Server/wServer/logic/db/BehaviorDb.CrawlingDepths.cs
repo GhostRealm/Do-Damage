@@ -12,13 +12,12 @@ namespace wServer.logic
             new State(
                 new ScaleHP2(20),
                 new DropPortalOnDeath("Realm Portal", 1, 0, 0, 0, 120),
-                //new EntitiesNotExistsTransition(50, "Attack 2", "Yellow Son of Arachna Giant Egg Sac", "Blue Son of Arachna Giant Egg Sac", "Red Son of Arachna Giant Egg Sac", "Silver Son of Arachna Giant Egg Sac"),
+                new EntitiesNotExistsTransition(50, "Attack 2", "Yellow Son of Arachna Giant Egg Sac", "Blue Son of Arachna Giant Egg Sac", "Red Son of Arachna Giant Egg Sac", "Silver Son of Arachna Giant Egg Sac"),
                 new State("Idle",
-                    new ConditionalEffect(ConditionEffectIndex.Invulnerable),
+                    new ConditionalEffect(ConditionEffectIndex.Invulnerable, true),
                     new PlayerWithinTransition(9, "MakeWeb")
                     ),
                 new State("MakeWeb",
-                    new ConditionalEffect(ConditionEffectIndex.Invulnerable),
                     new TossObject("Epic Arachna Web Spoke 1", range: 10, angle: 0, coolDown: 100000),
                     new TossObject("Epic Arachna Web Spoke 7", range: 6, angle: 0, coolDown: 100000),
                     new TossObject("Epic Arachna Web Spoke 2", range: 10, angle: 60, coolDown: 100000),
@@ -35,9 +34,10 @@ namespace wServer.logic
                 new State("Attack",
                     //new Taunt("Check 1"),
                     new EntitiesNotExistsTransition(25, "Attack 2", "Yellow Son of Arachna Giant Egg Sac", "Blue Son of Arachna Giant Egg Sac", "Red Son of Arachna Giant Egg Sac", "Silver Son of Arachna Giant Egg Sac"),
-                    new ConditionalEffect(ConditionEffectIndex.Invulnerable),
-                    new Shoot(1, projectileIndex: 0, count: 8, coolDown: 2200, shootAngle: 45, fixedAngle: 0),
-                    new Shoot(10, projectileIndex: 1, coolDown: 3000),
+                    new Shoot(15, projectileIndex: 0, count: 8, shootAngle: 15, coolDown: 1200),
+                    new Shoot(16, projectileIndex: 1, coolDown: 2200),
+                    new TimedTransition(2200, "Follow")
+                    ),
                     new State("Follow",
                         //new Taunt("Check 2"),
                         new EntitiesNotExistsTransition(25, "Attack 2", "Yellow Son of Arachna Giant Egg Sac", "Blue Son of Arachna Giant Egg Sac", "Red Son of Arachna Giant Egg Sac", "Silver Son of Arachna Giant Egg Sac"),
@@ -45,7 +45,7 @@ namespace wServer.logic
                             new StayCloseToSpawn(.6, 10),
                             new StayAbove(.6, 1),
                             new StayBack(.6, distance: 8),
-                            new Wander(.7)
+                            new Wander(0.3)
                             ),
                         new TimedTransition(1500, "Return")
                         ),
@@ -54,36 +54,39 @@ namespace wServer.logic
                         new EntitiesNotExistsTransition(25, "Attack 2", "Yellow Son of Arachna Giant Egg Sac", "Blue Son of Arachna Giant Egg Sac", "Red Son of Arachna Giant Egg Sac", "Silver Son of Arachna Giant Egg Sac"),
                         new StayCloseToSpawn(.4, 1),
                         new TimedTransition(2500, "Follow")
-                        )),
+                        ),
                 // BUCLE VULNERABLE
                 new State("Attack 2",
-                    new Shoot(1, projectileIndex: 0, count: 8, coolDown: 2200, shootAngle: 45, fixedAngle: 0),
-                    new Shoot(10, projectileIndex: 1, coolDown: 3000),
+                    new RemoveConditionalEffect(ConditionEffectIndex.Invulnerable),
+                    new Shoot(15, projectileIndex: 0, count: 8, coolDown: 2200, shootAngle: 45, fixedAngle: 0),
+                    new Shoot(15, projectileIndex: 1, coolDown: 3000),
+                    new TimedTransition(1500, "Follow 2")
+                    ),
                     new State("Follow 2",
                         new Prioritize(
-                            new StayCloseToSpawn(.6, 10),
-                            new StayAbove(.6, 1),
-                            new StayBack(.6, distance: 8),
-                            new Wander(.7)
+                            new StayCloseToSpawn(1, 10),
+                            new StayAbove(1, 1),
+                            new StayBack(1, distance: 8),
+                            new Wander(0.3)
                             ),
                         new TimedTransition(1500, "Return 2")
                         ),
                     new State("Return 2",
                         new StayCloseToSpawn(.4, 1),
                         new ReturnToSpawn(.4),
-                        new TimedTransition(2500, "Follow 2")
-                        ))
+                        new TimedTransition(2500, "Follow 2")             
+                        )
                 ),
             new Threshold(0.01,
                 LootTemplates.DustLoot()
                 ),
             new Threshold(0.03,
-                new ItemLoot("Doku No Ken", 0.005, 0, 0.03),
-                new ItemLoot("Arachne Carapace", 0.01, 0, 0.03)
+                new ItemLoot("Doku No Ken", 0.001, 0, 0.03),
+                new ItemLoot("Arachne Carapace", 0.001, 0, 0.03)
                 ),
             new Threshold(0.05,
-                new ItemLoot("Bone Flinger", 0.01),
-                new ItemLoot("Venomous Quiver", 0.01)
+                new ItemLoot("Bone Flinger", 0.001),
+                new ItemLoot("Venomous Quiver", 0.001)
                 ),
             new Threshold(0.01,
                 new TierLoot(12, ItemType.Weapon, 0.2),
@@ -92,7 +95,7 @@ namespace wServer.logic
                 new TierLoot(6, ItemType.Ring, 0.2),
                 new ItemLoot("Potion of Mana", 1),
                 new ItemLoot("Potion of Mana", 1),
-                new ItemLoot("Locket of Venom Extract", 0.01),
+                new ItemLoot("Spotted Venom Extract", 0.001),
                 new ItemLoot("The Crawling Depths Key", 0.01, 0, 0.03)
                 )
             )
@@ -109,7 +112,7 @@ namespace wServer.logic
         .Init("Crawling Spider Hatchling",
             new State(
                 new Prioritize(
-                    new Wander(.4)
+                    new Wander(0.3)
                     ),
                 new Shoot(7, count: 1, shootAngle: 0, coolDown: 650),
                 new Shoot(7, count: 1, shootAngle: 0, projectileIndex: 1, predictive: 1, coolDown: 850)
@@ -118,8 +121,8 @@ namespace wServer.logic
         .Init("Crawling Grey Spotted Spider",
             new State(
                 new Prioritize(
-                    new Charge(2, 8, 1050),
-                    new Wander(.4)
+                    new Charge(3, 8, 1050),
+                    new Wander(0.3)
                     ),
                 new Shoot(10, count: 1, shootAngle: 0, coolDown: 500)
                 ),
@@ -129,8 +132,8 @@ namespace wServer.logic
         .Init("Crawling Grey Spider",
             new State(
                 new Prioritize(
-                    new Charge(2, 8, 1050),
-                    new Wander(.4)
+                    new Charge(3, 8, 1050),
+                    new Wander(0.3)
                     ),
                 new Shoot(9, count: 1, shootAngle: 0, coolDown: 850)
                 ),
@@ -140,7 +143,7 @@ namespace wServer.logic
         .Init("Crawling Red Spotted Spider",
             new State(
                 new Prioritize(
-                    new Wander(.4)
+                    new Wander(0.3)
                     ),
                 new Shoot(8, count: 1, shootAngle: 0, coolDown: 750)
                 ),
@@ -150,8 +153,8 @@ namespace wServer.logic
         .Init("Crawling Green Spider",
             new State(
                 new Prioritize(
-                    new Follow(.6, 11, 1),
-                    new Wander(.4)
+                    new Follow(2, 11, 1),
+                    new Wander(0.3)
                     ),
                 new Shoot(8, count: 3, shootAngle: 10, coolDown: 400)
                 ),
@@ -160,6 +163,7 @@ namespace wServer.logic
             )
         .Init("Yellow Son of Arachna Giant Egg Sac",
             new State(
+                new ScaleHP2(20),
                 new TransformOnDeath("Yellow Egg Summoner"),
                 new State("Spawn",
                     new Spawn("Crawling Green Spider", 2),
@@ -192,6 +196,7 @@ namespace wServer.logic
             )
         .Init("Blue Son of Arachna Giant Egg Sac",
             new State(
+                new ScaleHP2(20),
                 new State("DeathSpawn",
                     new TransformOnDeath("Crawling Spider Hatchling", 5, 7)
                     )
@@ -207,6 +212,7 @@ namespace wServer.logic
             )
         .Init("Red Son of Arachna Giant Egg Sac",
             new State(
+                new ScaleHP2(20),
                 new State("DeathSpawn",
                     new TransformOnDeath("Crawling Red Spotted Spider", 3, 3)
                     )
@@ -222,6 +228,7 @@ namespace wServer.logic
             )
         .Init("Silver Son of Arachna Giant Egg Sac",
             new State(
+                new ScaleHP2(20),
                 new State("DeathSpawn",
                     new TransformOnDeath("Crawling Grey Spider", 3, 3)
                     )

@@ -7,20 +7,7 @@ namespace wServer.networking.packets.outgoing
         public int AccountListId { get; set; }
         public string[] AccountIds { get; set; }
 
-        public override PacketId ID => PacketId.ACCOUNTLIST;
-
-        public override Packet CreateInstance()
-        {
-            return new AccountList();
-        }
-
-        protected override void Read(NReader rdr)
-        {
-            AccountListId = rdr.ReadInt32();
-            AccountIds = new string[rdr.ReadInt16()];
-            for (int i = 0; i < AccountIds.Length; i++)
-                AccountIds[i] = rdr.ReadUTF();
-        }
+        public override MessageId MessageId => MessageId.ACCOUNTLIST;
 
         protected override void Write(NWriter wtr)
         {

@@ -5,98 +5,21 @@ namespace wServer.core.objects
 {
     public partial class Player
     {
-        private float _bleeding;
         private int _canTpCooldownTime;
-        private float _healing;
         private int _newbieTime;
-
-        public bool CheckMarbleHand()
-        {
-            var ok = false;
-            for (var i = 0; i < 20; i++)
-            {
-                var inv = Inventory[i];
-                if (inv != null && inv.ObjectId == "Severed Marble Hand")
-                    ok = true;
-            }
-
-            return ok == true;
-        }
-        public bool CheckCerberusCore()
-        {
-            var ok = false;
-            for (var i = 0; i < 20; i++)
-            {
-                var inv = Inventory[i];
-                if (inv != null && inv.ObjectId == "Cerberus's Left Claw")
-                    ok = true;
-            }
-
-            return ok == true;
-        }
-        public bool CheckCerberusRightClaw()
-        {
-            var ok = false;
-            for (var i = 0; i < 20; i++)
-            {
-                var inv = Inventory[i];
-                if (inv != null && inv.ObjectId == "Cerberus's Right Claw")
-                    ok = true;
-            }
-
-            return ok == true;
-        }
-        public bool CheckCerberusLeftClaw()
-        {
-            var ok = false;
-            for (var i = 0; i < 20; i++)
-            {
-                var inv = Inventory[i];
-                if (inv != null && inv.ObjectId == "Cerberus's Core")
-                    ok = true;
-            }
-
-            return ok == true;
-        }
-        public bool CheckMPRegeneration()
-        {
-
-            var ok = false;
-            for (var i = 0; i < 20; i++)
-            {
-                var inv = Inventory[i];
-                if (inv != null && inv.ObjectId == "Talisman of Mana" && MP <= Stats[1] / 2)
-                    ok = true;
-            }
-
-            return ok == true;
-        }
-
-        public bool CheckRegeneration()
-        {
-            var ok = false;
-            for (var i = 0; i < 20; i++)
-            {
-                var inv = Inventory[i];
-                if (inv != null && inv.ObjectId == "Gem of Life" && HP <= Stats[0] / 2)
-                    ok = true;
-            }
-
-            return ok == true;
-        }
 
         public bool IsVisibleToEnemy()
         {
             if (_newbieTime > 0)
                 return false;
 
-            if (HasConditionEffect(ConditionEffects.Paused))
+            if (HasConditionEffect(ConditionEffectIndex.Paused))
                 return false;
 
-            if (HasConditionEffect(ConditionEffects.Invisible))
+            if (HasConditionEffect(ConditionEffectIndex.Invisible))
                 return false;
 
-            if (HasConditionEffect(ConditionEffects.Hidden))
+            if (HasConditionEffect(ConditionEffectIndex.Hidden))
                 return false;
 
             return true;
@@ -110,128 +33,53 @@ namespace wServer.core.objects
 
         internal void SetTPDisabledPeriod() => _canTpCooldownTime = 10000;
 
-        private bool CanHpRegen()
-        {
-            if (HasConditionEffect(ConditionEffects.Sick))
-                return false;
+        private bool CanHpRegen() => !(HasConditionEffect(ConditionEffectIndex.Bleeding) || HasConditionEffect(ConditionEffectIndex.Sick));
 
-            if (HasConditionEffect(ConditionEffects.Bleeding))
-                return false;
+        private bool CanMpRegen() => !(HasConditionEffect(ConditionEffectIndex.Quiet) || HasConditionEffect(ConditionEffectIndex.NinjaSpeedy));
 
-            return true;
-        }
-
-        private bool CanMpRegen() => !(HasConditionEffect(ConditionEffects.Quiet) || HasConditionEffect(ConditionEffects.NinjaSpeedy));
-
-        private void HandleEffects(TickTime time)
+        private void HandleEffects(ref TickTime time)
         {
             if (Client == null || Client.Account == null) return;
-            if (CheckCerberusLeftClaw())
+
+            if (Client.Account.Hidden && !HasConditionEffect(ConditionEffectIndex.Hidden))
             {
-                ApplyConditionEffect(ConditionEffectIndex.DazedImmune);
-                ApplyConditionEffect(ConditionEffectIndex.Dazed, 0);
-            }
-            else if (!CheckCerberusLeftClaw() && HasConditionEffect(ConditionEffects.DazedImmune))
-            {
-                ApplyConditionEffect(ConditionEffectIndex.DazedImmune, 0);
-            }
-            if (CheckCerberusRightClaw())
-            {
-                ApplyConditionEffect(ConditionEffectIndex.SlowedImmune);
-                ApplyConditionEffect(ConditionEffectIndex.Slowed, 0);
-            }
-            else if (!CheckCerberusRightClaw() && HasConditionEffect(ConditionEffects.SlowedImmune))
-            {
-                ApplyConditionEffect(ConditionEffectIndex.SlowedImmune, 0);
-            }
-            if (CheckCerberusCore())
-            {
-                ApplyConditionEffect(ConditionEffectIndex.DazedImmune);
-                ApplyConditionEffect(ConditionEffectIndex.Dazed, 0);
-                ApplyConditionEffect(ConditionEffectIndex.SlowedImmune);
-                ApplyConditionEffect(ConditionEffectIndex.StunImmune);
-                ApplyConditionEffect(ConditionEffectIndex.Slowed, 0);
-                ApplyConditionEffect(ConditionEffectIndex.Stunned, 0);
-            }
-            else if (!CheckCerberusCore() && (HasConditionEffect(ConditionEffects.DazedImmune)))
-                ApplyConditionEffect(ConditionEffectIndex.DazedImmune, 0);
-            else if (!CheckCerberusCore() && (HasConditionEffect(ConditionEffects.SlowedImmune)))
-                ApplyConditionEffect(ConditionEffectIndex.SlowedImmune, 0);
-            else if (!CheckCerberusCore() && (HasConditionEffect(ConditionEffects.StunImmune)))
-                ApplyConditionEffect(ConditionEffectIndex.StunImmune, 0);
-            if (CheckMarbleHand())
-            {
-                ApplyConditionEffect(ConditionEffectIndex.UnstableImmune);
-                ApplyConditionEffect(ConditionEffectIndex.Unstable, 0);
-            }
-            else if (!CheckMarbleHand() && HasConditionEffect(ConditionEffects.UnstableImmune))
-            {
-                ApplyConditionEffect(ConditionEffectIndex.UnstableImmune, 0);
+                RemoveCondition(ConditionEffectIndex.Hidden);
+                RemoveCondition(ConditionEffectIndex.Invincible);
+                GameServer.ConnectionManager.Clients[Client].Hidden = true;
             }
 
-            if (CheckRegeneration())
-            {
-                ApplyConditionEffect(ConditionEffectIndex.Regeneration);
-            }
-            else if (!CheckRegeneration() && HasConditionEffect(ConditionEffects.Regeneration))
-            {
-                ApplyConditionEffect(ConditionEffectIndex.Regeneration, 0);
-            }
-
-            if (CheckMPRegeneration())
-            {
-                ApplyConditionEffect(ConditionEffectIndex.MPTRegeneration);
-            }
-            else if (!CheckMPRegeneration() && HasConditionEffect(ConditionEffects.MPTRegeneration))
-            {
-                ApplyConditionEffect(ConditionEffectIndex.MPTRegeneration, 0);
-            }
-
-            if (Client.Account.Hidden && !HasConditionEffect(ConditionEffects.Hidden))
-            {
-                ApplyConditionEffect(ConditionEffectIndex.Hidden);
-                ApplyConditionEffect(ConditionEffectIndex.Invincible);
-                CoreServerManager.ConnectionManager.Clients[Client].Hidden = true;
-            }
-
-            if (HasConditionEffect(ConditionEffects.Healing) && !HasConditionEffect(ConditionEffects.Sick))
-            {
-                if (_healing > 1)
-                {
-                    HP = Math.Min(Stats[0], HP + (int)_healing);
-                    _healing -= (int)_healing;
-                }
-                _healing += 28 * time.DeltaTime;
-            }
-
-            if (HasConditionEffect(ConditionEffects.Quiet) && MP > 0)
+            if (HasConditionEffect(ConditionEffectIndex.Quiet) && MP > 0)
                 MP = 0;
 
-            if (HasConditionEffect(ConditionEffects.Bleeding) && HP > 1)
+            if (HasConditionEffect(ConditionEffectIndex.Bleeding) && HP > 1)
             {
-                if (_bleeding > 1)
+                HP -= (int)(20 * time.DeltaTime); // 20 per second
+                if (HP < 1)
+                    HP = 1;
+            }
+
+            if (HasConditionEffect(ConditionEffectIndex.NinjaSpeedy))
+            {
+                if (TalismanAbilityLifeCost > 0.0f)
                 {
-                    HP -= (int)_bleeding;
-                    if (HP < 1)
-                        HP = 1;
-                    _bleeding -= (int)_bleeding;
+                    HP = Math.Max(1, (int)(HP - 20 * time.DeltaTime));
+                    if (HP == 1)
+                        RemoveCondition(ConditionEffectIndex.NinjaSpeedy);
                 }
-                _bleeding += 28 * time.DeltaTime;
+                else
+                {
+                    MP = Math.Max(0, (int)(MP - 10 * time.DeltaTime));
+                    if (MP == 0)
+                        RemoveCondition(ConditionEffectIndex.NinjaSpeedy);
+                }
             }
 
-            if (HasConditionEffect(ConditionEffects.NinjaSpeedy))
+            if (HasConditionEffect(ConditionEffectIndex.NinjaBerserk))
             {
-                MP = Math.Max(0, (int)(MP - 10 * time.ElaspedMsDelta / 1000f));
+                MP = Math.Max(0, (int)(MP - 10 * time.DeltaTime));
 
                 if (MP == 0)
-                    ApplyConditionEffect(ConditionEffectIndex.NinjaSpeedy, 0);
-            }
-            if (HasConditionEffect(ConditionEffects.NinjaBerserk))
-            {
-                MP = Math.Max(0, (int)(MP - 10 * time.ElaspedMsDelta / 1000f));
-
-                if (MP == 0)
-                    ApplyConditionEffect(ConditionEffectIndex.NinjaBerserk, 0);
+                    RemoveCondition(ConditionEffectIndex.NinjaBerserk);
             }
 
             if (_newbieTime > 0)

@@ -28,10 +28,10 @@ namespace wServer.logic.behaviors
 
             foreach (var en in ents)
                 if (en is Player p)
-                    p.ApplyConditionEffect(
-                        new ConditionEffect { Effect = ConditionEffectIndex.Damaging, DurationMS = 500 },
-                        new ConditionEffect { Effect = ConditionEffectIndex.Armored, DurationMS = 500 }
-                    );
+                {
+                    p.ApplyConditionEffect(ConditionEffectIndex.Damaging, 500);
+                    p.ApplyConditionEffect(ConditionEffectIndex.Armored, 500);
+                }
 
             if (cool <= 0)
             {
@@ -39,7 +39,7 @@ namespace wServer.logic.behaviors
                 {
                     if (en is Player p)
                     {
-                        if ((host.AttackTarget != null && host.AttackTarget != p) || p.HasConditionEffect(ConditionEffects.Sick))
+                        if ((host.AttackTarget != null && host.AttackTarget != p) || p.HasConditionEffect(ConditionEffectIndex.Sick))
                             continue;
 
                         var maxHp = p.Stats[0];

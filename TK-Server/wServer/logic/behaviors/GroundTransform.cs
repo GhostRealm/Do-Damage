@@ -30,7 +30,7 @@ namespace wServer.logic.behaviors
             var map = host.World.Map;
             var hx = (int)host.X;
             var hy = (int)host.Y;
-            var tileType = host.CoreServerManager.Resources.GameData.IdToTileType[_tileId];
+            var tileType = host.GameServer.Resources.GameData.IdToTileType[_tileId];
             var tiles = new List<TileState>();
 
             if (_relativeX != null && _relativeY != null)
@@ -38,7 +38,7 @@ namespace wServer.logic.behaviors
                 var x = hx + (int)_relativeX;
                 var y = hy + (int)_relativeY;
 
-                if (!map.Contains(new IntPoint(x, y)))
+                if (!map.Contains(x, y))
                     return;
 
                 var tile = map[x, y];
@@ -58,7 +58,7 @@ namespace wServer.logic.behaviors
             for (var i = hx - _radius; i <= hx + _radius; i++)
                 for (var j = hy - _radius; j <= hy + _radius; j++)
                 {
-                    if (!map.Contains(new IntPoint(i, j)))
+                    if (!map.Contains(i, j))
                         continue;
 
                     var tile = map[i, j];

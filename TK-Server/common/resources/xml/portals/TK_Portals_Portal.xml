@@ -1,4 +1,176 @@
 <Objects>
+	<Object type="0xa141" id="Cave of Eternal Frost">
+		<Class>Portal</Class>
+		<Size>140</Size>
+		<IntergamePortal />
+		<DisplayId>Cave of Eternal Frost</DisplayId>
+		<DungeonName>Cave of Eternal Frost</DungeonName>
+		<Texture>
+			<File>custom16x16Environment</File>
+			<Index>0x15</Index>
+		</Texture>
+		<Animation prob="1" period="1">
+			<Frame time="0.05">
+				<Texture>
+					<File>custom16x16Environment</File>
+					<Index>0x16</Index>
+				</Texture>
+			</Frame>
+			<Frame time="0.10">
+				<Texture>
+					<File>custom16x16Environment</File>
+					<Index>0x17</Index>
+				</Texture>
+			</Frame>
+			<Frame time="0.10">
+				<Texture>
+					<File>custom16x16Environment</File>
+					<Index>0x18</Index>
+				</Texture>
+			</Frame>
+			<Frame time="0.10">
+				<Texture>
+					<File>custom16x16Environment</File>
+					<Index>0x19</Index>
+				</Texture>
+			</Frame>
+			<Frame time="0.10">
+				<Texture>
+					<File>custom16x16Environment</File>
+					<Index>0x1a</Index>
+				</Texture>
+			</Frame>
+			<Frame time="0.10">
+				<Texture>
+					<File>custom16x16Environment</File>
+					<Index>0x1b</Index>
+				</Texture>
+			</Frame>
+			<Frame time="0.10">
+				<Texture>
+					<File>custom16x16Environment</File>
+					<Index>0x1c</Index>
+				</Texture>
+			</Frame>
+			<Frame time="0.10">
+				<Texture>
+					<File>custom16x16Environment</File>
+					<Index>0x1d</Index>
+				</Texture>
+			</Frame>
+			<Frame time="0.10">
+				<Texture>
+					<File>custom16x16Environment</File>
+					<Index>0x1e</Index>
+				</Texture>
+			</Frame>
+			<Frame time="0.05">
+				<Texture>
+					<File>custom16x16Environment</File>
+					<Index>0x1f</Index>
+				</Texture>
+			</Frame>
+		</Animation>
+		<ShadowSize>0</ShadowSize>
+	</Object>
+	<Object type="0x950d" id="Hideout of Stheno Portal">
+		<Class>Portal</Class>
+		<IntergamePortal />
+		<DisplayId>Hideout of Stheno</DisplayId>
+		<DungeonName>Hideout of Stheno</DungeonName>
+		<Size>80</Size>
+		<Texture>
+			<File>custom16x16Environment</File>
+			<Index>0x54</Index>
+		</Texture>
+		<Animation prob="1" period="0">
+			<Frame time="0.2">
+				<Texture>
+					<File>custom16x16Environment</File>
+					<Index>0x54</Index>
+				</Texture>
+			</Frame>
+			<Frame time="0.2">
+				<Texture>
+					<File>custom16x16Environment</File>
+					<Index>0x55</Index>
+				</Texture>
+			</Frame>
+			<Frame time="0.2">
+				<Texture>
+					<File>custom16x16Environment</File>
+					<Index>0x56</Index>
+				</Texture>
+			</Frame>
+			<Frame time="0.2">
+				<Texture>
+					<File>custom16x16Environment</File>
+					<Index>0x57</Index>
+				</Texture>
+			</Frame>
+			<Frame time="0.2">
+					<Texture>
+						<File>custom16x16Environment</File>
+						<Index>0x56</Index>
+					</Texture>
+				</Frame>
+				<Frame time="0.2">
+					<Texture>
+						<File>custom16x16Environment</File>
+						<Index>0x55</Index>
+					</Texture>
+				</Frame>
+		</Animation>
+		<ShadowSize>75</ShadowSize>
+	</Object>
+	<Object type="0x9907" id="Hideout of Limon Portal">
+		<Class>Portal</Class>
+		<IntergamePortal />
+		<DisplayId>Hideout of Limon</DisplayId>
+		<DungeonName>Hideout of Limon</DungeonName>
+		<Size>80</Size>
+		<Texture>
+			<File>custom16x16Environment</File>
+			<Index>0x68</Index>
+		</Texture>
+		<Animation prob="1" period="0">
+			<Frame time="0.2">
+				<Texture>
+					<File>custom16x16Environment</File>
+					<Index>0x69</Index>
+				</Texture>
+			</Frame>
+			<Frame time="0.2">
+				<Texture>
+					<File>custom16x16Environment</File>
+					<Index>0x6a</Index>
+				</Texture>
+			</Frame>
+			<Frame time="0.2">
+				<Texture>
+					<File>custom16x16Environment</File>
+					<Index>0x6b</Index>
+				</Texture>
+			</Frame>
+			<Frame time="0.2">
+				<Texture>
+					<File>custom16x16Environment</File>
+					<Index>0x6c</Index>
+				</Texture>
+			</Frame>
+		</Animation>
+		<ShadowSize>75</ShadowSize>
+	</Object>
+	<Object type="0x23be" id="Garden of Horror Portal">
+		<Class>Portal</Class>
+		<IntergamePortal />
+		<DisplayId>Garden of Horror</DisplayId>
+		<DungeonName>Garden of Horror</DungeonName>
+		<Texture>
+			<File>customEnvironment</File>
+			<Index>0x4d</Index>
+		</Texture>
+	</Object>
   <Object type="0x9021" id="The Sacred Chamber of Wingus">
     <DisplayId>The Sacred Chamber of Wingus</DisplayId>
     <Class>Portal</Class>
@@ -383,6 +555,58 @@
       <Index>0x4BA</Index>
     </Texture>
   </Object>
+	<Object type="0x2023" id="Defiled Graveyard Portal">
+		<DisplayId>Defiled Graveyard</DisplayId>
+		<Class>Portal</Class>
+		<IntergamePortal />
+		<DungeonName>Defiled Graveyard</DungeonName>
+		<Texture>
+			<File>custom16x16Environment</File>
+			<Index>0x7b</Index>
+		</Texture>
+		<Animation prob="1" period="1">
+			<Frame time="0.05">
+				<Texture>
+					<File>custom16x16Environment</File>
+					<Index>0x7b</Index>
+				</Texture>
+			</Frame>
+			<Frame time="0.20">
+				<Texture>
+					<File>custom16x16Environment</File>
+					<Index>0x7c</Index>
+				</Texture>
+			</Frame>
+			<Frame time="0.20">
+				<Texture>
+					<File>custom16x16Environment</File>
+					<Index>0x7d</Index>
+				</Texture>
+			</Frame>
+			<Frame time="0.20">
+				<Texture>
+					<File>custom16x16Environment</File>
+					<Index>0x7e</Index>
+				</Texture>
+			</Frame>
+			<Frame time="50">
+				<Texture>
+					<File>custom16x16Environment</File>
+					<Index>0x7f</Index>
+				</Texture>
+			</Frame>
+		</Animation>
+	</Object>
+	<Object type="0x2022" id="Trial of Souls">
+		<DisplayId>Trial of Souls</DisplayId>
+		<Class>Portal</Class>
+		<IntergamePortal />
+		<DungeonName>Trial of Souls</DungeonName>
+		<Texture>
+			<File>CustomObj1</File>
+			<Index>0x06</Index>
+		</Texture>
+	</Object>
   <Object type="0x2295" id="Lair of Shaitan Portal">
     <DisplayId>Shaitan's Portal</DisplayId>
     <Class>Portal</Class>
@@ -1134,21 +1358,33 @@
 			<Frame time="0.1">
 				<Texture>
 					<File>custom16x16Environment</File>
-					<Index>0x51</Index>
+					<Index>0x45</Index>
 				</Texture>
 			</Frame>
 			<Frame time="0.1">
 				<Texture>
 					<File>custom16x16Environment</File>
-					<Index>0x52</Index>
+					<Index>0x44</Index>
 				</Texture>
 			</Frame>
 			<Frame time="0.1">
 				<Texture>
 					<File>custom16x16Environment</File>
-					<Index>0x53</Index>
+					<Index>0x43</Index>
 				</Texture>
 				<Frame time="0.2">
+					<Texture>
+						<File>custom16x16Environment</File>
+						<Index>0x42</Index>
+					</Texture>
+				</Frame>
+				<Frame time="0.1">
+					<Texture>
+						<File>custom16x16Environment</File>
+						<Index>0x41</Index>
+					</Texture>
+				</Frame>
+				<Frame time="0.1">
 					<Texture>
 						<File>custom16x16Environment</File>
 						<Index>0x40</Index>
@@ -1158,40 +1394,14 @@
 		</Animation>
 		<ShadowSize>75</ShadowSize>
 	</Object>
-	<Object type="0x950d" id="Hideout of Stheno Portal">
+	<Object type="0x9906" id="Hideout of Thessal Portal">
 		<Class>Portal</Class>
 		<IntergamePortal />
-		<DisplayId>Hideout of Stheno</DisplayId>
-		<DungeonName>Hideout of Stheno</DungeonName>
+		<DisplayId>Hideout of Thessal</DisplayId>
+		<DungeonName>Hideout of Thessal</DungeonName>
 		<Texture>
 			<File>lofiEnvironment2</File>
-			<Index>0x8c</Index>
+			<Index>0x9f</Index>
 		</Texture>
-		<Animation prob="0.6" period="1.6">
-			<Frame time="0.4">
-				<Texture>
-					<File>lofiEnvironment2</File>
-					<Index>0x8d</Index>
-				</Texture>
-			</Frame>
-			<Frame time="0.4">
-				<Texture>
-					<File>lofiEnvironment2</File>
-					<Index>0x8e</Index>
-				</Texture>
-			</Frame>
-			<Frame time="0.4">
-				<Texture>
-					<File>lofiEnvironment2</File>
-					<Index>0x8d</Index>
-				</Texture>
-			</Frame>
-			<Frame time="0.4">
-				<Texture>
-					<File>lofiEnvironment2</File>
-					<Index>0x8e</Index>
-				</Texture>
-			</Frame>
-		</Animation>
 	</Object>
 </Objects>

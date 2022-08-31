@@ -1,4 +1,5 @@
-﻿using common.resources;
+﻿using common;
+using common.resources;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -30,17 +31,16 @@ namespace wServer.core.setpieces
         private static readonly string WallA = "Grey Wall";
         private static readonly string WallB = "Destructible Grey Wall";
 
-        private Random rand = new Random();
 
-        public int Size => 34;
+        public override int Size => 34;
 
-        public void RenderSetPiece(World world, IntPoint pos)
+        public override void RenderSetPiece(World world, IntPoint pos)
         {
             var t = new int[23, 35];
 
             for (var x = 0; x < 23; x++)    //Floor
                 for (var y = 0; y < 35; y++)
-                    t[x, y] = rand.Next() % 3 == 0 ? 0 : 1;
+                    t[x, y] = world.Random.Next() % 3 == 0 ? 0 : 1;
 
             for (var y = 0; y < 35; y++)    //Perimeters
                 t[0, y] = t[22, y] = 2;
@@ -53,7 +53,7 @@ namespace wServer.core.setpieces
             for (var y = 0; y < 11; y++)    //Crosses
                 for (var x = 0; x < 7; x++)
                 {
-                    if (rand.Next() % 3 > 0)
+                    if (world.Random.Next() % 3 > 0)
                         t[2 + 3 * x, 2 + 3 * y] = 4;
                     else
                         pts.Add(new IntPoint(2 + 3 * x, 2 + 3 * y));
@@ -65,7 +65,7 @@ namespace wServer.core.setpieces
                     if (t[x, y] == 1 || t[x, y] == 0 || t[x, y] == 4)
                         continue;
 
-                    var p = rand.NextDouble();
+                    var p = world.Random.NextDouble();
 
                     if (p < 0.1)
                         t[x, y] = 1;
@@ -74,18 +74,18 @@ namespace wServer.core.setpieces
                 }
 
             //Boss & Chest
-            var pt = pts[rand.Next(0, pts.Count)];
+            var pt = world.Random.NextLength(pts);
             t[pt.X, pt.Y] = 5;
             t[pt.X + 1, pt.Y] = 6;
 
-            var r = rand.Next(0, 4);
+            var r = world.Random.Next(0, 4);
 
             for (var i = 0; i < r; i++)     //Rotation
-                t = SetPieces.rotateCW(t);
+                t = SetPieces.RotateCW(t);
 
             var w = t.GetLength(0);
             var h = t.GetLength(1);
-            var dat = world.Manager.Resources.GameData;
+            var dat = world.GameServer.Resources.GameData;
 
             for (var x = 0; x < w; x++)     //Rendering
                 for (var y = 0; y < h; y++)
@@ -114,7 +114,7 @@ namespace wServer.core.setpieces
                         tile.TileId = dat.IdToTileType[Floor];
                         tile.UpdateCount++;
 
-                        var wall = Entity.Resolve(world.Manager, dat.IdToObjectType[WallB]);
+                        var wall = Entity.Resolve(world.GameServer, dat.IdToObjectType[WallB]);
                         wall.Move(x + pos.X + 0.5f, y + pos.Y + 0.5f);
                         world.EnterWorld(wall);
                     }
@@ -132,8 +132,8 @@ namespace wServer.core.setpieces
                     }
                     else if (t[x, y] == 5)
                     {
-                        var container = new Container(world.Manager, 0x0501, null, false);
-                        var items = chest.CalculateItems(world.Manager, 3, 8).ToArray();
+                        var container = new Container(world.GameServer, 0x0501, null, false);
+                        var items = chest.CalculateItems(world.GameServer, world.Random,3, 8).ToArray();
 
                         for (int i = 0; i < items.Length; i++)
                             container.Inventory[i] = items[i];
@@ -143,7 +143,7 @@ namespace wServer.core.setpieces
                     }
                     else if (t[x, y] == 6)
                     {
-                        var mage = Entity.Resolve(world.Manager, "Deathmage");
+                        var mage = Entity.Resolve(world.GameServer, "Deathmage");
                         mage.Move(pos.X + x, pos.Y + y);
                         world.EnterWorld(mage);
                     }

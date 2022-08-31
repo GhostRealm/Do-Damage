@@ -14,20 +14,38 @@ namespace wServer.core.objects
         internal bool tradeAccepted;
         internal Player tradeTarget;
 
-        public void CancelTrade()
+        public void CancelTrade(bool leftmarket = false)
         {
-            Client.SendPacket(new TradeDone()
+            if (!leftmarket)
             {
-                Code = 1,
-                Description = "Trade canceled!"
-            });
-
-            if (tradeTarget != null && tradeTarget.Client != null)
-                tradeTarget.Client.SendPacket(new TradeDone()
+                Client.SendPacket(new TradeDone()
                 {
                     Code = 1,
                     Description = "Trade canceled!"
                 });
+
+                if (tradeTarget != null && tradeTarget.Client != null)
+                    tradeTarget.Client.SendPacket(new TradeDone()
+                    {
+                        Code = 1,
+                        Description = "Trade canceled!"
+                    });
+            }
+            else
+            {
+                Client.SendPacket(new TradeDone()
+                {
+                    Code = 1,
+                    Description = "You left the market, Trade canceled!"
+                });
+
+                if (tradeTarget != null && tradeTarget.Client != null)
+                    tradeTarget.Client.SendPacket(new TradeDone()
+                    {
+                        Code = 1,
+                        Description = "Client left the market, Trade canceled!"
+                    });
+            }
 
             ResetTrade();
         }
@@ -35,13 +53,14 @@ namespace wServer.core.objects
         public void RequestTrade(string name)
         {
             if (World is TestWorld) return;
-            if (World is MarketplaceWorld)
+
+            if (!IsInMarket && (World is NexusWorld))
             {
-                SendError("<Marketplace> Trade is restricted in the Marketplace!");
+                SendError("You cannot trade outside the market.");
                 return;
             }
 
-            CoreServerManager.Database.ReloadAccount(Client.Account);
+            GameServer.Database.ReloadAccount(Client.Account);
 
             var acc = Client.Account;
 
@@ -51,19 +70,13 @@ namespace wServer.core.objects
                 return;
             }
 
-            /*if (!this.CanUseThisFeature(GenericRank.VIP))
-            {
-                SendError("You cannot peform this action due higher rank.");
-                return;
-            }*/
-
             if (tradeTarget != null)
             {
                 SendError("Already trading!");
                 return;
             }
 
-            if (acc.Rank >= 60)
+            if (Client.Rank.IsAdmin)
             {
                 SendError("You cannot trade.");
                 return;
@@ -82,17 +95,18 @@ namespace wServer.core.objects
                 SendError(name + " not found!");
                 return;
             }
+
             if (target == this)
             {
                 SendError("You can't trade with yourself!");
                 return;
             }
 
-            /*if (!target.CanUseThisFeature(GenericRank.VIP))
+            if (!target.IsInMarket && (target.World is NexusWorld))
             {
-                SendError("Cannot trade with a higher rank.");
+                SendError("They are not inside the market.");
                 return;
-            }*/
+            }
 
             if (target.Client.Account.IgnoreList.Contains(AccountId))
                 return; // account is ignored
@@ -176,7 +190,6 @@ namespace wServer.core.objects
                 tradeTarget.trade = null;
                 tradeTarget.tradeAccepted = false;
             }
-
             tradeTarget = null;
             trade = null;
             tradeAccepted = false;

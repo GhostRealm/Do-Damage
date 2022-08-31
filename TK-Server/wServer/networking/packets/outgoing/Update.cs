@@ -19,27 +19,10 @@ namespace wServer.networking.packets.outgoing
             }
         }
 
-        public List<TileData> Tiles { get; set; }
-        public List<ObjectDef> NewObjs { get; set; }
-        public List<int> Drops { get; set; }
-
-        public override PacketId ID => PacketId.UPDATE;
-
-        public override Packet CreateInstance()
-        {
-            return new Update();
-        }
-
-        public Update()
-        {
-            Tiles = new List<TileData>();
-            NewObjs = new List<ObjectDef>();
-            Drops = new List<int>();
-        }
-
-        protected override void Read(NReader rdr)
-        {
-        }
+        public List<TileData> Tiles { get; set; } = new List<TileData>();
+        public List<ObjectDef> NewObjs { get; set; } = new List<ObjectDef>();
+        public List<int> Drops { get; set; } = new List<int>();
+        public override MessageId MessageId => MessageId.UPDATE;
 
         protected override void Write(NWriter wtr)
         {

@@ -89,47 +89,40 @@ namespace wServer.logic
                     ),
                 new State("Daisy_attack",
                     new Prioritize(
-                        new StayCloseToSpawn(0.3, range: 7),
-                        new Wander(0.3)
+                        new StayCloseToSpawn(1, range: 7),
+                        new Wander(1)
                         ),
                     new State("Quadforce1",
-                        new ConditionalEffect(ConditionEffectIndex.Invulnerable),
-                        new Shoot(0, projectileIndex: 0, count: 4, shootAngle: 90, fixedAngle: 0, coolDown: 300),
+                        new Shoot(10, projectileIndex: 0, count: 4, shootAngle: 90, fixedAngle: 0, coolDown: 300),
                         new TimedTransition(200, "Quadforce2")
                         ),
                     new State("Quadforce2",
-                        new ConditionalEffect(ConditionEffectIndex.Invulnerable),
-                        new Shoot(0, projectileIndex: 0, count: 4, shootAngle: 90, fixedAngle: 15, coolDown: 300),
+                        new Shoot(10, projectileIndex: 0, count: 4, shootAngle: 90, fixedAngle: 15, coolDown: 300),
                         new TimedTransition(200, "Quadforce3")
                         ),
                     new State("Quadforce3",
-                        new ConditionalEffect(ConditionEffectIndex.Invulnerable),
-                        new Shoot(0, projectileIndex: 0, count: 4, shootAngle: 90, fixedAngle: 30, coolDown: 300),
+                        new Shoot(10, projectileIndex: 0, count: 4, shootAngle: 90, fixedAngle: 30, coolDown: 300),
                         new TimedTransition(200, "Quadforce4")
                         ),
                     new State("Quadforce4",
-                        new Shoot(10, projectileIndex: 3, coolDown: 1000),
-                        new Shoot(0, projectileIndex: 0, count: 4, shootAngle: 90, fixedAngle: 45, coolDown: 300),
+                        new Shoot(10, projectileIndex: 0, count: 4, shootAngle: 90, fixedAngle: 45, coolDown: 300),
                         new TimedTransition(200, "Quadforce5")
                         ),
                     new State("Quadforce5",
-                        new Shoot(0, projectileIndex: 0, count: 4, shootAngle: 90, fixedAngle: 60, coolDown: 300),
+                        new Shoot(10, projectileIndex: 0, count: 4, shootAngle: 90, fixedAngle: 60, coolDown: 300),
                         new TimedTransition(200, "Quadforce6")
                         ),
                     new State("Quadforce6",
-                        new ConditionalEffect(ConditionEffectIndex.Invulnerable),
-                        new Shoot(0, projectileIndex: 0, count: 4, shootAngle: 90, fixedAngle: 75, coolDown: 300),
+                        new Shoot(10, projectileIndex: 0, count: 4, shootAngle: 90, fixedAngle: 75, coolDown: 300),
                         new TimedTransition(200, "Quadforce7")
                         ),
                     new State("Quadforce7",
-                        new ConditionalEffect(ConditionEffectIndex.Invulnerable),
-                        new Shoot(0, projectileIndex: 0, count: 4, shootAngle: 90, fixedAngle: 90, coolDown: 300),
+                        new Shoot(10, projectileIndex: 0, count: 4, shootAngle: 90, fixedAngle: 90, coolDown: 300),
                         new TimedTransition(200, "Quadforce8")
                         ),
                     new State("Quadforce8",
-                        new ConditionalEffect(ConditionEffectIndex.Invulnerable),
-                        new Shoot(10, projectileIndex: 3, coolDown: 1000),
-                        new Shoot(0, projectileIndex: 0, count: 4, shootAngle: 90, fixedAngle: 105, coolDown: 300),
+                        new Shoot(10, projectileIndex: 3, coolDown: 500),
+                        new Shoot(10, projectileIndex: 0, count: 4, shootAngle: 90, fixedAngle: 105, coolDown: 300),
                         new TimedTransition(200, "Quadforce1")
                         ),
                     new HpLessTransition(0.3, "Whoa_nelly"),
@@ -138,17 +131,17 @@ namespace wServer.logic
                 new State("Warning",
                     new Prioritize(
                         new StayCloseToSpawn(0.5, range: 7),
-                        new Wander(0.5)
+                        new Wander(1)
                         ),
                     new ConditionalEffect(ConditionEffectIndex.Invulnerable),
                     new Flash(0xff00ff00, 0.2, 15),
-                    new Follow(0.4, acquireRange: 9, range: 2),
+                    new Follow(2, acquireRange: 9, range: 2),
                     new TimedTransition(3000, "Summon_the_clones")
                     ),
                 new State("Summon_the_clones",
                     new Prioritize(
-                        new StayCloseToSpawn(0.85, range: 7),
-                        new Wander(0.85)
+                        new StayCloseToSpawn(1, range: 7),
+                        new Wander(1)
                         ),
                     new Shoot(10, projectileIndex: 0, coolDown: 1000),
                     new Spawn("Crystal Prisoner Clone", maxChildren: 4, initialSpawn: 0, coolDown: 200),
@@ -161,14 +154,14 @@ namespace wServer.logic
                         new TimedTransition(3000, "vulnerable_clone")
                         ),
                     new State("vulnerable_clone",
-                        new TimedTransition(1200, "invulnerable_clone")
+                        new TimedTransition(5000, "invulnerable_clone")
                         ),
                     new TimedTransition(16000, "Warning2")
                     ),
                 new State("Warning2",
                     new Prioritize(
                         new StayCloseToSpawn(0.85, range: 7),
-                        new Wander(0.85)
+                        new Wander(1)
                         ),
                     new ConditionalEffect(ConditionEffectIndex.Invulnerable),
                     new Flash(0xff00ff00, 0.2, 25),
@@ -176,17 +169,17 @@ namespace wServer.logic
                     ),
                 new State("Whoa_nelly",
                     new Prioritize(
-                        new StayCloseToSpawn(0.6, range: 7),
-                        new Wander(0.6)
+                        new StayCloseToSpawn(1, range: 7),
+                        new Wander(1)
                         ),
-                    new Shoot(10, projectileIndex: 3, count: 3, shootAngle: 120, coolDown: 900),
-                    new Shoot(10, projectileIndex: 2, count: 3, shootAngle: 15, fixedAngle: 40, coolDown: 1600,
+                    new Shoot(10, projectileIndex: 3, count: 3, shootAngle: 120, coolDown: 500),
+                    new Shoot(10, projectileIndex: 2, count: 3, shootAngle: 15, fixedAngle: 40, coolDown: 800,
                         coolDownOffset: 0),
-                    new Shoot(10, projectileIndex: 2, count: 3, shootAngle: 15, fixedAngle: 220, coolDown: 1600,
+                    new Shoot(10, projectileIndex: 2, count: 3, shootAngle: 15, fixedAngle: 220, coolDown: 800,
                         coolDownOffset: 0),
-                    new Shoot(10, projectileIndex: 2, count: 3, shootAngle: 15, fixedAngle: 130, coolDown: 1600,
+                    new Shoot(10, projectileIndex: 2, count: 3, shootAngle: 15, fixedAngle: 130, coolDown: 800,
                         coolDownOffset: 800),
-                    new Shoot(10, projectileIndex: 2, count: 3, shootAngle: 15, fixedAngle: 310, coolDown: 1600,
+                    new Shoot(10, projectileIndex: 2, count: 3, shootAngle: 15, fixedAngle: 310, coolDown: 800,
                         coolDownOffset: 800),
                     new State("invulnerable_whoa",
                         new ConditionalEffect(ConditionEffectIndex.Invulnerable),
@@ -201,15 +194,15 @@ namespace wServer.logic
                     new ChangeSize(13, 260),
                     new Prioritize(
                         new StayCloseToSpawn(0.2, range: 7),
-                        new Wander(0.2)
+                        new Wander(1)
                         ),
-                    new Shoot(10, projectileIndex: 1, count: 9, shootAngle: 40, fixedAngle: 40, coolDown: 2000,
+                    new Shoot(10, projectileIndex: 1, count: 9, shootAngle: 40, fixedAngle: 40, coolDown: 800,
                         coolDownOffset: 400),
-                    new Shoot(10, projectileIndex: 1, count: 9, shootAngle: 40, fixedAngle: 60, coolDown: 2000,
+                    new Shoot(10, projectileIndex: 1, count: 9, shootAngle: 40, fixedAngle: 60, coolDown: 800,
                         coolDownOffset: 800),
-                    new Shoot(10, projectileIndex: 1, count: 9, shootAngle: 40, fixedAngle: 50, coolDown: 2000,
+                    new Shoot(10, projectileIndex: 1, count: 9, shootAngle: 40, fixedAngle: 50, coolDown: 800,
                         coolDownOffset: 1200),
-                    new Shoot(10, projectileIndex: 1, count: 9, shootAngle: 40, fixedAngle: 70, coolDown: 2000,
+                    new Shoot(10, projectileIndex: 1, count: 9, shootAngle: 40, fixedAngle: 70, coolDown: 800,
                         coolDownOffset: 1600),
                     new State("invulnerable_mass",
                         new ConditionalEffect(ConditionEffectIndex.Invulnerable),
@@ -235,22 +228,22 @@ namespace wServer.logic
                 new ItemLoot("Potion of Speed", 1),
                 new ItemLoot("Potion of Attack", 0.5),
                 new ItemLoot("Potion of Speed", 0.5),
-                new ItemLoot("Refraction Cutter", 0.0015),
-                new ItemLoot("Prismatic Stone", 0.0015),
-                new ItemLoot("Rigid Mantle", 0.0015)
+                new ItemLoot("Refraction Cutter", 0.00015),
+                new ItemLoot("Prismatic Stone", 0.00015),
+                new ItemLoot("Rigid Mantle", 0.00015)
                 ),
 
             new Threshold(0.03,
-                new ItemLoot("Crystal Wand", 0.05),
-                new ItemLoot("Heart of the Realm", 0.003),
-                new ItemLoot("Crystal Sword", 0.06)
+                new ItemLoot("Crystal Wand", 0.005),
+                new ItemLoot("Heart of the Realm", 0.0003),
+                new ItemLoot("Crystal Sword", 0.006)
                 )
             )
         .Init("Crystal Prisoner Clone",
             new State(
                 new Prioritize(
                     new StayCloseToSpawn(0.85, range: 5),
-                    new Wander(0.85)
+                    new Wander(1)
                     ),
                 new Shoot(10, coolDown: 1400),
                 new State("taunt",
@@ -269,7 +262,7 @@ namespace wServer.logic
                     new ConditionalEffect(ConditionEffectIndex.Invulnerable),
                     new Prioritize(
                         new StayCloseToSpawn(3.6, range: 12),
-                        new Wander(3.6)
+                        new Wander(1.5)
                         ),
                     new TimedTransition(800, "attack")
                     ),

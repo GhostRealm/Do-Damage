@@ -1,4 +1,194 @@
 <Objects>
+	<Object type="0x238" id="Yeti Chest Check">
+		<DisplayId>Yeti Chest Check</DisplayId>
+		<Class>Character</Class>
+		<Enemy />
+		<Invincible />
+		<Texture>
+			<File>invisible</File>
+			<Index>0x00</Index>
+		</Texture>
+		<MaxHitPoints>150000</MaxHitPoints>
+		<Defense>15</Defense>
+		<Size>160</Size>
+		<ShadowSize>0</ShadowSize>
+		<XpMult>0.0</XpMult>
+		<NoMiniMap />
+	</Object>
+	<Object type="0xa146" id="Yeti Check">
+		<DisplayId>Yeti Check</DisplayId>
+		<Class>Character</Class>
+		<Enemy />
+		<Invincible />
+		<Texture>
+			<File>invisible</File>
+			<Index>0x00</Index>
+		</Texture>
+		<MaxHitPoints>150000</MaxHitPoints>
+		<Defense>15</Defense>
+		<Size>160</Size>
+		<ShadowSize>0</ShadowSize>
+		<XpMult>0.0</XpMult>
+		<NoMiniMap />
+	</Object>
+	<Object type="0x217" id="Snowman Check">
+		<DisplayId>Snowman Check</DisplayId>
+		<Class>Character</Class>
+		<Enemy />
+		<Invincible />
+		<Texture>
+			<File>invisible</File>
+			<Index>0x00</Index>
+		</Texture>
+		<MaxHitPoints>150000</MaxHitPoints>
+		<Defense>15</Defense>
+		<Size>160</Size>
+		<ShadowSize>0</ShadowSize>
+		<XpMult>0.0</XpMult>
+		<NoMiniMap />
+	</Object>
+	<Object type="0x14A" id="Snowman Check 2">
+		<DisplayId>Snowman Check 2</DisplayId>
+		<Class>Character</Class>
+		<Enemy />
+		<Invincible />
+		<Texture>
+			<File>invisible</File>
+			<Index>0x00</Index>
+		</Texture>
+		<MaxHitPoints>150000</MaxHitPoints>
+		<Defense>15</Defense>
+		<Size>160</Size>
+		<ShadowSize>0</ShadowSize>
+		<XpMult>0.0</XpMult>
+		<NoMiniMap />
+	</Object>
+	<Object type="0x9952" id="Fire wall spawner">
+		<Class>Character</Class>
+		<Enemy />
+		<MaxHitPoints>9999</MaxHitPoints>
+		<Texture>
+			<File>invisible</File>
+			<Index>0</Index>
+		</Texture>
+		<NoMiniMap />
+		<Size>0</Size>
+		<XpMult>0.0</XpMult>
+		<StasisImmune />
+		<DisplayId>Fire wall spawner</DisplayId>
+	</Object>
+	<Object type="0x9953" id="Fire wall spawner 1">
+		<Class>Character</Class>
+		<Enemy />
+		<MaxHitPoints>9999</MaxHitPoints>
+		<Texture>
+			<File>invisible</File>
+			<Index>0</Index>
+		</Texture>
+		<NoMiniMap />
+		<Size>0</Size>
+		<XpMult>0.0</XpMult>
+		<StasisImmune />
+		<DisplayId>Fire wall spawner</DisplayId>
+	</Object>
+	<Object type="0x9954" id="Fire wall spawner 2">
+		<Class>Character</Class>
+		<Enemy />
+		<MaxHitPoints>9999</MaxHitPoints>
+		<Texture>
+			<File>invisible</File>
+			<Index>0</Index>
+		</Texture>
+		<NoMiniMap />
+		<Size>0</Size>
+		<XpMult>0.0</XpMult>
+		<StasisImmune />
+		<DisplayId>Fire wall spawner</DisplayId>
+	</Object>
+	<Object type="0x9955" id="Fire wall spawner 3">
+		<Class>Character</Class>
+		<Enemy />
+		<MaxHitPoints>9999</MaxHitPoints>
+		<Texture>
+			<File>invisible</File>
+			<Index>0</Index>
+		</Texture>
+		<NoMiniMap />
+		<Size>0</Size>
+		<XpMult>0.0</XpMult>
+		<StasisImmune />
+		<DisplayId>Fire wall spawner</DisplayId>
+	</Object>
+	<Object type="0x9956" id="Fire wall spawner 4">
+		<Class>Character</Class>
+		<Enemy />
+		<MaxHitPoints>9999</MaxHitPoints>
+		<Texture>
+			<File>invisible</File>
+			<Index>0</Index>
+		</Texture>
+		<NoMiniMap />
+		<Size>0</Size>
+		<XpMult>0.0</XpMult>
+		<StasisImmune />
+		<DisplayId>Fire wall spawner</DisplayId>
+	</Object>
+	<Object type="0x9957" id="Fire wall spawner 5">
+		<Class>Character</Class>
+		<Enemy />
+		<MaxHitPoints>9999</MaxHitPoints>
+		<Texture>
+			<File>invisible</File>
+			<Index>0</Index>
+		</Texture>
+		<NoMiniMap />
+		<Size>0</Size>
+		<XpMult>0.0</XpMult>
+		<StasisImmune />
+		<DisplayId>Fire wall spawner</DisplayId>
+	</Object>
+	<Object type="0x9958" id="Fire wall spawner 6">
+		<Class>Character</Class>
+		<Enemy />
+		<MaxHitPoints>9999</MaxHitPoints>
+		<Texture>
+			<File>invisible</File>
+			<Index>0</Index>
+		</Texture>
+		<NoMiniMap />
+		<Size>0</Size>
+		<XpMult>0.0</XpMult>
+		<StasisImmune />
+		<DisplayId>Fire wall spawner</DisplayId>
+	</Object>
+	<Object type="0x9959" id="Fire wall spawner 7">
+		<Class>Character</Class>
+		<Enemy />
+		<MaxHitPoints>9999</MaxHitPoints>
+		<Texture>
+			<File>invisible</File>
+			<Index>0</Index>
+		</Texture>
+		<NoMiniMap />
+		<Size>0</Size>
+		<XpMult>0.0</XpMult>
+		<StasisImmune />
+		<DisplayId>Fire wall spawner</DisplayId>
+	</Object>
+	<Object type="0x9960" id="Fire wall spawner 8">
+		<Class>Character</Class>
+		<Enemy />
+		<MaxHitPoints>9999</MaxHitPoints>
+		<Texture>
+			<File>invisible</File>
+			<Index>0</Index>
+		</Texture>
+		<NoMiniMap />
+		<Size>0</Size>
+		<XpMult>0.0</XpMult>
+		<StasisImmune />
+		<DisplayId>Fire wall spawner</DisplayId>
+	</Object>
   <Object type="0x1e18" id="Treasure Dropper">
     <Class>Character</Class>
     <Enemy />
@@ -2565,16 +2755,6 @@
     <XpMult>0.0</XpMult>
     <StasisImmune />
   </Object>
-  <Object type="0x163f" id="Beach Ball">
-    <Class>Character</Class>
-    <Texture>
-      <File>invisible</File>
-      <Index>0</Index>
-    </Texture>
-    <NoMiniMap />
-    <ShadowSize>0</ShadowSize>
-    <Size>0</Size>
-  </Object>
   <Object type="0x16aa" id="Ball">
     <Class>Character</Class>
     <Texture>
@@ -2585,4 +2765,20 @@
     <ShadowSize>0</ShadowSize>
     <Size>0</Size>
   </Object>
+	<Object type="0x9925" id="Mushroom Anchor">
+		<DisplayId>Mushroom</DisplayId>
+		<Class>Character</Class>
+		<Group>Hallowrena</Group>
+		<NoMiniMap />
+		<Texture>
+			<File>invisible</File>
+			<Index>0</Index>
+		</Texture>
+		<HitSound>monster/slimes_death</HitSound>
+		<DeathSound>monster/flying_brain_death</DeathSound>
+		<Size>0</Size>
+		<ShadowSize>0</ShadowSize>
+		<MaxHitPoints>5000</MaxHitPoints>
+		<Defense>20</Defense>
+	</Object>
 </Objects>

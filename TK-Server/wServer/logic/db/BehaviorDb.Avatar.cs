@@ -16,6 +16,7 @@ namespace wServer.logic
             .Init("shtrs Defense System",
                 new State(
                     new DropPortalOnDeath("The Shatters", probability: 1, timeout: 70),
+                    new ScaleHP2(20),
                     new ChangeGroundOnDeath(new[] { "Pure Evil" }, new[] { "shtrs Disaster Floor", "shtrs Shattered Floor" },
                     30),
                     new State("stars",
@@ -1220,10 +1221,10 @@ namespace wServer.logic
                         new ConditionalEffect(ConditionEffectIndex.Invulnerable),
                         new State("Pillars activated!",
                             new Taunt("ACTIVATING PILLARS DEFENSES."),
-                            new Order(50, "shtrs Pillar 1", "PROTECT"),
-                            new Order(50, "shtrs Pillar 2", "PROTECT"),
-                            new Order(50, "shtrs Pillar 3", "PROTECT"),
-                            new Order(50, "shtrs Pillar 4", "PROTECT"),
+                            new OrderOnce(30, "shtrs Pillar 1", "PROTECT"),
+                            new OrderOnce(30, "shtrs Pillar 2", "PROTECT"),
+                            new OrderOnce(30, "shtrs Pillar 3", "PROTECT"),
+                            new OrderOnce(30, "shtrs Pillar 4", "PROTECT"),
                             new TimedTransition(1000, ":D")
                             ),
                         new State(":D",
@@ -1542,10 +1543,10 @@ namespace wServer.logic
                                                         //new ItemLoot("Titanium Core", 0.0015) //NO XML
                 ),
             new Threshold(0.03,
-                new ItemLoot("Tablet of the King's Avatar", 0.0014, threshold: 0.03),
-                new ItemLoot("Gem of Life", 0.0006, threshold: 0.03),
-                new ItemLoot("Ashen Spine", 0.0014, threshold: 0.03),
-                new ItemLoot("Flaking Husk", 0.0014, threshold: 0.03)
+                new ItemLoot("Tablet of the King's Avatar", 0.00014, threshold: 0.03),
+                new ItemLoot("Talisman Fragment", 0.0005),
+                new ItemLoot("Ashen Spine", 0.00014, threshold: 0.03),
+                new ItemLoot("Flaking Husk", 0.00014, threshold: 0.03)
                 ),
             new Threshold(0.001,
                 new ItemLoot("Potion of Defense", 1),
@@ -1593,7 +1594,7 @@ namespace wServer.logic
             .Init("shtrs eyeswarmer",
                 new State(
                     new State("shoot",
-                        new Orbit(1.0, 2, 5, "shtrs Defense System"),
+                        new Orbit(3, 2, 5, "shtrs Defense System"),
                         new Shoot(20, 1, projectileIndex: 0, coolDown: 5000)
                         )
                     )

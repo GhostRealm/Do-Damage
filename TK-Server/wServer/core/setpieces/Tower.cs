@@ -10,8 +10,6 @@ namespace wServer.core.setpieces
         private static readonly string Wall = "Grey Wall";
         private static int[,] quarter;
 
-        private Random rand = new Random();
-
         static Tower()
         {
             var s =
@@ -38,9 +36,9 @@ namespace wServer.core.setpieces
                     quarter[x, y] = a[y][x] == 'X' ? 1 : (a[y][x] == '=' ? 2 : 0);
         }
 
-        public int Size => 27;
+        public override int Size => 27;
 
-        public void RenderSetPiece(World world, IntPoint pos)
+        public override void RenderSetPiece(World world, IntPoint pos)
         {
             var t = new int[27, 27];
             var q = (int[,])quarter.Clone();
@@ -49,19 +47,19 @@ namespace wServer.core.setpieces
                 for (var x = 0; x < 14; x++)
                     t[x, y] = q[x, y];
 
-            q = SetPieces.reflectHori(q);           //Top right
+            q = SetPieces.ReflectHorizontal(q);           //Top right
 
             for (var y = 0; y < 14; y++)
                 for (var x = 0; x < 14; x++)
                     t[13 + x, y] = q[x, y];
 
-            q = SetPieces.reflectVert(q);           //Bottom right
+            q = SetPieces.ReflectVertical(q);           //Bottom right
 
             for (var y = 0; y < 14; y++)
                 for (var x = 0; x < 14; x++)
                     t[13 + x, 13 + y] = q[x, y];
 
-            q = SetPieces.reflectHori(q);           //Bottom left
+            q = SetPieces.ReflectHorizontal(q);           //Bottom left
 
             for (var y = 0; y < 14; y++)
                 for (var x = 0; x < 14; x++)
@@ -73,14 +71,14 @@ namespace wServer.core.setpieces
 
             t[12, 0] = t[13, 0] = t[14, 0] = 2;
 
-            var r = rand.Next(0, 4);                //Rotation
+            var r = world.Random.Next(0, 4);                //Rotation
 
             for (var i = 0; i < r; i++)
-                t = SetPieces.rotateCW(t);
+                t = SetPieces.RotateCW(t);
 
             t[13, 13] = 3;
 
-            var dat = world.Manager.Resources.GameData;
+            var dat = world.GameServer.Resources.GameData;
 
             for (var x = 0; x < 27; x++)            //Rendering
                 for (var y = 0; y < 27; y++)
@@ -111,7 +109,7 @@ namespace wServer.core.setpieces
                         tile.ObjType = 0;
                         tile.UpdateCount++;
 
-                        var ghostKing = Entity.Resolve(world.Manager, 0x0928);
+                        var ghostKing = Entity.Resolve(world.GameServer, 0x0928);
                         ghostKing.Move(pos.X + x, pos.Y + y);
                         world.EnterWorld(ghostKing);
                     }

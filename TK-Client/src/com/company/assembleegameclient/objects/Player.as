@@ -43,9 +43,14 @@ import kabam.rotmg.constants.ActivationType;
 import kabam.rotmg.constants.GeneralConstants;
 import kabam.rotmg.constants.UseType;
 import kabam.rotmg.core.StaticInjectorContext;
+import kabam.rotmg.essences.TalismanLibrary;
+import kabam.rotmg.essences.TalismanModel;
+import kabam.rotmg.essences.TalismanProperties;
+import kabam.rotmg.essences.TalismanTierDesc;
 import kabam.rotmg.game.model.AddTextLineVO;
 import kabam.rotmg.game.model.PotionInventoryModel;
 import kabam.rotmg.game.signals.AddTextLineSignal;
+import kabam.rotmg.messaging.impl.data.TalismanData;
 import kabam.rotmg.stage3D.GraphicsFillExtra;
 import kabam.rotmg.ui.model.TabStripModel;
 
@@ -110,7 +115,9 @@ public class Player extends Character {
         this.maxHPMax_ = int(objectXML.MaxHitPoints.@max);
         this.maxMPMax_ = int(objectXML.MaxMagicPoints.@max);
         texturingCache_ = new Dictionary();
+        talismans_ = new Dictionary();
     }
+
     public var skinId:int;
     public var skin:AnimatedChar;
     public var accountId_:int = -1;
@@ -161,22 +168,6 @@ public class Player extends Character {
     public var xpBoost_:int = 0;
     public var baseStat:int = 0;
     public var points:int = 0;
-    public var maxedLife:Boolean = false;
-    public var maxedMana:Boolean = false;
-    public var maxedAtt:Boolean = false;
-    public var maxedDef:Boolean = false;
-    public var maxedSpd:Boolean = false;
-    public var maxedDex:Boolean = false;
-    public var maxedVit:Boolean = false;
-    public var maxedWis:Boolean = false;
-    public var superMaxedLife:Boolean = false;
-    public var superMaxedMana:Boolean = false;
-    public var superMaxedAtt:Boolean = false;
-    public var superMaxedDef:Boolean = false;
-    public var superMaxedSpd:Boolean = false;
-    public var superMaxedDex:Boolean = false;
-    public var superMaxedVit:Boolean = false;
-    public var superMaxedWis:Boolean = false;
     public var hasBackpack_:Boolean = false;
     public var starred_:Boolean = false;
     public var ignored_:Boolean = false;
@@ -215,28 +206,81 @@ public class Player extends Character {
     public var SPS_Speed_Max:int = 0;
     public var SPS_Vitality_Max:int = 0;
     public var SPS_Attack_Max:int = 0;
-    public var node1TickMin:int = 0;
-    public var node1TickMaj:int = 0;
-    public var node1Med:int = 0;
-    public var node1Big:int = 0;
-    public var node2TickMin:int = 0;
-    public var node2TickMaj:int = 0;
-    public var node2Med:int = 0;
-    public var node2Big:int = 0;
-    public var node3TickMin:int = 0;
-    public var node3TickMaj:int = 0;
-    public var node3Med:int = 0;
-    public var node3Big:int = 0;
-    public var node4TickMin:int = 0;
-    public var node4TickMaj:int = 0;
-    public var node4Med:int = 0;
-    public var node4Big:int = 0;
-    public var node5TickMin:int = 0;
-    public var node5TickMaj:int = 0;
-    public var node5Med:int = 0;
-    public var node5Big:int = 0;
     public var SPS_Modal:PotionStorageModal;
-    //public var SkillTree_Modal:NewSkillTreeModal;
+    private var talismans_:Dictionary;
+    private var activeTalismans_:Vector.<int>;
+    public var essence_:int = 0;
+    public var essenceCap_:int = 0;
+
+    public function addTalisman(talismanData:TalismanData):void {
+        this.talismans_[talismanData.type_] = new TalismanModel(talismanData);
+        if(talismanData.active_){
+            activateTalisman(talismanData.type_);
+        }
+    }
+
+    public function getTalismans():Vector.<TalismanModel>{
+        var talismans:Vector.<TalismanModel> = new Vector.<TalismanModel>();
+        for each(var talisman:TalismanModel in this.talismans_){
+            talismans.push(talisman);
+        }
+        return talismans;
+    }
+
+    public function activateTalisman(type:int):void {
+
+        if(this.activeTalismans_ == null){
+            this.activeTalismans_ = new Vector.<int>();
+        }
+        if(this.activeTalismans_.indexOf(type) != -1){
+            return;
+        }
+        this.activeTalismans_.push(type);
+        updateTalismans();
+    }
+
+    public function deactivateTalisman(type:int):void {
+
+        if(this.activeTalismans_ == null) {
+            this.activeTalismans_ = new Vector.<int>();
+        }
+
+        var index:int = this.activeTalismans_.indexOf(type);
+        if(index == -1){
+            return;
+        }
+        this.activeTalismans_.splice(index, 1);
+        updateTalismans();
+    }
+
+    public function updateTalismans():void{
+        // todo
+
+        for each(var type:int in this.activeTalismans_){
+
+            var talisman:TalismanModel = this.talismans_[type];
+            if(talisman == null){
+                continue;
+            }
+
+            var desc:TalismanProperties = TalismanLibrary.getTalisman(type);
+            if(desc == null){
+                continue;
+            }
+
+            var tierDesc:TalismanTierDesc = desc.tiers_[talisman.tier_];
+            if(tierDesc == null){
+                continue;
+            }
+
+            if(tierDesc.abilityLifeCost > 0.0){
+                this.talismanAbilityLifeCost_ = tierDesc.abilityLifeCost;
+            }
+        }
+    }
+
+    public var talismanNoManaBar_:Boolean;
+    public var talismanAbilityLifeCost_:Number;
 
     override public function moveTo(x:Number, y:Number):Boolean {
         var ret:Boolean = super.moveTo(x, y);
@@ -252,13 +296,14 @@ public class Player extends Character {
         var moveVecAngle:Number = NaN;
         var d:int = 0;
 
-        if (this.dropBoost && !isPaused()) {
+        if (this.dropBoost && !isPaused() && !map_.gs_.isNexus_ && !map_.gs_.isVault_) {
+
             this.dropBoost = this.dropBoost - dt;
             if (this.dropBoost < 0) {
                 this.dropBoost = 0;
             }
         }
-        if (this.xpTimer && !isPaused()) {
+        if (this.xpTimer && !isPaused() && !map_.gs_.isNexus_ && !map_.gs_.isVault_) {
             this.xpTimer = this.xpTimer - dt;
             if (this.xpTimer < 0) {
                 this.xpTimer = 0;
@@ -303,6 +348,7 @@ public class Player extends Character {
         else if (!super.update(time, dt, interpolate)) {
             return false;
         }
+
         if (map_.player_ == this && square_.props_.maxDamage_ > 0 && square_.lastDamage_ + 500 < time && !isInvincible() && (square_.obj_ == null || !square_.obj_.props_.protectFromGroundDamage_)) {
             d = map_.gs_.gsc_.getNextDamage(square_.props_.minDamage_, square_.props_.maxDamage_);
             damage(-1, d, null, hp_ <= d, null);
@@ -458,19 +504,6 @@ public class Player extends Character {
         if (weaponXML == null || !weaponXML.hasOwnProperty("RateOfFire")) {
             return;
         }
-        /*
-        var bigSkill:Number = this.bigSkill11 ? 0.30 : 0;
-        if (this.smallSkill11 > 0) {
-            bigSkill += this.smallSkill11 * 0.02;
-        }
-        if (this.bigSkill1) {
-            bigSkill -= 0.10;
-        }
-        if (this.bigSkill4) {
-            bigSkill -= 0.05;
-        }
-         */
-        var rateSkill:Number = Number(weaponXML.RateOfFire);
         var rateOfFire:Number = Number(weaponXML.RateOfFire);
 
         this.attackPeriod_ = 1 / this.attackFrequency() * (1 / rateOfFire);
@@ -775,14 +808,8 @@ public class Player extends Character {
         }
         var attFreq:Number = MIN_ATTACK_FREQ + this.dexterity_ / 75 * (MAX_ATTACK_FREQ - MIN_ATTACK_FREQ);
         if (isBerserk() || isNinjaBerserk()) {
-            attFreq = attFreq * 1.5;
+            attFreq = attFreq * 1.25;
         }
-        /*if(this.bigSkill11){
-           attFreq += 0.05;
-        }
-        if(this.smallSkill6 > 0){
-           attFreq += (this.smallSkill6 * 2) / 1000;
-        }*/
         return attFreq;
     }
 
@@ -806,6 +833,11 @@ public class Player extends Character {
         if (map_ == null || isPaused()) {
             return false;
         }
+
+        if(map_.disableAbilities_){
+            return false;
+        }
+
         var itemType:int = equipment_[1];
         if (itemType == -1) {
             return false;
@@ -833,11 +865,22 @@ public class Player extends Character {
                 SoundEffectLibrary.play("error");
                 return false;
             }
-            mpCost = int(objectXML.MpCost);
-            if (mpCost > this.mp_) {
-                SoundEffectLibrary.play("no_mana");
-                return false;
+
+            if(this.talismanNoManaBar_) {
+                mpCost = int(this.maxHP_ * this.talismanAbilityLifeCost_);
+                if (mpCost > this.hp_) {
+                    SoundEffectLibrary.play("no_mana");
+                    return false;
+                }
             }
+            else{
+                mpCost = int(objectXML.MpCost);
+                if (mpCost > this.mp_) {
+                    SoundEffectLibrary.play("no_mana");
+                    return false;
+                }
+            }
+
             cooldown = 500;
             if (objectXML.hasOwnProperty("Cooldown")) {
                 cooldown = Number(objectXML.Cooldown) * 1000;
@@ -851,10 +894,21 @@ public class Player extends Character {
         }
         else if (objectXML.hasOwnProperty("MultiPhase")) {
             map_.gs_.gsc_.useItem(now, objectId_, 1, itemType, pW.x, pW.y, useType);
-            mpCost = int(objectXML.MpEndCost);
-            if (mpCost <= this.mp_) {
-                angle = Math.atan2(yS, xS);
-                this.doShoot(now, itemType, objectXML, Parameters.data_.cameraAngle + angle, false);
+
+
+            if(this.talismanNoManaBar_) {
+                mpCost = int(this.maxHP_ * this.talismanAbilityLifeCost_);
+                if (mpCost <= this.hp_) {
+                    angle = Math.atan2(yS, xS);
+                    this.doShoot(now, itemType, objectXML, Parameters.data_.cameraAngle + angle, false);
+                }
+            }
+            else{
+                mpCost = int(objectXML.MpEndCost);
+                if (mpCost <= this.mp_) {
+                    angle = Math.atan2(yS, xS);
+                    this.doShoot(now, itemType, objectXML, Parameters.data_.cameraAngle + angle, false);
+                }
             }
         }
         return true;
@@ -979,7 +1033,7 @@ public class Player extends Character {
         }
         var moveSpeed:Number = MIN_MOVE_SPEED + this.speed_ / 75 * (MAX_MOVE_SPEED - MIN_MOVE_SPEED);
         if (isSpeedy() || isNinjaSpeedy()) {
-            moveSpeed = moveSpeed * 1.5;
+            moveSpeed = moveSpeed * 1.4;
         }
         moveSpeed = moveSpeed * this.moveMultiplier_;
         return moveSpeed;
@@ -991,7 +1045,7 @@ public class Player extends Character {
         }
         var attMult:Number = MIN_ATTACK_MULT + this.attack_ / 75 * (MAX_ATTACK_MULT - MIN_ATTACK_MULT);
         if (isDamaging() || isNinjaDamaging()) {
-            attMult = attMult * 1.5;
+            attMult = attMult * 1.25;
         }
         return attMult;
     }
@@ -1016,6 +1070,10 @@ public class Player extends Character {
     }
 
     private function shoot(attackAngle:Number):void {
+        if(map_.disableShooting_){
+            return;
+        }
+
         if (map_ == null || isStunned() || isPaused() || isPetrified()) {
             return;
         }
@@ -1026,20 +1084,6 @@ public class Player extends Character {
         }
         var weaponXML:XML = ObjectLibrary.xmlLibrary_[weaponType];
         var time:int = getTimer();
-        /*
-        var bigSkill:Number = this.bigSkill11 ? 0.30 : 0;
-        if (this.smallSkill11 > 0) {
-            bigSkill += this.smallSkill11 * 0.02;
-        }
-        if (this.bigSkill1) {
-            bigSkill -= 0.10;
-        }
-        if (this.bigSkill4) {
-            bigSkill -= 0.05;
-        }
-
-         */
-        var rateSkill:Number = Number(weaponXML.RateOfFire);
         var rateOfFire:Number = Number(weaponXML.RateOfFire);
 
         this.attackPeriod_ = 1 / this.attackFrequency() * (1 / rateOfFire);

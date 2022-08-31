@@ -22,13 +22,13 @@ namespace wServer.logic.behaviors
         {
             Status = CycleStatus.NotStarted;
 
-            if (host.HasConditionEffect(ConditionEffects.Paralyzed))
+            if (host.HasConditionEffect(ConditionEffectIndex.Paralyzed))
                 return;
 
             Status = CycleStatus.InProgress;
 
             var path = new Vector2(_x - host.X, _y - host.Y);
-            var dist = host.GetSpeed(_speed) * time.ElaspedMsDelta / 1000f;
+            var dist = host.GetSpeed(_speed) * time.BehaviourTickTime;
 
             if (path.Length() <= dist)
             {

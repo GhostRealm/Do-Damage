@@ -73,6 +73,7 @@ namespace wServer.logic
         .Init("Thessal the Mermaid Goddess",
             new State(
                 new ScaleHP2(20),
+                new DropPortalOnDeath("Hideout of Thessal Portal", 1),
                 new TransformOnDeath("Thessal the Mermaid Goddess Wounded", probability: 0.1),
                 new TransformOnDeath("Thessal Dropper"),
                 new State("Start",
@@ -250,11 +251,11 @@ namespace wServer.logic
                 LootTemplates.DustLoot()
                 ),
             new Threshold(0.01,
-                new ItemLoot("Coral Bow", 0.01),
-                new ItemLoot("Coral Venom Trap", 0.0032),
-                new ItemLoot("Coral Silk Armor", 0.01),
-                new ItemLoot("Coral Ring", 0.01),
-                new ItemLoot("Ocean Trench Key", 0.01, 0, 0.03)
+                new ItemLoot("Coral Bow", 0.001),
+                new ItemLoot("Coral Venom Trap", 0.00032),
+                new ItemLoot("Coral Silk Armor", 0.001),
+                new ItemLoot("Coral Ring", 0.001),
+                new ItemLoot("Ocean Trench Key", 0.001, 0, 0.03)
                 ),
             new Threshold(0.02,
                 new ItemLoot("Potion of Mana", 1),
@@ -309,7 +310,7 @@ namespace wServer.logic
                     new Prioritize(
                         new Follow(0.6, acquireRange: 9, range: 2)
                         ),
-                    new Orbit(0.6, 5, 9, target: null),
+                    new Orbit(1, 5, 9, target: null),
                     new Shoot(9, 3, projectileIndex: 0, shootAngle: 10, coolDown: 500),
                     new Shoot(9, count: 6, fixedAngle: 0, projectileIndex: 2, coolDown: 2000),
                     new NoPlayerWithinTransition(9, "Range Shoot")

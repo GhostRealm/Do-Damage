@@ -2,15 +2,17 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using wServer.core.objects.connection;
 using wServer.core.objects.vendors;
 using wServer.core.worlds;
 using wServer.logic;
 using wServer.logic.transitions;
+using wServer.memory;
 using wServer.utils;
 
 namespace wServer.core.objects
 {
-    public class Entity : IProjectileOwner, ICollidable<Entity>
+    public class Entity : ICollidable<Entity>
     {
         public Player Controller;
         public bool GivesNoXp;
@@ -18,34 +20,28 @@ namespace wServer.core.objects
         public bool Spawned;
         public bool SpawnedByBehavior;
 
-        protected byte projectileId;
-
         private const float colSkipBoundary = .4f;
-        private const int EffectCount = 54;
 
         private SV<int> _altTextureIndex;
-        private ConditionEffects _conditionEffects;
-        private SV<int> _conditionEffects1;
-        private SV<int> _conditionEffects2;
+        private ConditionEffectIndex _conditionEffects;
         private ObjectDesc _desc;
         private int[] _effects;
         private SV<string> _name;
         private int _originalSize;
         private Position[] _posHistory;
         private byte _posIdx;
-        private Projectile[] _projectiles;
         private SV<int> _size;
         private bool _stateEntry;
         private State _stateEntryCommonRoot;
         private Dictionary<object, object> _states;
-        private bool _tickingEffects;
         private SV<float> _x;
         private SV<float> _y;
         private Player playerOwner;
+        private ConditionEffectManager ConditionEffectManager;
 
-        protected Entity(CoreServerManager coreServerManager, ushort objType)
+        protected Entity(GameServer coreServerManager, ushort objType)
         {
-            CoreServerManager = coreServerManager;
+            GameServer = coreServerManager;
 
             _name = new SV<string>(this, StatDataType.Name, "");
             _size = new SV<int>(this, StatDataType.Size, 100);
@@ -53,13 +49,13 @@ namespace wServer.core.objects
             _altTextureIndex = new SV<int>(this, StatDataType.AltTextureIndex, -1);
             _x = new SV<float>(this, StatDataType.None, 0);
             _y = new SV<float>(this, StatDataType.None, 0);
-            _conditionEffects1 = new SV<int>(this, StatDataType.Effects, 0);
-            _conditionEffects2 = new SV<int>(this, StatDataType.Effects2, 0);
 
             ObjectType = objType;
 
             coreServerManager.BehaviorDb.ResolveBehavior(this);
             coreServerManager.Resources.GameData.ObjectDescs.TryGetValue(ObjectType, out _desc);
+
+            ConditionEffectManager = new ConditionEffectManager(this);
 
             if (_desc == null)
                 return;
@@ -67,8 +63,6 @@ namespace wServer.core.objects
             QuestLevel = _desc.Level;
 
             _posHistory = new Position[256];
-            _projectiles = new Projectile[256];
-            _effects = new int[EffectCount];
         }
 
         public event EventHandler<StatChangedEventArgs> StatChanged;
@@ -77,18 +71,7 @@ namespace wServer.core.objects
         public Player AttackTarget { get; set; }
         public CollisionNode<Entity> CollisionNode { get; set; }
 
-        public ConditionEffects ConditionEffects
-        {
-            get => _conditionEffects;
-            set
-            {
-                _conditionEffects = value;
-                _conditionEffects1?.SetValue((int)value);
-                _conditionEffects2?.SetValue((int)((ulong)value >> 31));
-            }
-        }
-
-        public CoreServerManager CoreServerManager { get; private set; }
+        public GameServer GameServer { get; private set; }
         public State CurrentState { get; private set; }
         public int Id { get; internal set; }
         public bool IsRemovedFromWorld { get; private set; }
@@ -97,11 +80,9 @@ namespace wServer.core.objects
         public ushort ObjectType { get; protected set; }
         public World World { get; private set; }
         public CollisionMap<Entity> Parent { get; set; }
-        Projectile[] IProjectileOwner.Projectiles => _projectiles;
         public int QuestLevel { get; set; } = 1;
         public float RealX => _x.GetValue();
         public float RealY => _y.GetValue();
-        Entity IProjectileOwner.Self => this;
         public int Size { get => _size.GetValue(); set => _size?.SetValue(value); }
 
         public IDictionary<object, object> StateStorage
@@ -115,12 +96,10 @@ namespace wServer.core.objects
             }
         }
 
-        public bool TickStateManually { get; set; }
-
         public float X { get => _x.GetValue(); set => _x.SetValue(value); }
         public float Y { get => _y.GetValue(); set => _y.SetValue(value); }
 
-        public static Entity Resolve(CoreServerManager manager, string name)
+        public static Entity Resolve(GameServer manager, string name)
         {
             if (!manager.Resources.GameData.IdToObjectType.TryGetValue(name, out ushort id))
                 return null;
@@ -128,11 +107,15 @@ namespace wServer.core.objects
             return Resolve(manager, id);
         }
 
-        public static Entity Resolve(CoreServerManager manager, ushort id)
+        public static Entity Resolve(GameServer manager, ushort id)
         {
-            var node = manager.Resources.GameData.ObjectTypeToElement[id];
-            var type = node.Element("Class").Value;
-
+            var node = manager.Resources.GameData.ObjectDescs[id];
+            int? hp;
+            if (node.MaxHP == 0)
+                hp = null;
+            else
+                hp = node.MaxHP;
+            var type = node.Class;
             switch (type)
             {
                 case "Projectile":
@@ -142,7 +125,7 @@ namespace wServer.core.objects
 
                 case "Wall":
                 case "DoubleWall":
-                    return new Wall(manager, id, node);
+                    return new Wall(manager, id, hp);
 
                 case "ConnectedWall":
                 case "CaveWall":
@@ -152,7 +135,7 @@ namespace wServer.core.objects
                 case "CharacterChanger":
                 case "MoneyChanger":
                 case "NameChanger":
-                    return new StaticObject(manager, id, StaticObject.GetHP(node), true, false, true);
+                    return new StaticObject(manager, id, hp, true, false, true);
 
                 case "GuildRegister":
                 case "GuildChronicle":
@@ -177,16 +160,23 @@ namespace wServer.core.objects
                 case "ClosedVaultChest":
                     return new ClosedVaultChest(manager, id);
 
+                case "Merchant":
+                    return new NexusMerchant(manager, id);
+
                 case "ClosedVaultChestGold":
-                case "ClosedGiftChest":
-                case "SpecialClosedVaultChest":
                 case "VaultChest":
                 case "MarketNPC":
                 case "SkillTree":
                 case "Forge":
                 case "StatNPC":
-                case "Merchant":
-                    return new WorldMerchant(manager, id);
+                    return new SellableMerchant(manager, id);
+
+                case "ClosedGiftChest":
+                case "SpecialClosedVaultChest":
+                    return new StaticObject(manager, id, null, false, false, false);
+
+                case "Engine":
+                    return new Engine(manager, id);
 
                 case "GuildMerchant":
                     return new GuildMerchant(manager, id);
@@ -197,85 +187,71 @@ namespace wServer.core.objects
                 case "PotionStorage":
                     return new StaticObject(manager, id, null, false, false, false);
 
+                case "Essence":
+                    return new StaticObject(manager, id, null, false, false, false);
+
                 default:
-                    SLogger.Instance.Warn("Not supported type: {0}", type);
+                    StaticLogger.Instance.Warn("Not supported type: {0}", type);
                     return new Entity(manager, id);
             }
+        }
+
+        public void ApplyPermanentConditionEffect(ConditionEffectIndex effect)
+        {
+            if (!CanApplyCondition(effect))
+                return;
+            ConditionEffectManager.AddPermanentCondition((byte)effect);
+        }
+
+        public void ApplyConditionEffect(ConditionEffectIndex effect, int durationMs)
+        {
+            if (!CanApplyCondition(effect))
+                return;
+            ConditionEffectManager.AddCondition((byte)effect, durationMs);
         }
 
         public void ApplyConditionEffect(params ConditionEffect[] effs)
         {
             foreach (var i in effs)
             {
-                if (!ApplyCondition(i.Effect))
+                if (!CanApplyCondition(i.Effect))
                     continue;
-
-                var eff = (int)i.Effect;
-
-                _effects[eff] = i.DurationMS;
-
-                if (i.DurationMS != 0)
-                    ConditionEffects |= (ConditionEffects)((ulong)1 << eff);
+                ConditionEffectManager.AddCondition((byte)i.Effect, i.DurationMS);
             }
-
-            _tickingEffects = true;
         }
 
-        public void ApplyConditionEffect(ConditionEffectIndex effect, int durationMs = -1)
+        public bool HasConditionEffect(ConditionEffectIndex effect) => ConditionEffectManager.HasCondition((byte)effect);
+        public void RemoveCondition(ConditionEffectIndex effect) => ConditionEffectManager.RemoveCondition((byte)effect);
+
+        private bool CanApplyCondition(ConditionEffectIndex effect)
         {
-            if (!ApplyCondition(effect))
-                return;
-
-            var eff = (int)effect;
-
-            _effects[eff] = durationMs;
-
-            if (durationMs != 0)
-                ConditionEffects |= (ConditionEffects)((ulong)1 << eff);
-
-            _tickingEffects = true;
+            if (effect == ConditionEffectIndex.Stunned && HasConditionEffect(ConditionEffectIndex.StunImmune))
+                return false;
+            if (effect == ConditionEffectIndex.Stasis && HasConditionEffect(ConditionEffectIndex.StasisImmune))
+                return false;
+            if (effect == ConditionEffectIndex.Paralyzed && HasConditionEffect(ConditionEffectIndex.ParalyzeImmune))
+                return false;
+            if (effect == ConditionEffectIndex.ArmorBroken && HasConditionEffect(ConditionEffectIndex.ArmorBreakImmune))
+                return false;
+            if (effect == ConditionEffectIndex.Unstable && HasConditionEffect(ConditionEffectIndex.UnstableImmune))
+                return false;
+            if (effect == ConditionEffectIndex.Curse && HasConditionEffect(ConditionEffectIndex.CurseImmune))
+                return false;
+            if (effect == ConditionEffectIndex.Petrify && HasConditionEffect(ConditionEffectIndex.PetrifyImmune))
+                return false;
+            if (effect == ConditionEffectIndex.Dazed && HasConditionEffect(ConditionEffectIndex.DazedImmune))
+                return false;
+            if (effect == ConditionEffectIndex.Slowed && HasConditionEffect(ConditionEffectIndex.SlowedImmune))
+                return false;
+            return true;
         }
 
         public virtual bool CanBeSeenBy(Player player) => true;
 
-        public Projectile CreateProjectile(ProjectileDesc desc, ushort container, int dmg, long time, Position pos, float angle)
-        {
-            var ret = new Projectile(CoreServerManager, desc) //Assume only one
-            {
-                ProjectileOwner = this,
-                ProjectileId = projectileId++,
-                Container = container,
-                Damage = dmg,
-
-                CreationTime = time,
-                StartPos = pos,
-                Angle = angle,
-
-                X = pos.X,
-                Y = pos.Y
-            };
-
-            if (_projectiles[ret.ProjectileId] != null)
-                _projectiles[ret.ProjectileId].Destroy();
-
-            _projectiles[ret.ProjectileId] = ret;
-
-            return ret;
-        }
-
-        public void Destroy()
-        {
-            IsRemovedFromWorld = true;
-
-            WhenDestroying(this);
-        }
-
-        public ObjectStats ExportStats()
+        public ObjectStats ExportStats(bool isOtherPlayer)
         {
             var stats = new Dictionary<StatDataType, object>();
-
-            ExportStats(stats);
-
+            ExportStats(stats, isOtherPlayer);
             return new ObjectStats()
             {
                 Id = Id,
@@ -283,8 +259,6 @@ namespace wServer.core.objects
                 Stats = stats.ToArray()
             };
         }
-
-        public bool HasConditionEffect(ConditionEffects eff) => (ConditionEffects & eff) != 0;
 
         public virtual bool HitByProjectile(Projectile projectile, TickTime time)
         {
@@ -349,22 +323,21 @@ namespace wServer.core.objects
             _stateEntry = true;
         }
 
-        public virtual void Tick(TickTime time)
+        public virtual void Tick(ref TickTime time)
         {
-            if (this == null || this is Projectile || World == null)
+            if (this == null || World == null)
                 return;
 
             if (CurrentState != null && World != null)
             {
-                if (!HasConditionEffect(ConditionEffects.Stasis) && !TickStateManually && (this.AnyPlayerNearby() || ConditionEffects != 0))
+                if (!HasConditionEffect(ConditionEffectIndex.Stasis) && this.AnyPlayerNearby())
                     TickState(time);
             }
 
+            ConditionEffectManager.Update(ref time);
+
             if (_posHistory != null)
                 _posHistory[++_posIdx] = new Position() { X = X, Y = Y };
-
-            if (_effects != null)
-                ProcessConditionEffects(time);
         }
 
         public void TickState(TickTime time)
@@ -412,7 +385,7 @@ namespace wServer.core.objects
                 }
                 catch (Exception e)
                 {
-                    SLogger.Instance.Error(e);
+                    StaticLogger.Instance.Error(e);
                     continue;
                 }
 
@@ -449,7 +422,7 @@ namespace wServer.core.objects
 
             if (tile.ObjType != 0)
             {
-                var objDesc = CoreServerManager.Resources.GameData.ObjectDescs[tile.ObjType];
+                var objDesc = GameServer.Resources.GameData.ObjectDescs[tile.ObjType];
 
                 if (objDesc?.FullOccupy == true)
                     return true;
@@ -479,11 +452,11 @@ namespace wServer.core.objects
             if (tile == null)
                 return false;
 
-            var tiles = CoreServerManager.Resources.GameData.Tiles;
+            var tiles = GameServer.Resources.GameData.Tiles;
 
             if (!tiles.ContainsKey(tile.TileId))
             {
-                SLogger.Instance.Error($"There is no tile for tile ID '{tile.TileId}'.");
+                StaticLogger.Instance.Error($"There is no tile for tile ID '{tile.TileId}'.");
                 return false;
             }
 
@@ -494,37 +467,33 @@ namespace wServer.core.objects
 
             if (tile.ObjType != 0)
             {
-                var objDescs = CoreServerManager.Resources.GameData.ObjectDescs;
+                var objDescs = GameServer.Resources.GameData.ObjectDescs;
 
                 if (!objDescs.ContainsKey(tile.ObjType))
                 {
-                    SLogger.Instance.Error($"There is no object description for tile object type '{tile.ObjType}'.");
-
+                    StaticLogger.Instance.Error($"There is no object description for tile object type '{tile.ObjType}'.");
                     return false;
                 }
 
                 var objDesc = objDescs[tile.ObjType];
-
                 return objDesc != null && objDesc.EnemyOccupySquare;
             }
 
             return false;
         }
 
-        public ObjectDef ToDefinition() => new ObjectDef()
+        public ObjectDef ToDefinition(bool isOtherPlayer = false) => new ObjectDef()
         {
             ObjectType = ObjectType,
-            Stats = ExportStats()
+            Stats = ExportStats(isOtherPlayer)
         };
 
         public Position? TryGetHistory(long ticks)
         {
             if (_posHistory == null)
                 return null;
-
             if (ticks > 255)
                 return null;
-
             return _posHistory[(byte)(_posIdx - (byte)ticks)];
         }
 
@@ -539,42 +508,12 @@ namespace wServer.core.objects
             Move(pos.X, pos.Y);
         }
 
-        protected virtual void ExportStats(IDictionary<StatDataType, object> stats)
+        protected virtual void ExportStats(IDictionary<StatDataType, object> stats, bool isOtherPlayer)
         {
             stats[StatDataType.Name] = Name;
             stats[StatDataType.Size] = Size;
             stats[StatDataType.AltTextureIndex] = AltTextureIndex;
-            stats[StatDataType.Effects] = _conditionEffects1.GetValue();
-            stats[StatDataType.Effects2] = _conditionEffects2.GetValue();
-        }
-
-        private bool ApplyCondition(ConditionEffectIndex effect)
-        {
-            if (effect == ConditionEffectIndex.Stunned && HasConditionEffect(ConditionEffects.StunImmune))
-                return false;
-
-            if (effect == ConditionEffectIndex.Stasis && HasConditionEffect(ConditionEffects.StasisImmune))
-                return false;
-
-            if (effect == ConditionEffectIndex.Paralyzed && HasConditionEffect(ConditionEffects.ParalyzeImmune))
-                return false;
-
-            if (effect == ConditionEffectIndex.ArmorBroken && HasConditionEffect(ConditionEffects.ArmorBreakImmune))
-                return false;
-
-            if (effect == ConditionEffectIndex.Curse && HasConditionEffect(ConditionEffects.CurseImmune))
-                return false;
-
-            if (effect == ConditionEffectIndex.Petrify && HasConditionEffect(ConditionEffects.PetrifyImmune))
-                return false;
-
-            if (effect == ConditionEffectIndex.Dazed && HasConditionEffect(ConditionEffects.DazedImmune))
-                return false;
-
-            if (effect == ConditionEffectIndex.Slowed && HasConditionEffect(ConditionEffects.SlowedImmune))
-                return false;
-
-            return true;
+            ConditionEffectManager.ExportStats(stats);
         }
 
         private void CalcNewLocation(float x, float y, FPoint pos)
@@ -673,35 +612,6 @@ namespace wServer.core.objects
                     CurrentState = CurrentState.States[0];
         }
 
-        private void ProcessConditionEffects(TickTime time)
-        {
-            if (_effects == null || !_tickingEffects) return;
-
-            ConditionEffects newEffects = 0;
-
-            _tickingEffects = false;
-
-            for (var i = 0; i < _effects.Length; i++)
-            {
-                if (_effects[i] > 0)
-                {
-                    _effects[i] -= time.ElaspedMsDelta;
-
-                    if (_effects[i] > 0)
-                    {
-                        newEffects |= (ConditionEffects)((ulong)1 << i);
-                        _tickingEffects = true;
-                    }
-                    else
-                        _effects[i] = 0;
-                }
-                else if (_effects[i] == -1)
-                    newEffects |= (ConditionEffects)((ulong)1 << i);
-            }
-
-            ConditionEffects = newEffects;
-        }
-
         private bool RegionUnblocked(float x, float y)
         {
             if (TileOccupied(x, y))
@@ -767,7 +677,7 @@ namespace wServer.core.objects
 
         private void ResolveNewLocation(float x, float y, FPoint pos)
         {
-            if (HasConditionEffect(ConditionEffects.Paralyzed))
+            if (HasConditionEffect(ConditionEffectIndex.Paralyzed))
             {
                 pos.X = X;
                 pos.Y = Y;
@@ -800,27 +710,36 @@ namespace wServer.core.objects
                 }
 
                 CalcNewLocation(pos.X + dx * ds, pos.Y + dy * ds, pos);
-                tds = tds + ds;
+                tds += ds;
             }
         }
 
-        private void WhenDestroying(Entity entity)
+        public virtual void Destroy()
         {
-            if (entity is Projectile)
-                return;
-
-            var players = World.GetPlayers().ToArray();
-            if (players.Length == 0)
-                return;
-
-            for (var i = 0; i < players.Length; i++)
-                players[i].PlayerUpdate.DeleteEntry(entity);
+            IsRemovedFromWorld = true;
         }
 
         private class FPoint
         {
             public float X;
             public float Y;
+        }
+
+        protected byte projectileId;
+
+        public Projectile CreateProjectile(ProjectileDesc desc, ushort container, int dmg, long time, Position pos, float angle)
+        {
+            var ret = World.ObjectPools.Projectiles.Rent();
+            ret.Host = this;
+            ret.ProjDesc = desc;
+            ret.ProjectileId = projectileId++;
+            ret.Container = container;
+            ret.Damage = dmg;
+            ret.CreationTime = time;
+            ret.Angle = angle;
+            ret.StartX = pos.X;
+            ret.StartY = pos.Y;
+            return ret;
         }
     }
 }

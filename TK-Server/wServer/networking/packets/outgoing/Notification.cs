@@ -9,20 +9,7 @@ namespace wServer.networking.packets.outgoing
         public ARGB Color { get; set; }
         public int PlayerId { get; set; }
 
-        public override PacketId ID => PacketId.NOTIFICATION;
-
-        public override Packet CreateInstance()
-        {
-            return new Notification();
-        }
-
-        protected override void Read(NReader rdr)
-        {
-            ObjectId = rdr.ReadInt32();
-            Message = rdr.ReadUTF();
-            Color = ARGB.Read(rdr);
-            PlayerId = rdr.ReadInt32();
-        }
+        public override MessageId MessageId => MessageId.NOTIFICATION;
 
         protected override void Write(NWriter wtr)
         {

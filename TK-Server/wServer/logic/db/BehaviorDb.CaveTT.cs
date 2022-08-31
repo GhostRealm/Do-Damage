@@ -92,9 +92,9 @@ namespace wServer.logic
             new State(
                 new SetAltTexture(0, 3, 100, true),
                 new ConditionalEffect(ConditionEffectIndex.Invincible, true),
-                new Shoot(20, 1, projectileIndex: 0, coolDown: 200),
                 new State("Move",
-                    new MoveLine(0.8, 90),
+                    new Shoot(20, 1, projectileIndex: 0, coolDown: 200),
+                    new MoveLine(3, 90),
                     new GroundTransition("Tunnel Ground M", "Suicide")
                     ),
                 new State("Suicide",
@@ -409,10 +409,10 @@ namespace wServer.logic
                     )
                 ),
             new Threshold(0.01,
-                new ItemLoot("Sword of Golden Fragments", 0.01),
-                new ItemLoot("Jewel-Encrusted Helmet", 0.01),
-                new ItemLoot("Luminous Body Armor", 0.01),
-                new ItemLoot("Ring of Golden Shine", 0.01),
+                new ItemLoot("Sword of Golden Fragments", 0.003),
+                new ItemLoot("Jewel-Encrusted Helmet", 0.005),
+                new ItemLoot("Luminous Body Armor", 0.005),
+                new ItemLoot("Ring of Golden Shine", 0.005),
                 new ItemLoot(item: "Potion of Defense", probability: 1),
                 new ItemLoot(item: "Potion of Attack", probability: 1),
                 new ItemLoot(item: "Potion of Speed", probability: 1),
@@ -430,7 +430,7 @@ namespace wServer.logic
         .Init("Treasure Oryx Defender",
             new State(
                 new Prioritize(
-                    new Orbit(speed: 0.5, radius: 3, acquireRange: 6, target: "Golden Oryx Effigy", speedVariance: 0, radiusVariance: 0)
+                    new Orbit(speed: 3, radius: 3, acquireRange: 6, target: "Golden Oryx Effigy", speedVariance: 0, radiusVariance: 0)
                     ),
                 new Shoot(radius: 0, count: 8, shootAngle: 45, defaultAngle: 0, coolDown: 3000)
                 )
@@ -440,7 +440,7 @@ namespace wServer.logic
                 new ConditionalEffect(ConditionEffectIndex.Invincible),
                 new EntityNotExistsTransition(target: "Golden Oryx Effigy", dist: 999, targetState: "Die"),
                 new Prioritize(
-                    new Orbit(speed: 0.5, radius: 7, acquireRange: 20, target: "Golden Oryx Effigy", speedVariance: 0, radiusVariance: 0)
+                    new Orbit(speed: 2.5, radius: 7, acquireRange: 20, target: "Golden Oryx Effigy", speedVariance: 0, radiusVariance: 0)
                     ),
                 new State("GreySpiral",
                     new Shoot(radius: 0, count: 2, shootAngle: 180, projectileIndex: 1, defaultAngle: 90, coolDown: 10000, coolDownOffset: 0),

@@ -140,12 +140,13 @@
     <ParalyzeImmune />
     <StunImmune />
     <DazedImmune />
+	  <SlowedImmune />
     <AnimatedTexture>
       <File>LostHallsChars16x16a</File>
       <Index>28</Index>
     </AnimatedTexture>
     <Size>150</Size>
-    <MaxHitPoints>175000</MaxHitPoints>
+    <MaxHitPoints>300000</MaxHitPoints>
     <Defense>25</Defense>
     <XpMult>2</XpMult>
     <AltTexture id="1">
@@ -206,6 +207,7 @@
       <Speed>30</Speed>
       <Size>100</Size>
       <LifetimeMS>6200</LifetimeMS>
+		<ArmorPiercing/>
       <MultiHit />
     </Projectile>
     <Projectile id="4">

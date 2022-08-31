@@ -1,4 +1,30 @@
 <Objects>
+	<Object type="0x28df" id="Spatial Distortion">
+		<Class>Equipment</Class>
+		<Item />
+		<Texture>
+			<File>CustomObj</File>
+			<Index>0x87</Index>
+		</Texture>
+		<SlotType>11</SlotType>
+		<FameBonus>5</FameBonus>
+		<Description>A dormant spell dropped by dead adventures that was awakened by the forces of space, granting the ability to manipulate space at will.</Description>
+		<Sound>spell/fire_nova</Sound>
+		<ActivateOnEquip stat="26" amount="4">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="27" amount="4">IncrementStat</ActivateOnEquip>
+		<Projectile>
+			<ObjectId>Limons Spell Shot</ObjectId>
+			<Speed>60</Speed>
+			<MinDamage>180</MinDamage>
+			<MaxDamage>210</MaxDamage>
+			<LifetimeMS>2500</LifetimeMS>
+		</Projectile>
+		<Usable />
+		<BagType>7</BagType>
+		<MpCost>90</MpCost>
+		<Activate>BulletNova</Activate>
+		<feedPower>20</feedPower>
+	</Object>
   <Object type="0x8a9" id="Vitamine Buster">
     <Class>Equipment</Class>
     <Item />

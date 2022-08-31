@@ -10,7 +10,7 @@ namespace wServer.core.objects
     {
         private SV<int> _hp;
 
-        public StaticObject(CoreServerManager manager, ushort objType, int? life, bool stat, bool dying, bool hittestable) : base(manager, objType)
+        public StaticObject(GameServer manager, ushort objType, int? life, bool stat, bool dying, bool hittestable) : base(manager, objType)
         {
             _hp = new SV<int>(this, StatDataType.HP, 0, dying);
 
@@ -28,19 +28,9 @@ namespace wServer.core.objects
         public bool Static { get; private set; }
         public bool Vulnerable { get; private set; }
 
-        public static int? GetHP(XElement elem)
-        {
-            var n = elem.Element("MaxHitPoints");
-
-            if (n != null)
-                return Utils.GetInt(n.Value);
-            else
-                return null;
-        }
-
         public override bool HitByProjectile(Projectile projectile, TickTime time)
         {
-            if (Vulnerable && projectile.ProjectileOwner is Player)
+            if (Vulnerable && projectile.Host is Player)
             {
                 var def = ObjectDesc.Defense;
 
@@ -58,24 +48,23 @@ namespace wServer.core.objects
                     DamageAmount = (ushort)dmg,
                     Kill = !CheckHP(),
                     BulletId = projectile.ProjectileId,
-                    ObjectId = projectile.ProjectileOwner.Self.Id
-                }, this, projectile.ProjectileOwner as Player, PacketPriority.Low);
+                    ObjectId = projectile.Host.Id
+                }, this, projectile.Host as Player);
             }
 
             return true;
         }
 
-        public override void Tick(TickTime time)
+        public override void Tick(ref TickTime time)
         {
             if (Vulnerable)
             {
                 if (Dying)
                     HP -= time.ElaspedMsDelta;
-
                 CheckHP();
             }
 
-            base.Tick(time);
+            base.Tick(ref time);
         }
 
         protected bool CheckHP()
@@ -85,15 +74,18 @@ namespace wServer.core.objects
                 var x = (int)(X - 0.5);
                 var y = (int)(Y - 0.5);
 
-                if (World?.Map?.Contains(x, y) ?? false)
+                if (World.Map.Contains(x, y))
                     if (ObjectDesc != null && World.Map[x, y].ObjType == ObjectType)
                     {
                         var tile = World.Map[x, y];
                         tile.ObjType = 0;
                         tile.UpdateCount++;
-                    }
 
-                World?.LeaveWorld(this);
+                        foreach (var player in World.PlayersCollision.HitTest(x, y, PlayerUpdate.VISIBILITY_RADIUS))
+                            if(player is Player && (player as Player).PlayerUpdate != null)
+                                (player as Player).PlayerUpdate.UpdateTiles = true;
+                    }
+                World.LeaveWorld(this);
 
                 return false;
             }
@@ -101,11 +93,10 @@ namespace wServer.core.objects
             return true;
         }
 
-        protected override void ExportStats(IDictionary<StatDataType, object> stats)
+        protected override void ExportStats(IDictionary<StatDataType, object> stats, bool isOtherPlayer)
         {
             stats[StatDataType.HP] = (!Vulnerable) ? int.MaxValue : HP;
-
-            base.ExportStats(stats);
+            base.ExportStats(stats, isOtherPlayer);
         }
     }
 }

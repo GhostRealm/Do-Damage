@@ -8,18 +8,7 @@ namespace wServer.networking.packets.outgoing
 
         public int PartyId { get; set; }
 
-        public override PacketId ID => PacketId.INVITED_TO_PARTY;
-
-        public override Packet CreateInstance()
-        {
-            return new InvitedToParty();
-        }
-
-        protected override void Read(NReader rdr)
-        {
-            Name = rdr.ReadUTF();
-            PartyId = rdr.ReadInt32();
-        }
+        public override MessageId MessageId => MessageId.INVITED_TO_PARTY;
 
         protected override void Write(NWriter wtr)
         {

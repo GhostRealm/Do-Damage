@@ -30,14 +30,14 @@ namespace wServer.logic.behaviors
 
             if (cool <= 0)
             {
-                if (host.HasConditionEffect(ConditionEffects.Stunned))
+                if (host.HasConditionEffect(ConditionEffectIndex.Stunned))
                     return;
 
                 var target = new Position { X = host.X + (float)(range * Math.Cos(angle.Value)), Y = host.Y + (float)(range * Math.Sin(angle.Value)) };
 
                 host.World.Timers.Add(new WorldTimer(0, (world, t) =>
                 {
-                    var entity = Entity.Resolve(world.Manager, child);
+                    var entity = Entity.Resolve(world.GameServer, child);
 
                     if (host.Spawned)
                         entity.Spawned = true;

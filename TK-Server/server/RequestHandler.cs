@@ -12,7 +12,10 @@ namespace server
     {
         public static readonly Dictionary<string, RequestHandler> Get = new Dictionary<string, RequestHandler>
         {
-            {"/app/bot", new app.bot()}
+            {"/app/bot", new app.bot()},
+            {"/launcher/getVersion", new launcher.getVersion()},
+            {"/launcher/checkSum", new launcher.checkSum()},
+            {"/launcher/fetchFile", new launcher.fetchFile()}
         };
 
         public static readonly Dictionary<string, RequestHandler> Post = new Dictionary<string, RequestHandler>
@@ -22,6 +25,7 @@ namespace server
             {"/char/fame", new @char.fame()},
             {"/char/purchaseClassUnlock", new @char.purchaseClassUnlock()},
             {"/account/verify", new account.verify()},
+            {"/account/handleDono", new account.handleDono()},
             {"/account/register", new account.register()},
             {"/account/changePassword", new account.changePassword()},
             {"/account/passwordRecovery", new account.passwordRecovery()},
@@ -33,8 +37,7 @@ namespace server
             {"/app/globalNews", new app.globalNews()},
             {"/guild/listMembers", new guild.listMembers()},
             {"/guild/getBoard", new guild.getBoard()},
-            {"/guild/setBoard", new guild.setBoard()},
-            {"/char/getServerXmls", new @char.getServerXmls()}
+            {"/guild/setBoard", new guild.setBoard()}
         };
 
         public static void Initialize(Resources resources)

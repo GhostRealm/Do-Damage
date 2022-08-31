@@ -34,12 +34,12 @@ namespace wServer.logic.behaviors
 
         protected override void TickCore(Entity host, TickTime time, ref object state)
         {
-            var pkts = new List<Packet>();
+            var pkts = new List<OutgoingMessage>();
             var cool = (int)state;
 
             if (cool <= 0)
             {
-                if (host.HasConditionEffect(ConditionEffects.Stunned))
+                if (host.HasConditionEffect(ConditionEffectIndex.Stunned))
                     return;
 
                 var enemy = host as Enemy;
@@ -61,13 +61,13 @@ namespace wServer.logic.behaviors
                             Effect = _effect,
                             OrigType = host.ObjectType,
                             Color = new ARGB(_color)
-                        }, host, PacketPriority.Low);
+                        }, host);
                         world.AOE(target, _radius, true, p =>
                         {
                             (p as IPlayer).Damage(_damage + enemyClasified, host);
 
-                            if (!p.HasConditionEffect(ConditionEffects.Invincible) && !p.HasConditionEffect(ConditionEffects.Stasis))
-                                p.ApplyConditionEffect(new ConditionEffect() { Effect = _effect, DurationMS = _effectDuration });
+                            if (!p.HasConditionEffect(ConditionEffectIndex.Invincible) && !p.HasConditionEffect(ConditionEffectIndex.Stasis))
+                                p.ApplyConditionEffect(new ConditionEffect(_effect, _effectDuration));
                         });
                     }));
                 }

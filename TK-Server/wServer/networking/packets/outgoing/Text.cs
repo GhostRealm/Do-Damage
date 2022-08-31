@@ -7,7 +7,6 @@ namespace wServer.networking.packets.outgoing
         public string Name { get; set; }
         public int ObjectId { get; set; }
         public int NumStars { get; set; }
-        public int Admin { get; set; }
         public byte BubbleTime { get; set; }
         public string Recipient { get; set; }
         public string Txt { get; set; }
@@ -15,33 +14,13 @@ namespace wServer.networking.packets.outgoing
         public int NameColor { get; set; } = 0;
         public int TextColor { get; set; } = 0;
 
-        public override PacketId ID => PacketId.TEXT;
-
-        public override Packet CreateInstance()
-        {
-            return new Text();
-        }
-
-        protected override void Read(NReader rdr)
-        {
-            Name = rdr.ReadUTF();
-            ObjectId = rdr.ReadInt32();
-            NumStars = rdr.ReadInt32();
-            Admin = rdr.ReadInt32();
-            BubbleTime = rdr.ReadByte();
-            Recipient = rdr.ReadUTF();
-            Txt = rdr.ReadUTF();
-            CleanText = rdr.ReadUTF();
-            NameColor = rdr.ReadInt32();
-            TextColor = rdr.ReadInt32();
-        }
+        public override MessageId MessageId => MessageId.TEXT;
 
         protected override void Write(NWriter wtr)
         {
             wtr.WriteUTF(Name);
             wtr.Write(ObjectId);
             wtr.Write(NumStars);
-            wtr.Write(Admin);
             wtr.Write(BubbleTime);
             wtr.WriteUTF(Recipient);
             wtr.WriteUTF(Txt);

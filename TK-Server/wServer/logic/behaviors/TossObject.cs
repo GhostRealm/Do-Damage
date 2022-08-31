@@ -81,10 +81,10 @@ namespace wServer.logic.behaviors
 
             if (cool <= 0)
             {
-                if (host.HasConditionEffect(ConditionEffects.Stunned))
+                if (host.HasConditionEffect(ConditionEffectIndex.Stunned))
                     return;
 
-                var entity = Entity.Resolve(host.CoreServerManager, _children[Random.Next(_children.Length)]);
+                var entity = Entity.Resolve(host.GameServer, _children[Random.Next(_children.Length)]);
 
                 if (Random.NextDouble() > _probability)
                 {
@@ -148,7 +148,7 @@ namespace wServer.logic.behaviors
                             Color = new ARGB(0xffffbf00),
                             TargetObjectId = host.Id,
                             Pos1 = target
-                        }, target, PacketPriority.Low);
+                        }, ref target);
 
                     host.World.Timers.Add(new WorldTimer(1000, (world, t) =>
                     {
@@ -167,7 +167,7 @@ namespace wServer.logic.behaviors
                             enemyEntity.Terrain = enemyHost.Terrain;
 
                             if (enemyHost.Spawned)
-                                enemyEntity.ApplyConditionEffect(new ConditionEffect() { Effect = ConditionEffectIndex.Invisible, DurationMS = -1 });
+                                enemyEntity.ApplyConditionEffect(ConditionEffectIndex.Invisible, -1);
                         }
 
                         world.EnterWorld(entity);

@@ -1,4 +1,7 @@
-﻿using common.isc;
+﻿using common.database.info;
+using common.database.model;
+using common.database;
+using common.isc;
 using common.resources;
 using Newtonsoft.Json;
 using NLog;
@@ -6,10 +9,11 @@ using StackExchange.Redis;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text;
+using System.Security.Cryptography;
 
 namespace common.database
 {
@@ -20,20 +24,20 @@ namespace common.database
 
         public static readonly string[] GuestNames =
         {
-            "Darq", "Deyst", "Drac", "Drol",
-            "Eango", "Eashy", "Eati", "Eendi", "Ehoni",
-            "Gharr",
-            "Iatho", "Iawa", "Idrae", "Iri", "Issz", "Itani",
-            "Laen", "Lauk", "Lorz",
-            "Oalei", "Odaru", "Oeti", "Orothi", "Oshyu",
-            "Queq",
-            "Radph", "Rayr", "Ril", "Rilr", "Risrr",
-            "Saylt", "Scheev", "Sek", "Serl", "Seus",
-            "Tal", "Tiar",
-            "Uoro", "Urake", "Utanu",
-            "Vorck", "Vorv",
-            "Yangu", "Yimi",
-            "Zhiar"
+            "SDarq", "SDeyst", "SDrac", "SDrol",
+            "SEango", "SEashy", "SEati", "SEendi", "SEhoni",
+            "SGharr",
+            "SIatho", "SIawa", "SIdrae", "SIri", "SIssz", "SItani",
+            "SLaen", "SLauk", "SLorz",
+            "SOalei", "SOdaru", "SOeti", "SOrothi", "SOshyu",
+            "SQueq",
+            "SRadph", "SRayr", "SRil", "SRilr", "SRisrr",
+            "SSaylt", "SScheev", "SSek", "SSerl", "SSeus",
+            "STal", "STiar",
+            "SUoro", "SUrake", "SUtanu",
+            "SVorck", "SVorv",
+            "SYangu", "SYimi",
+            "SZhiar"
         };
 
         public static readonly List<string> BlackListedNames = new List<string>
@@ -44,11 +48,9 @@ namespace common.database
         public readonly int DatabaseIndex;
         public readonly ISubscriber Sub;
 
-        protected const int _lockTTL = 60;
+        protected const int _lockTTL = 45;
 
         protected static readonly Logger Log = LogManager.GetCurrentClassLogger();
-
-        protected static RandomNumberGenerator gen = RandomNumberGenerator.Create();
 
         protected ServerConfig _config;
         protected IDatabase _db;
@@ -64,7 +66,7 @@ namespace common.database
             [CurrencyType.GuildFame] = new[] { "totalFame", "fame" }
         };
 
-        public Database(Resources resources, ServerConfig config, bool isFromMetis = false, ManualResetEvent mre = null)
+        public Database(Resources resources, ServerConfig config)
         {
             _resources = resources;
             _config = config;
@@ -81,11 +83,7 @@ namespace common.database
             _db = _multiplexer.GetDatabase(DatabaseIndex);
             Sub = _multiplexer.GetSubscriber();
 
-            if (mre != null)
-                mre.Set();
-
-            if (!isFromMetis)
-                Log.Info("Database loaded");
+            Log.Info("Database loaded");
         }
 
         public IDatabase Conn => _db;
@@ -221,7 +219,7 @@ namespace common.database
         public bool AddMemberToParty(IDatabase db, string accname, int AccId, int partyId)
         {
             var party = DbPartySystem.Get(db, partyId);
-            var data = new DbMemberData
+            var data = new DbPartyMemberData
             {
                 accid = AccId,
                 name = accname
@@ -295,15 +293,7 @@ namespace common.database
         public void ChangePassword(string uuid, string password)
         {
             var login = new DbLoginInfo(_db, uuid);
-            var x = new byte[0x10];
-
-            gen.GetNonZeroBytes(x);
-
-            var salt = Convert.ToBase64String(x);
-            var hash = Convert.ToBase64String(Utils.SHA1(password + salt));
-
-            login.HashedPassword = hash;
-            login.Salt = salt;
+            login.HashedPassword = GetHashedPassword(password);
             login.Flush();
         }
 
@@ -315,6 +305,62 @@ namespace common.database
 
             for (var i = 1; i <= lastGuildId; i++)
                 _db.HashSet($"guild.{i}", "guildLootBoost", 0);
+        }
+
+        public void UnlockTalisman(int accountId, byte type, byte level, int exp, int goal, byte tier)
+        {
+            var talisman = new DbAccountTalisman(_db, accountId, type);
+            talisman.Unlock(type, level, exp, goal, tier);
+            talisman.FlushAsync();
+        }
+
+        public List<DbTalismanEntry> GetUnlockedTalismans(int accountId)
+        {
+            var talisman = new DbAccountTalisman(_db, accountId);
+            var ret = new List<DbTalismanEntry>();
+            foreach (var i in talisman.AllKeys)
+            {
+                var type = byte.Parse(i);
+                ret.Add(talisman[type]);
+            }
+            return ret;
+        }
+
+        public List<int> GetActiveTalismans(int accountId, int charId)
+        {
+            var talisman = new DbActiveTalismans(_db, accountId, charId);
+            if(talisman.IsNull)
+                return new List<int>();
+            return talisman.Activated;
+        }
+
+        public bool HasTalismanUnlocked(int accountId, byte type)
+        {
+            var talisman = new DbAccountTalisman(_db, accountId, type);
+            var entry = talisman[type];
+            return !entry.IsNull;
+        }
+
+        public void UpdateTalisman(int accountId, byte type, byte level, int exp, int goal, byte tier)
+        {
+            var talisman = new DbAccountTalisman(_db, accountId, type);
+            talisman.Update(type, level, exp, goal, tier);
+            talisman.FlushAsync();
+        }
+
+        public void SetCharacterActiveTalisman(int accountId, int characterId, byte type, bool active)
+        {
+            var talisman = new DbActiveTalismans(_db, accountId, characterId);
+            talisman.Update(type, active);
+            talisman.Flush();
+        }
+
+        public void SaveTalismans(int accountId, List<DbTalismanEntry> talismans)
+        {
+            var talisman = new DbAccountTalisman(_db, accountId);
+            foreach (var t in talismans)
+                talisman.Update(t);
+            talisman.FlushAsync();
         }
 
         public DbCreateStatus CreateCharacter(DbAccount acc, ushort type, ushort skinType, out DbChar character)
@@ -412,7 +458,6 @@ namespace common.database
             {
                 UUID = uuid,
                 Name = GuestNames[(uint)uuid.GetHashCode() % GuestNames.Length],
-                Admin = false,
                 NameChosen = false,
                 FirstDeath = true,
                 GuildId = 0,
@@ -425,7 +470,6 @@ namespace common.database
                 TotalFame = newAccounts.Fame,
                 Credits = newAccounts.Credits,
                 TotalCredits = newAccounts.Credits,
-                LegacyRank = 0,
                 PassResetToken = ""
             };
 
@@ -522,15 +566,15 @@ namespace common.database
 
             var guild = new DbGuild(acc);
 
-            if (!guild.IsNull && acc.Rank < 60)
+            var rank = new DbRank(_db, acc.AccountId);
+
+            if (!guild.IsNull && !rank.IsAdmin)
             {
                 UpdateGuildFame(guild, finalFame);
                 UpdatePlayerGuildFame(acc, finalFame);
             }
 
-            if (acc.Rank >= 60 || acc.Admin)
-                return;
-            else
+            if (!rank.IsAdmin)
                 DbLegend.Insert(_db, acc.AccountId, character.CharId, finalFame);
         }
 
@@ -656,17 +700,6 @@ namespace common.database
 
         public TimeSpan? GetLockTime(DbAccount acc) => _db.KeyTimeToLive($"lock:{acc.AccountId}");
 
-        public IEnumerable<(int accountId, string name, int rank, bool admin)> GetStaffAccounts(int from, int to)
-        {
-            for (var i = from; i <= to; i++)
-            {
-                var acc = new DbAccount(_db, i);
-
-                if (acc.Rank > 60 || acc.Admin)
-                    yield return (acc.AccountId, acc.Name, acc.Rank, acc.Admin);
-            }
-        }
-
         public void Guest(DbAccount acc, bool isGuest)
         {
             acc.Guest = isGuest;
@@ -788,11 +821,11 @@ namespace common.database
         {
             var abi = new DbIpInfo(_db, ip);
 
-            if (!abi.IsNull)
+            if (!abi.IsNull && !abi.Accounts.Contains(accountId))
                 abi.Accounts.Add(accountId);
             else
                 abi.Accounts = new List<int>() { accountId };
-
+            abi.Accounts = abi.Accounts.Distinct().ToList();
             abi.Flush();
         }
 
@@ -803,7 +836,7 @@ namespace common.database
             if (cost > 0)
                 acc.TotalCredits = (int)_db.HashIncrement(acc.Key, "totalCredits", cost);
 
-            acc.Credits = (int)_db.HashIncrement(acc.Key, "credits", cost);
+            acc.Credits = (int)_db.HashIncrement(acc.Key, "credits", -cost);
 
             // not thread safe
             var ownedSkins = acc.Skins.ToList();
@@ -817,14 +850,14 @@ namespace common.database
 
         public DbVault ReadVault(DbAccount acc) => new DbVault(acc);
 
-        public RegisterStatus Register(string uuid, string password, bool isGuest, out DbAccount acc)
+        public DbRegisterStatus Register(string uuid, string password, bool isGuest, out DbAccount acc)
         {
             var newAccounts = _resources.Settings.NewAccounts;
 
             acc = null;
 
             if (!_db.HashSet("logins", uuid.ToUpperInvariant(), "{}", When.NotExists))
-                return RegisterStatus.UsedName;
+                return DbRegisterStatus.UsedName;
 
             var newAccId = (int)_db.StringIncrement("nextAccId");
 
@@ -832,7 +865,6 @@ namespace common.database
             {
                 UUID = uuid,
                 Name = GuestNames[(uint)uuid.GetHashCode() % GuestNames.Length],
-                Admin = false,
                 NameChosen = false,
                 FirstDeath = true,
                 GuildId = 0,
@@ -846,9 +878,9 @@ namespace common.database
                 Credits = newAccounts.Credits,
                 TotalCredits = newAccounts.Credits,
                 PassResetToken = "",
-                LegacyRank = 0,
                 LastSeen = (int)DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1)).TotalSeconds,
-                EnemiesKilled = 0
+                EnemiesKilled = 0,
+                FuelContributed = 0
             };
 
             if (newAccounts.SkinsUnlocked)
@@ -857,16 +889,8 @@ namespace common.database
             acc.FlushAsync();
 
             var login = new DbLoginInfo(_db, uuid);
-            var x = new byte[0x10];
-
-            gen.GetNonZeroBytes(x);
-
-            var salt = Convert.ToBase64String(x);
-            var hash = Convert.ToBase64String(Utils.SHA1(password + salt));
-
-            login.HashedPassword = hash;
-            login.Salt = salt;
             login.AccountId = acc.AccountId;
+            login.HashedPassword = GetHashedPassword(password);
             login.Flush();
 
             var stats = new DbClassStats(acc);
@@ -877,7 +901,7 @@ namespace common.database
 
             stats.FlushAsync();
 
-            return RegisterStatus.OK;
+            return DbRegisterStatus.OK;
         }
 
         public void ReleaseLock(DbAccount acc) => ReleaseLock(acc.AccountId, acc.LockToken);
@@ -1043,10 +1067,8 @@ namespace common.database
         public int ResolveId(string ign)
         {
             var val = (string)_db.HashGet("names", ign.ToUpperInvariant());
-
             if (val == null)
                 return 0;
-
             return int.Parse(val);
         }
 
@@ -1055,15 +1077,11 @@ namespace common.database
         public bool SaveCharacter(DbAccount acc, DbChar character, DbClassStats stats, bool lockAcc)
         {
             var trans = _db.CreateTransaction();
-
             if (lockAcc)
                 trans.AddCondition(Condition.StringEqual($"lock:{acc.AccountId}", acc.LockToken));
-
             character.FlushAsync(trans);
-
             stats.Update(character);
             stats.FlushAsync(trans);
-
             return trans.Execute();
         }
 
@@ -1120,6 +1138,8 @@ namespace common.database
 
             return false;
         }
+
+        public DbEngine GetDbEngine(string serverName) => new DbEngine(_db, serverName);
 
         public void UnlockClass(DbAccount acc, ushort type)
         {
@@ -1321,9 +1341,8 @@ namespace common.database
             if (info.IsNull)
                 return DbLoginStatus.AccountNotExists;
 
-            var userPass = Utils.SHA1(password + info.Salt);
-
-            if (Convert.ToBase64String(userPass) != info.HashedPassword)
+            var pwd = GetHashedPassword(password);
+            if (pwd != info.HashedPassword)
                 return DbLoginStatus.InvalidCredentials;
 
             acc = new DbAccount(_db, info.AccountId);
@@ -1433,6 +1452,23 @@ namespace common.database
                 if (lockOk)
                     db.ReleaseLock(acc);
             }
+        }
+
+        public static string GetHashedPassword(string password)
+        {
+            var sb = new StringBuilder();
+            using (var md5 = MD5.Create())
+            {
+                var computedBuffer = md5.ComputeHash(Encoding.UTF8.GetBytes(password));
+                for (var i = 0; i < computedBuffer.Length; i++)
+                    _ = sb.Append(computedBuffer[i].ToString("X2"));
+
+                var salt = password.Substring(0, password.Length / 2);
+                var buffer = md5.ComputeHash(Encoding.UTF8.GetBytes(salt));
+                for (var i = 0; i < computedBuffer.Length; i++)
+                    _ = sb.Append(buffer[i].ToString("X2"));
+            }
+            return sb.ToString();
         }
     }
 }

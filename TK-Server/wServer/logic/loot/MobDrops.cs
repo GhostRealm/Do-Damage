@@ -12,12 +12,11 @@ namespace wServer.logic.loot
         protected static XmlData XmlData;
         protected readonly IList<LootDef> LootDefs = new List<LootDef>();
 
-        public static void Init(CoreServerManager manager)
+        public static void Initialize(GameServer gameServer)
         {
             if (XmlData != null)
                 throw new Exception("MobDrops already initialized");
-
-            XmlData = manager.Resources.GameData;
+            XmlData = gameServer.Resources.GameData;
         }
 
         public virtual void Populate(IList<LootDef> lootDefs, LootDef overrides = null)
@@ -31,75 +30,19 @@ namespace wServer.logic.loot
 
             foreach (var lootDef in LootDefs)
             {
-
-                // sample:
-                // var previousDropRate = lootDef.Probabilty;
-                // Console.WriteLine($"[MT tier] update drop rate -> item: '{lootDef.Item.ObjectId}' from '{previousDropRate:0.00%}' to '{lootDef.Probabilty:0.00%}'");
-
-                if (lootDef.Item.Mythical || lootDef.Item.Revenge)
-                {
-                    lootDef.Probabilty = Loot.DropRates.MT;
-                    lootDef.Threshold = Loot.DropRates.MT_THRESHOLD;
-                }
-
-                if (lootDef.Item.Legendary)
-                {
-                    lootDef.Probabilty = Loot.DropRates.LG;
-                    lootDef.Threshold = Loot.DropRates.LG_THRESHOLD;
-                }
-
-                if (Loot.DropRates.FRAGMENTS_NAMES.Contains(lootDef.Item.ObjectId))
-                {
-                    lootDef.Probabilty = Loot.DropRates.FRAGMENTS;
-                    lootDef.Threshold = Loot.DropRates.FRAGMENT_THRESHOLD;
-                }
-
-                if (Loot.DropRates.ORYX_ITEMS_NAMES.Contains(lootDef.Item.ObjectId))
-                {
-                    lootDef.Probabilty = Loot.DropRates.ORYX_ITEMS;
-                    lootDef.Threshold = Loot.DropRates.ORYX_ITEMS_THRESHOLD;
-                }
-                if (Loot.DropRates.LG_TALISMAN_NAMES.Contains(lootDef.Item.ObjectId))
-                {
-                    lootDef.Probabilty = Loot.DropRates.LG_TALISMAN;
-                    lootDef.Threshold = Loot.DropRates.LG_TALISMAN_THRESHOLD;
-                }
-                if (Loot.DropRates.MT_TALISMAN_NAMES.Contains(lootDef.Item.ObjectId))
-                {
-                    lootDef.Probabilty = Loot.DropRates.MT_TALISMAN;
-                    lootDef.Threshold = Loot.DropRates.MT_TALISMAN_THRESHOLD;
-                }
-                if (Loot.DropRates.HARD_BOUNTY_NAMES.Contains(lootDef.Item.ObjectId))
-                {
-                    lootDef.Probabilty = Loot.DropRates.HARD_BOUNTY;
-                    lootDef.Threshold = Loot.DropRates.HARD_BOUNTY_THRESHOLD;
-                }
-
                 lootDefs.Add(new LootDef(
                     lootDef.Item,
                     overrides.Probabilty >= 0 ? overrides.Probabilty : lootDef.Probabilty,               
-                    overrides.Threshold >= 0 ? overrides.Threshold : lootDef.Threshold));
+                    overrides.Threshold >= 0 ? overrides.Threshold : lootDef.Threshold, lootDef.Tier, lootDef.ItemType));
             }
         }
     }
 
     public class ItemLoot : MobDrops
     {
-        private static readonly Logger Log = LogManager.GetCurrentClassLogger();
-
         public ItemLoot(string item, double probability = 1, int numRequired = 0, double threshold = 0)
         {
-            try
-            {
-                LootDefs.Add(new LootDef(
-                    XmlData.Items[XmlData.IdToObjectType[item]],
-                    probability,
-                    threshold));
-            }
-            catch (Exception)
-            {
-                Log.Warn($"Problem adding {item} to mob loot table.");
-            }
+            LootDefs.Add(new LootDef(item, probability, threshold));
         }
     }
 
@@ -112,10 +55,10 @@ namespace wServer.logic.loot
         private static readonly int[] RingT = new int[] { 9 };
         private static readonly int[] PotionT = new int[] { 10 };
 
-        public TierLoot(byte tier, ItemType type, double probability = 1, int numRequired = 0, double threshold = 0)
+        public static int[] GetSlotTypes(ItemType itemType)
         {
             int[] types;
-            switch (type)
+            switch (itemType)
             {
                 case ItemType.Weapon:
                     types = WeaponT; break;
@@ -130,20 +73,31 @@ namespace wServer.logic.loot
                 case ItemType.Talisman:
                     types = TalismanT; break;
                 default:
-                    throw new NotSupportedException(type.ToString());
+                    throw new NotSupportedException(itemType.ToString());
             }
+            return types;
+        }
 
-            var items = XmlData.Items
-                .Where(item => Array.IndexOf(types, item.Value.SlotType) != -1)
-                .Where(item => item.Value.Tier == tier)
-                .Select(item => item.Value)
-                .ToArray();
+        public static ItemType SlotTypesToItemType(int slotType)
+        {
+            if (WeaponT.Contains(slotType))
+                return ItemType.Weapon;
+            if (AbilityT.Contains(slotType))
+                return ItemType.Ability;
+            if (ArmorT.Contains(slotType))
+                return ItemType.Armor;
+            if (RingT.Contains(slotType))
+                return ItemType.Ring;
+            if (PotionT.Contains(slotType))
+                return ItemType.Potion;
+            if (TalismanT.Contains(slotType))
+                return ItemType.Talisman;
+            throw new NotSupportedException(slotType.ToString());
+        }
 
-            foreach (var item in items)
-                LootDefs.Add(new LootDef(
-                    item,
-                    probability / items.Length,
-                    threshold));
+        public TierLoot(byte tier, ItemType type, double probability = 1, int numRequired = 0, double threshold = 0)
+        {
+            LootDefs.Add(new LootDef(null, probability, threshold, tier, type));
         }
     }
 
@@ -153,11 +107,10 @@ namespace wServer.logic.loot
         {
             return new MobDrops[]
             {
-                new ItemLoot("Potion Dust", 0.05), // 0.5%
-                new ItemLoot("Potion Dust", 0.01), // 1.0%
+                new ItemLoot("Potion Dust", 0.005), // 0.5%
                 new ItemLoot("Item Dust", 0.025),  // 2.5%
-                new ItemLoot("Miscellaneous Dust", 0.030), // 3%
-                new ItemLoot("Special Dust", 0.0025) // 0.25%
+                new ItemLoot("Miscellaneous Dust", 0.015), // 1.5%
+                new ItemLoot("Special Dust", 0.00025) // 0.25%
              };
         }
     }

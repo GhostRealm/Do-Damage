@@ -12,7 +12,6 @@ namespace wServer.logic
 
         [ThreadStatic]
         private static Random rand;
-
         protected static Random Random => rand ?? (rand = new Random());
 
         public static ushort GetObjType(string id)
@@ -72,6 +71,8 @@ namespace wServer.logic
             else
                 host.StateStorage[this] = state;
         }
+
+        public virtual void OnDeath(Entity host, ref TickTime time) { }
 
         protected internal virtual void Resolve(State parent)
         { }

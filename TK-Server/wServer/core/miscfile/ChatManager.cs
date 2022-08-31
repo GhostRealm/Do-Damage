@@ -1,4 +1,5 @@
 ﻿using CA.Extensions.Concurrent;
+using common;
 using common.isc;
 using System;
 using System.Collections.Generic;
@@ -13,19 +14,30 @@ namespace wServer.core
 {
     public class ChatManager
     {
-        private CoreServerManager CoreServerManager;
+        private GameServer GameServer;
 
-        public ChatManager(CoreServerManager coreServerManager) => CoreServerManager = coreServerManager;
+        public ChatManager(GameServer gameServer) => GameServer = gameServer;
 
-        public void Announce(string text)
+        public void ServerAnnounce(string text)
         {
             if (string.IsNullOrWhiteSpace(text))
                 return;
 
-            var clients = CoreServerManager.ConnectionManager.Clients
+            var clients = GameServer.ConnectionManager.Clients
                 .KeyWhereAsParallel(_ => _.Player != null);
             for (var i = 0; i < clients.Length; i++)
                 clients[i].Player.AnnouncementReceived(text);
+        }
+
+        public void Announce(Player player, string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return;
+
+            var clients = GameServer.ConnectionManager.Clients
+                .KeyWhereAsParallel(_ => _.Player != null);
+            for (var i = 0; i < clients.Length; i++)
+                clients[i].Player.AnnouncementReceived(text, player.Name);
         }
 
         public void AnnounceEternalLoot(string text)
@@ -33,7 +45,7 @@ namespace wServer.core
             if (string.IsNullOrWhiteSpace(text))
                 return;
 
-            var clients = CoreServerManager.ConnectionManager.Clients
+            var clients = GameServer.ConnectionManager.Clients
                 .KeyWhereAsParallel(_ => _.Player != null);
             for (var i = 0; i < clients.Length; i++)
                 clients[i].Player.SendEternalNotif(text);
@@ -44,10 +56,21 @@ namespace wServer.core
             if (string.IsNullOrWhiteSpace(text))
                 return;
 
-            var clients = CoreServerManager.ConnectionManager.Clients
+            var clients = GameServer.ConnectionManager.Clients
                 .KeyWhereAsParallel(_ => _.Player != null);
             for (var i = 0; i < clients.Length; i++)
                 clients[i].Player.ForgerNotif(text);
+        }
+
+        public void AnnounceEngine(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return;
+
+            var clients = GameServer.ConnectionManager.Clients
+                .KeyWhereAsParallel(_ => _.Player != null);
+            for (var i = 0; i < clients.Length; i++)
+                clients[i].Player.EngineNotif(text);
         }
 
         public void AnnounceLoot(string text)
@@ -55,7 +78,7 @@ namespace wServer.core
             if (string.IsNullOrWhiteSpace(text))
                 return;
 
-            var clients = CoreServerManager.ConnectionManager.Clients
+            var clients = GameServer.ConnectionManager.Clients
                 .KeyWhereAsParallel(_ => _.Player != null);
             for (var i = 0; i < clients.Length; i++)
                 clients[i].Player.SendLootNotif(text);
@@ -66,7 +89,7 @@ namespace wServer.core
             if (string.IsNullOrWhiteSpace(text))
                 return;
 
-            var clients = CoreServerManager.ConnectionManager.Clients
+            var clients = GameServer.ConnectionManager.Clients
                 .KeyWhereAsParallel(_ => _.Player != null);
             for (var i = 0; i < clients.Length; i++)
                 clients[i].Player.AnnouncementRealm(text, name);
@@ -77,7 +100,7 @@ namespace wServer.core
             if (string.IsNullOrWhiteSpace(text))
                 return;
 
-            var clients = CoreServerManager.ConnectionManager.Clients
+            var clients = GameServer.ConnectionManager.Clients
                 .KeyWhereAsParallel(_ => _.Player != null);
             for (var i = 0; i < clients.Length; i++)
                 clients[i].Player.SendMythicalNotif(text);
@@ -88,10 +111,10 @@ namespace wServer.core
             if (string.IsNullOrWhiteSpace(text))
                 return true;
 
-            CoreServerManager.InterServerManager.Publish(Channel.Chat, new ChatMsg()
+            GameServer.InterServerManager.Publish(Channel.Chat, new ChatMsg()
             {
                 Type = ChatType.Guild,
-                Instance = CoreServerManager.InstanceId,
+                Instance = GameServer.InstanceId,
                 ObjectId = src.Id,
                 Stars = src.Stars,
                 From = src.Client.Account.AccountId,
@@ -104,11 +127,10 @@ namespace wServer.core
 
         public void Initialize()
         {
-            CoreServerManager.InterServerManager.AddHandler<ChatMsg>(Channel.Chat, HandleChat);
-            CoreServerManager.InterServerManager.AddHandler<RestartMsg>(Channel.Restart, HandleRestart);
-            CoreServerManager.InterServerManager.AddHandler<AnnounceMsg>(Channel.Announce, HandleAnnounce);
-            CoreServerManager.InterServerManager.NewServer += AnnounceNewServer;
-            CoreServerManager.InterServerManager.ServerQuit += AnnounceServerQuit;
+            GameServer.InterServerManager.AddHandler<ChatMsg>(Channel.Chat, HandleChat);
+            GameServer.InterServerManager.AddHandler<AnnounceMsg>(Channel.Announce, HandleAnnounce);
+            GameServer.InterServerManager.NewServer += AnnounceNewServer;
+            GameServer.InterServerManager.ServerQuit += AnnounceServerQuit;
         }
 
         public void Mob(Entity entity, string text)
@@ -139,12 +161,12 @@ namespace wServer.core
                 NumStars = -1,
                 Name = $"#{name}",
                 Txt = text
-            }, PacketPriority.Low);
+            });
 
-            SLogger.Instance.Info($"[{world.IdName}({world.Id})] <{name}> {text}");
+            StaticLogger.Instance.Info($"[{world.IdName}({world.Id})] <{name}> {text}");
         }
 
-        public void Oryx(World world, string text)
+        public void TalismanKing(World world, string text)
         {
             if (string.IsNullOrWhiteSpace(text))
                 return;
@@ -153,9 +175,9 @@ namespace wServer.core
             {
                 BubbleTime = 0,
                 NumStars = -1,
-                Name = "#Oryx the Mad God",
+                Name = "#The Talisman King",
                 Txt = text
-            }, PacketPriority.Low);
+            });
         }
 
         public bool Party(Player src, string text)
@@ -163,10 +185,10 @@ namespace wServer.core
             if (string.IsNullOrWhiteSpace(text))
                 return true;
 
-            CoreServerManager.InterServerManager.Publish(Channel.Chat, new ChatMsg()
+            GameServer.InterServerManager.Publish(Channel.Chat, new ChatMsg()
             {
                 Type = ChatType.Party,
-                Instance = CoreServerManager.InstanceId,
+                Instance = GameServer.InstanceId,
                 ObjectId = src.Id,
                 Stars = src.Stars,
                 From = src.Client.Account.AccountId,
@@ -184,9 +206,21 @@ namespace wServer.core
                 return;
             else
             {
+                var supporter = 0;
+                if (src.IsSupporter1)
+                    supporter++;
+                if (src.IsSupporter2)
+                    supporter++;
+                if (src.IsSupporter3)
+                    supporter++;
+                if (src.IsSupporter4)
+                    supporter++;
+                if (src.IsSupporter5)
+                    supporter++;
+
                 var tp = new Text()
                 {
-                    Name = (src.Client.Account.Name == "Slendergo" || src.Client.Account.Name == "ModBBQ" || src.Client.Account.Name == "Orb" ? "[Owner] " : src.Client.Account.Rank >= 100 ? "[Admin] " : "[Tester] ") + src.Name,
+                    Name = (src.Client.Account.Name == "Slendergo" || src.Client.Account.Name == "ModBBQ" || src.Client.Account.Name == "Orb" ? "[Owner] " : supporter == 0 ? "" : $"[S-{supporter}] ") + src.Name,
                     ObjectId = src.Id,
                     NumStars = src.Stars,
                     BubbleTime = 5,
@@ -205,10 +239,10 @@ namespace wServer.core
             if (string.IsNullOrWhiteSpace(text))
                 return true;
 
-            CoreServerManager.InterServerManager.Publish(Channel.Chat, new ChatMsg()
+            GameServer.InterServerManager.Publish(Channel.Chat, new ChatMsg()
             {
                 Type = ChatType.Info,
-                Instance = CoreServerManager.InstanceId,
+                Instance = GameServer.InstanceId,
                 To = target,
                 Text = text
             });
@@ -218,10 +252,10 @@ namespace wServer.core
 
         public bool SendInfoMarket(int accId, string itemId, int realPrice, int resultPrice, int Tax)
         {
-            CoreServerManager.InterServerManager.Publish(Channel.Chat, new ChatMsg()
+            GameServer.InterServerManager.Publish(Channel.Chat, new ChatMsg()
             {
                 Type = ChatType.Info,
-                Instance = CoreServerManager.InstanceId,
+                Instance = GameServer.InstanceId,
                 To = accId,
                 Text = $"<Marketplace> {itemId} has been sold for {realPrice} (You have obtained: {resultPrice}) Fame, included {Tax}% Tax."
             });
@@ -229,10 +263,10 @@ namespace wServer.core
             return true;
         }
 
-        public void Shutdown()
+        public void Dispose()
         {
-            CoreServerManager.InterServerManager.NewServer -= AnnounceNewServer;
-            CoreServerManager.InterServerManager.ServerQuit -= AnnounceServerQuit;
+            GameServer.InterServerManager.NewServer -= AnnounceNewServer;
+            GameServer.InterServerManager.ServerQuit -= AnnounceServerQuit;
         }
 
         public bool Tell(Player src, string target, string text)
@@ -240,25 +274,25 @@ namespace wServer.core
             if (string.IsNullOrWhiteSpace(text))
                 return true;
 
-            var id = CoreServerManager.Database.ResolveId(target);
+            var id = GameServer.Database.ResolveId(target);
 
             if (id == 0)
                 return false;
 
-            if (!CoreServerManager.Database.AccountLockExists(id))
+            if (!GameServer.Database.AccountLockExists(id))
                 return false;
 
-            var acc = CoreServerManager.Database.GetAccount(id);
+            var acc = GameServer.Database.GetAccount(id);
             if (acc == null)
                 return false;
 
             if (acc.Hidden)
                 return false;
 
-            CoreServerManager.InterServerManager.Publish(Channel.Chat, new ChatMsg()
+            GameServer.InterServerManager.Publish(Channel.Chat, new ChatMsg()
             {
                 Type = ChatType.Tell,
-                Instance = CoreServerManager.InstanceId,
+                Instance = GameServer.InstanceId,
                 ObjectId = src.Id,
                 Stars = src.Stars,
                 From = src.Client.Account.AccountId,
@@ -277,14 +311,14 @@ namespace wServer.core
             if (networkMsg.Content.Info.type == ServerType.Account)
                 return;
 
-            Announce($"A new server has come online: {networkMsg.Content.Info.name}");
+            ServerAnnounce($"A new server has come online: {networkMsg.Content.Info.name}");
         }
 
         private void AnnounceServerQuit(object sender, EventArgs e)
         {
             var networkMsg = (InterServerEventArgs<NetworkMsg>)e;
 
-            Announce($"Server, {networkMsg.Content.Info.name}, is no longer online.");
+            ServerAnnounce($"Server, {networkMsg.Content.Info.name}, is no longer online.");
         }
 
         private void HandleAnnounce(object sender, InterServerEventArgs<AnnounceMsg> e)
@@ -292,8 +326,8 @@ namespace wServer.core
             var user = e.Content.User;
             var message = e.Content.Message;
             var messageTemplate = $"({DateTime.UtcNow:hh:mm:ss}) Staff {user} says: {message}";
-            var botName = Program.CoreServerManager.ServerConfig.discordIntegration.botName;
-            var clients = CoreServerManager.ConnectionManager.Clients
+            var botName = GameServer.Configuration.discordIntegration.botName;
+            var clients = GameServer.ConnectionManager.Clients
                 .KeyWhereAsParallel(_ => _.Player != null);
             for (var i = 0; i < clients.Length; i++)
                 clients[i].SendPacket(new Text()
@@ -314,15 +348,15 @@ namespace wServer.core
             {
                 case ChatType.Tell:
                     {
-                        var from = CoreServerManager.Database.ResolveIgn(e.Content.From);
-                        var to = CoreServerManager.Database.ResolveIgn(e.Content.To);
-                        dummies = CoreServerManager.ConnectionManager.Clients
+                        var from = GameServer.Database.ResolveIgn(e.Content.From);
+                        var to = GameServer.Database.ResolveIgn(e.Content.To);
+                        dummies = GameServer.ConnectionManager.Clients
                             .KeyWhereAsParallel(_ => _.Player != null
                                 && !_.Account.IgnoreList.Contains(e.Content.From)
                                 && (_.Account.AccountId == e.Content.From || _.Account.AccountId == e.Content.To || _.Account.IP == e.Content.SrcIP));
                         for (var i = 0; i < dummies.Length; i++)
                             dummies[i].Player.TellReceived(
-                                e.Content.Instance == CoreServerManager.InstanceId
+                                e.Content.Instance == GameServer.InstanceId
                                     ? e.Content.ObjectId
                                     : -1,
                                 e.Content.Stars,
@@ -336,8 +370,8 @@ namespace wServer.core
 
                 case ChatType.Info:
                     {
-                        var to = CoreServerManager.Database.GetAccount(e.Content.To);
-                        dummies = CoreServerManager.ConnectionManager.Clients
+                        var to = GameServer.Database.GetAccount(e.Content.To);
+                        dummies = GameServer.ConnectionManager.Clients
                             .KeyWhereAsParallel(_ => _.Player != null && _.Account.AccountId == to.AccountId);
                         for (var i = 0; i < dummies.Length; i++)
                             dummies[i].Player.SendInfo(e.Content.Text);
@@ -346,15 +380,15 @@ namespace wServer.core
 
                 case ChatType.Guild:
                     {
-                        var from = CoreServerManager.Database.ResolveIgn(e.Content.From);
-                        dummies = CoreServerManager.ConnectionManager.Clients
+                        var from = GameServer.Database.ResolveIgn(e.Content.From);
+                        dummies = GameServer.ConnectionManager.Clients
                             .KeyWhereAsParallel(_ => _.Player != null
                                 && !_.Account.IgnoreList.Contains(e.Content.From)
                                 && _.Account.GuildId > 0
                                 && _.Account.GuildId == e.Content.To);
                         for (var i = 0; i < dummies.Length; i++)
                             dummies[i].Player.GuildReceived(
-                                e.Content.Instance == CoreServerManager.InstanceId
+                                e.Content.Instance == GameServer.InstanceId
                                     ? e.Content.ObjectId
                                     : -1,
                                 e.Content.Stars,
@@ -366,15 +400,15 @@ namespace wServer.core
 
                 case ChatType.Party:
                     {
-                        var from = CoreServerManager.Database.ResolveIgn(e.Content.From);
-                        dummies = CoreServerManager.ConnectionManager.Clients
+                        var from = GameServer.Database.ResolveIgn(e.Content.From);
+                        dummies = GameServer.ConnectionManager.Clients
                             .KeyWhereAsParallel(_ => _.Player != null
                                 && !_.Account.IgnoreList.Contains(e.Content.From)
                                 && _.Account.PartyId > 0
                                 && _.Account.PartyId == e.Content.To);
                         for (var i = 0; i < dummies.Length; i++)
                             dummies[i].Player.PartyReceived(
-                                e.Content.Instance == CoreServerManager.InstanceId
+                                e.Content.Instance == GameServer.InstanceId
                                     ? e.Content.ObjectId
                                     : -1,
                                 e.Content.Stars,
@@ -386,41 +420,14 @@ namespace wServer.core
             }
         }
 
-        private void HandleRestart(object sender, InterServerEventArgs<RestartMsg> e)
+        private void SendTextPacket(Player src, Text tp, Predicate<Player> predicate)
         {
-            var user = e.Content.User;
-            var listeners = new KeyValuePair<TimeSpan, Action>[]
+            src.World.ForeachPlayer(_ =>
             {
-                new KeyValuePair<TimeSpan, Action>(TimeSpan.FromMinutes(1), () => Program.RestartAnnouncement(1)),
-                new KeyValuePair<TimeSpan, Action>(TimeSpan.FromSeconds(30), () => Program.RestartAnnouncement(-1))
-            };
-
-            Program.SetupRestarter(TimeSpan.FromMinutes(1.05), listeners);
-
-            var messageTemplate = $"({DateTime.UtcNow:hh:mm:ss}) This server is preparing to restart, requested by Staff {user} via Discord.";
-            var botName = Program.CoreServerManager.ServerConfig.discordIntegration.botName;
-            var clients = CoreServerManager.ConnectionManager.Clients
-                .KeyWhereAsParallel(_ => _.Player != null);
-            for (var i = 0; i < clients.Length; i++)
-                clients[i].SendPacket(new Text()
-                {
-                    ObjectId = -1,
-                    BubbleTime = 10,
-                    NumStars = 70,
-                    Name = botName,
-                    Recipient = clients[i].Player.Name,
-                    Txt = messageTemplate
-                });
-        }
-
-        private void SendTextPacket(Player src, Text tp, Predicate<Player> conditional)
-        {
-            src.World.PlayersBroadcastAsParallel(_ =>
-            {
-                if (conditional(_))
-                    _.Client.SendPacket(tp, PacketPriority.Normal);
+                if (predicate(_))
+                    _.Client.SendPacket(tp);
             });
-            SLogger.Instance.Info($"[{src.World.IdName}({src.World.Id})] <{src.Name}> {tp.Txt}");
+            StaticLogger.Instance.Info($"[{src.World.IdName}({src.World.Id})] <{src.Name}> {tp.Txt}");
         }
     }
 }

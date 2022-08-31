@@ -12,11 +12,18 @@ import com.company.assembleegameclient.sound.SoundEffectLibrary;
 import com.company.assembleegameclient.ui.options.Options;
 import com.company.util.AssetLibrary;
 
+import flash.filesystem.File;
+import flash.filesystem.FileMode;
+import flash.filesystem.FileStream;
+
 import flash.utils.ByteArray;
 
 import kabam.rotmg.Emojis.Emotes;
 import kabam.rotmg.assets.EmbeddedAssets;
+import kabam.rotmg.assets.EmbeddedAssets_customEnvironmentMortomusEmbed_;
 import kabam.rotmg.assets.EmbeddedData;
+import kabam.rotmg.assets.EmbeddedData_PlayersCXML;
+import kabam.rotmg.essences.TalismanLibrary;
 
 public class AssetLoader
 {
@@ -37,6 +44,7 @@ public class AssetLoader
       this.parseGroundFiles();
       this.parseObjectFiles();
       this.parseRegionFiles();
+      this.parseTalismans();
       Parameters.load();
        Emotes.load();
       //Music.load();
@@ -56,6 +64,7 @@ public class AssetLoader
       AssetLibrary.addImageSet("LostHallsProjs2", new EmbeddedAssets.LostHallsProjs2Embed_().bitmapData, 8, 8);
       AssetLibrary.addImageSet("CustomProjs", new EmbeddedAssets.CustomProjsEmbed_().bitmapData, 8, 8);
       AssetLibrary.addImageSet("CustomObj", new EmbeddedAssets.CustomObjEmbed_().bitmapData, 8, 8);
+      AssetLibrary.addImageSet("CustomObj1", new EmbeddedAssets.CustomObj1Embed_().bitmapData, 8, 8);
       AssetLibrary.addImageSet("LostHallsProjs", new EmbeddedAssets.LostHallsProjsEmbed_().bitmapData, 8, 8);
       AssetLibrary.addImageSet("LostHallsObj", new EmbeddedAssets.LostHallsObjEmbed_().bitmapData, 8, 8);
       AssetLibrary.addImageSet("LostHallsObjects16x16", new EmbeddedAssets.LostHallsObjects16x16Embed_().bitmapData, 16, 16);
@@ -68,6 +77,7 @@ public class AssetLoader
       AssetLibrary.addImageSet("lofiCharBig", new EmbeddedAssets.lofiCharBigEmbed_().bitmapData, 16, 16);
       AssetLibrary.addImageSet("customEnvironment16x16", new EmbeddedAssets.CustomEnvironment16x16Embed_().bitmapData, 16, 16);
       AssetLibrary.addImageSet("customEnvironment", new EmbeddedAssets.CustomEnvironmentEmbed_().bitmapData, 8, 8);
+      AssetLibrary.addImageSet("customEnvironmentMortomus", new EmbeddedAssets.CustomEnvironmentMortomusEmbed_().bitmapData, 8, 8);
       AssetLibrary.addImageSet("customEnvironment1", new EmbeddedAssets.CustomEnvironment1Embed_().bitmapData, 8, 8);
       AssetLibrary.addImageSet("lofiEnvironment", new EmbeddedAssets.lofiEnvironmentEmbed_().bitmapData, 8, 8);
       AssetLibrary.addImageSet("lofiEnvironment2", new EmbeddedAssets.lofiEnvironment2Embed_().bitmapData, 8, 8);
@@ -106,6 +116,7 @@ public class AssetLoader
       AssetLibrary.addImageSet("d2LofiObjBigEmbed", new EmbeddedAssets.d2LofiObjBigEmbed_().bitmapData, 16, 16);
       AssetLibrary.addImageSet("d1lofiObjBig", new EmbeddedAssets.d1LofiObjBigEmbed_().bitmapData, 16, 16);
       AssetLibrary.addImageSet("cursorsEmbed", new EmbeddedAssets.cursorsEmbed_().bitmapData, 32, 32);
+      AssetLibrary.addImageSet("HanamiParts", new EmbeddedAssets.HanamiParts8x8Embed_().bitmapData, 8, 8);
       AssetLibrary.addImageSet("mountainTempleObjects8x8", new EmbeddedAssets.mountainTempleObjects8x8Embed_().bitmapData, 8, 8);
       AssetLibrary.addImageSet("mountainTempleObjects16x16", new EmbeddedAssets.mountainTempleObjects16x16Embed_().bitmapData, 16, 16);
       AssetLibrary.addImageSet("stPatricksObjects8x8", new EmbeddedAssets.stPatricksObjects8x8Embed_().bitmapData, 8, 8);
@@ -113,6 +124,7 @@ public class AssetLoader
       AssetLibrary.addImageSet("buffedBunnyObjects16x16", new EmbeddedAssets.buffedBunnyObjects16x16Embed_().bitmapData, 16, 16);
       AssetLibrary.addImageSet("SakuraEnvironment16x16", new EmbeddedAssets.SakuraEnvironment16x16Embed_().bitmapData, 16, 16);
       AssetLibrary.addImageSet("SakuraEnvironment8x8", new EmbeddedAssets.SakuraEnvironment8x8Embed_().bitmapData, 8, 8);
+      AssetLibrary.addImageSet("Engine32x32", new EmbeddedAssets.Engine32x32Embed().bitmapData, 32, 32);
    }
 
    private function addAnimatedCharacters() : void
@@ -153,8 +165,6 @@ public class AssetLoader
       AnimatedChars.add("d1chars16x16r", new EmbeddedAssets.d1Chars16x16rEmbed_().bitmapData, null, 16, 16, 112, 16, AnimatedChar.RIGHT);
       AnimatedChars.add("mountainTempleChars8x8", new EmbeddedAssets.mountainTempleChars8x8Embed_().bitmapData, null, 8, 8, 56, 8, AnimatedChar.RIGHT);
       AnimatedChars.add("mountainTempleChars16x16", new EmbeddedAssets.mountainTempleChars16x16Embed_().bitmapData, null, 16, 16, 112, 16, AnimatedChar.RIGHT);
-      AssetLibrary.addImageSet("HanamiParts", new EmbeddedAssets.HanamiParts8x8Embed_().bitmapData, 8, 8);
-
    }
 
    private function addSoundEffects() : void
@@ -193,37 +203,33 @@ public class AssetLoader
 
    private function parseGroundFiles() : void
    {
-      var groundObj:* = undefined;
-      for each(groundObj in EmbeddedData.groundFiles)
-      {
-         GroundLibrary.parseFromXML(XML(groundObj));
-      }
+      var xml:XML = XML(new EmbeddedData.GroundCXML());
+      GroundLibrary.parseFromXML(xml);
    }
 
    private function parseObjectFiles() : void
    {
-      var objectObj:* = undefined;
       try
       {
-         for each(objectObj in EmbeddedData.objectFiles)
-         {
-            ObjectLibrary.parseFromXML(XML(objectObj), objectObj is EmbeddedData.armorItems || objectObj is EmbeddedData.weaponsItems || objectObj is EmbeddedData.abilitiesItems || objectObj is EmbeddedData.ringItems || objectObj is EmbeddedData.tieredItems || objectObj is EmbeddedData.CustomItems);
-         }
+         var xml:XML = XML(new EmbeddedData.ObjectCXML());
+         ObjectLibrary.parseFromXML(xml);
+         xml = XML(new EmbeddedData.PlayersCXML());
+         ObjectLibrary.parseFromXML(xml);
       }
       catch(error:*)
       {
-         trace(objectObj.name);
          trace("AssetLoader Error: " + error);
       }
    }
 
    private function parseRegionFiles() : void
    {
-      var regionXML:* = undefined;
-      for each(regionXML in EmbeddedData.regionFiles)
-      {
-         RegionLibrary.parseFromXML(XML(regionXML));
-      }
+      RegionLibrary.parseFromXML(XML(new EmbeddedData.RegionsCXML()));
+   }
+
+   private function parseTalismans() : void
+   {
+      TalismanLibrary.parseFromXML(XML(new EmbeddedData.TalismanCXML()));
    }
 }
 }

@@ -7,81 +7,31 @@ namespace wServer.core.objects.vendors
 {
     internal class ClosedVaultChest : SellableObject
     {
-        public ClosedVaultChest(CoreServerManager manager, ushort objType) : base(manager, objType)
+        public ClosedVaultChest(GameServer manager, ushort objType) : base(manager, objType)
         {
-            Price = 200;
+            Price = manager.Resources.Settings.VaultChestPrice;
             Currency = CurrencyType.Fame;
-            
         }
 
         public override void Buy(Player player)
         {
             var result = ValidateCustomer(player, null);
-
             if (result != BuyResult.Ok)
             {
                 SendFailed(player, result);
                 return;
             }
 
-            var db = CoreServerManager.Database;
+            var db = GameServer.Database;
             var acc = player.Client.Account;
             var trans = db.Conn.CreateTransaction();
 
-            CoreServerManager.Database.CreateChest(acc, trans);
-            switch (player.Rank)
-            {
-                case 10:
-                    Price = 150;
-                    break;
-                case 20:
-                    Price = 125;
-                    break;
-                case 30:
-                    Price = 100;
-                    break;
-                case 40:
-                    Price = 75;
-                    break;
-                case 50:
-                    Price = 25;
-                    break;
-                case 60:
-                    Price = 0;
-                    break;
-                default:
-                    Price = 200;
-                    break;
-            }
-            /* if (player.Rank == 10)
-             {
-                 Price -= 50;
-             }
-             if (player.Rank == 20)
-             {
-                 Price -= 75;
-             }
-             if (player.Rank == 30)
-             {
-                 Price -= 100;
-             }
-             if (player.Rank == 40)
-             {
-                 Price -= 125;
-             }
-             if (player.Rank == 50)
-             {
-                 Price -= 175;
-             }
-             if (player.Rank == 60)
-             {
-                 Price -= 200;
-             }*/
+            _ = GameServer.Database.CreateChest(acc, trans);
 
             var t1 = db.UpdateCurrency(acc, -Price, Currency, trans);
             var t2 = trans.ExecuteAsync();
 
-            Task.WhenAll(t1, t2).ContinueWith(t =>
+            _ = Task.WhenAll(t1, t2).ContinueWith(t =>
             {
                 if (t.IsCanceled)
                 {
@@ -93,12 +43,12 @@ namespace wServer.core.objects.vendors
                 player.CurrentFame = acc.Fame;
                 (World as VaultWorld)?.AddChest(this);
                 acc.Reload();
-                player.Client.SendPacket(new networking.packets.outgoing.BuyResult()
+                player.Client.SendPacket(new networking.packets.outgoing.BuyResultMessage()
                 {
                     Result = 0,
                     ResultString = "Vault chest purchased!"
                 });
-            }).ContinueWith(e => SLogger.Instance.Error(e.Exception.InnerException.ToString()), TaskContinuationOptions.OnlyOnFaulted);
+            }).ContinueWith(e => StaticLogger.Instance.Error(e.Exception.InnerException.ToString()), TaskContinuationOptions.OnlyOnFaulted);
         }
     }
 }

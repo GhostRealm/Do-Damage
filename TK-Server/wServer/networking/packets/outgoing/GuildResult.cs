@@ -7,18 +7,7 @@ namespace wServer.networking.packets.outgoing
         public bool Success { get; set; }
         public string ErrorText { get; set; }
 
-        public override PacketId ID => PacketId.GUILDRESULT;
-
-        public override Packet CreateInstance()
-        {
-            return new GuildResult();
-        }
-
-        protected override void Read(NReader rdr)
-        {
-            Success = rdr.ReadBoolean();
-            ErrorText = rdr.ReadUTF();
-        }
+        public override MessageId MessageId => MessageId.GUILDRESULT;
 
         protected override void Write(NWriter wtr)
         {

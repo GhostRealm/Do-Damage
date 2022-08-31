@@ -8,7 +8,7 @@
   "serverInfo": {
     "type": "Account",
     "name": "AppEngine",
-    "bindAddress": "*",
+    "bindAddress": "127.0.0.1",
     "port": 2000
   },
   "serverSettings": {

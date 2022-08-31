@@ -7,18 +7,7 @@ namespace wServer.networking.packets.outgoing
         public string Name { get; set; }
         public int Value { get; set; }
 
-        public override PacketId ID => PacketId.CLIENTSTAT;
-
-        public override Packet CreateInstance()
-        {
-            return new ClientStat();
-        }
-
-        protected override void Read(NReader rdr)
-        {
-            Name = rdr.ReadUTF();
-            Value = rdr.ReadInt32();
-        }
+        public override MessageId MessageId => MessageId.CLIENTSTAT;
 
         protected override void Write(NWriter wtr)
         {

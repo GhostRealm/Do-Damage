@@ -139,71 +139,33 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="database\DbSpecialVault.cs" />
-    <Compile Include="database\GuildCreateStatus.cs" />
-    <Compile Include="database\info\AccountInfo.cs" />
-    <Compile Include="database\info\CharacterInfo.cs" />
-    <Compile Include="database\info\DeathInfo.cs" />
-    <Compile Include="database\ItemData.cs" />
-    <Compile Include="database\status\AccountRegisterStatus.cs" />
-    <Compile Include="database\status\AddGuildMemberStatus.cs" />
-    <Compile Include="database\status\CreateCharacterStatus.cs" />
-    <Compile Include="database\DbAddGuildMemberStatus.cs" />
+    <Compile Include="database\account\DbRank.cs" />
+    <Compile Include="database\engine\DbEngine.cs" />
+    <Compile Include="database\engine\DbEngineEntry.cs" />
+    <Compile Include="database\vault\DbSpecialVault.cs" />
+    <Compile Include="database\talisman\DbTalismanEntry.cs" />
+    <Compile Include="database\character\inventory\ItemData.cs" />
+    <Compile Include="database\talisman\DbAccountTalisman.cs" />
+    <Compile Include="database\DbStatuses.cs" />
     <Compile Include="BaseDictionary.Collection.cs" />
     <Compile Include="BaseDictionary.cs" />
     <Compile Include="BaseDictionary.KeyCollection.cs" />
     <Compile Include="BaseDictionary.ValueCollection.cs" />
     <Compile Include="database\Database.cs" />
-    <Compile Include="database\DbAccount.cs" />
-    <Compile Include="database\DbChar.cs" />
-    <Compile Include="database\DbCharInv.cs" />
-    <Compile Include="database\DbClassStats.cs" />
-    <Compile Include="database\DbClassStatsEntry.cs" />
-    <Compile Include="database\DbDeath.cs" />
-    <Compile Include="database\DbGuild.cs" />
-    <Compile Include="database\DbInfo.cs" />
-    <Compile Include="database\DbLegend.cs" />
-    <Compile Include="database\DbLegendEntry.cs" />
-    <Compile Include="database\DbLoginInfo.cs" />
-    <Compile Include="database\DbMarketData.cs" />
-    <Compile Include="database\DbIpInfo.cs" />
-    <Compile Include="database\DbNews.cs" />
-    <Compile Include="database\DbNewsEntry.cs" />
-    <Compile Include="database\DbCreateStatus.cs" />
-    <Compile Include="database\DbPartySystem.cs" />
-    <Compile Include="database\DbVault.cs" />
-    <Compile Include="database\DbVaultSingle.cs" />
-    <Compile Include="database\extension\CurrencyTypeExtensions.cs" />
-    <Compile Include="database\extension\GuildExtensions.cs" />
-    <Compile Include="database\extension\MarketServiceExtensions.cs" />
-    <Compile Include="database\extension\MaxedStatExtensions.cs" />
-    <Compile Include="database\extension\PartyExtensions.cs" />
-    <Compile Include="database\extension\SecurityExtensions.cs" />
-    <Compile Include="database\GuildRank.cs" />
-    <Compile Include="database\info\IpInfo.cs" />
-    <Compile Include="database\extension\LegendServiceExtensions.cs" />
-    <Compile Include="database\IRedisService.cs" />
-    <Compile Include="database\LegendType.cs" />
-    <Compile Include="database\info\LoginInfo.cs" />
-    <Compile Include="database\model\VaultModel.cs" />
-    <Compile Include="database\model\PartyModel.cs" />
-    <Compile Include="database\RedisDb.cs" />
-    <Compile Include="database\service\MarketService.cs" />
-    <Compile Include="database\model\LoginModel.cs" />
-    <Compile Include="database\model\IpModel.cs" />
-    <Compile Include="database\model\GuildModel.cs" />
-    <Compile Include="database\model\DeathModel.cs" />
-    <Compile Include="database\info\ClassStatInfo.cs" />
-    <Compile Include="database\model\ClassStatsModel.cs" />
-    <Compile Include="database\model\CharacterModel.cs" />
-    <Compile Include="database\model\AccountModel.cs" />
-    <Compile Include="database\IRedisModel.cs" />
-    <Compile Include="database\MaxedStat.cs" />
-    <Compile Include="database\info\LegendInfo.cs" />
-    <Compile Include="database\service\LegendService.cs" />
-    <Compile Include="database\info\MarketInfo.cs" />
-    <Compile Include="database\extension\RedisModelExtensions.cs" />
-    <Compile Include="database\status\LoginStatus.cs" />
+    <Compile Include="database\account\DbAccount.cs" />
+    <Compile Include="database\character\DbChar.cs" />
+    <Compile Include="database\character\DbClassStats.cs" />
+    <Compile Include="database\character\DbDeath.cs" />
+    <Compile Include="database\guild\DbGuild.cs" />
+    <Compile Include="database\leaderboard\DbLegend.cs" />
+    <Compile Include="database\account\DbLoginInfo.cs" />
+    <Compile Include="database\market\DbMarketData.cs" />
+    <Compile Include="database\account\DbIpInfo.cs" />
+    <Compile Include="database\news\DbNews.cs" />
+    <Compile Include="database\news\DbNewsEntry.cs" />
+    <Compile Include="database\party\DbPartySystem.cs" />
+    <Compile Include="database\vault\DbVault.cs" />
+    <Compile Include="database\vault\DbVaultSingle.cs" />
     <Compile Include="discord\model\ClassModel.cs" />
     <Compile Include="discord\DiscordEmbed.cs" />
     <Compile Include="discord\DiscordEmbedAuthor.cs" />
@@ -217,7 +179,6 @@
     <Compile Include="discord\DiscordWebhook.cs" />
     <Compile Include="discord\model\StarModel.cs" />
     <Compile Include="FameStats.cs" />
-    <Compile Include="database\DbGuildCreateStatus.cs" />
     <Compile Include="isc\AnnounceMsg.cs" />
     <Compile Include="isc\Channel.cs" />
     <Compile Include="isc\ChatMsg.cs" />
@@ -230,25 +191,24 @@
     <Compile Include="isc\data\ServerInfo.cs" />
     <Compile Include="isc\NetworkCode.cs" />
     <Compile Include="isc\NetworkMsg.cs" />
-    <Compile Include="isc\RestartMsg.cs" />
     <Compile Include="isc\ServerType.cs" />
     <Compile Include="LockTimeoutException.cs" />
     <Compile Include="logger\Log.cs" />
-    <Compile Include="database\DbLoginStatus.cs" />
-    <Compile Include="database\DbMemberData.cs" />
+    <Compile Include="database\party\DbPartyMemberData.cs" />
     <Compile Include="NReader.cs" />
     <Compile Include="NWriter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="discord\model\RealmEventModel.cs" />
     <Compile Include="database\RedisObject.cs" />
-    <Compile Include="RegisterStatus.cs" />
+    <Compile Include="RankingType.cs" />
+    <Compile Include="resources\TalismanDesc.cs" />
     <Compile Include="resources\ActivateEffect.cs" />
     <Compile Include="resources\ActivateEffects.cs" />
     <Compile Include="resources\AppSettings.cs" />
     <Compile Include="resources\ConditionEffect.cs" />
     <Compile Include="resources\ConditionEffectIndex.cs" />
-    <Compile Include="resources\ConditionEffects.cs" />
+    <Compile Include="resources\ConditionEffectsIndex.cs" />
     <Compile Include="resources\CurrencyType.cs" />
+    <Compile Include="resources\ItemPool.cs" />
     <Compile Include="resources\Item.cs" />
     <Compile Include="resources\ItemType.cs" />
     <Compile Include="resources\NewAccounts.cs" />
@@ -289,6 +249,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="resources\web\music\wanderlust.mp3">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="resources\web\sfx\weapon\spear_woosh.mp3">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="resources\xml\characters\TK_Characters_buffedBunnyObjects16x16.xml">
@@ -351,7 +314,7 @@
     <Content Include="resources\xml\characters\TK_Characters_chars8x8rMid2.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="resources\xml\characters\TK_Characters_chars8x8rPets1.xml">
+    <Content Include="resources\xml\pets\TK_Pet_Objects.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="resources\xml\characters\TK_Characters_Custom16x16Encounters.xml">
@@ -936,9 +899,6 @@
     <Content Include="resources\xml\miscellaneous\TK_Miscellaneous_Sign.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="resources\xml\miscellaneous\TK_Miscellaneous_SkillTree.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
     <Content Include="resources\xml\miscellaneous\TK_Miscellaneous_SpiderWeb.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -949,6 +909,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="resources\xml\npcs\TK_NPCs_Stat.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="resources\xml\pets\TK_Pet_Generators.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="resources\xml\portals\TK_Portals_ArenaPortal.xml">
@@ -1038,6 +1001,9 @@
     <Content Include="resources\xml\TK_Classes.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="resources\xml\TK_Dusts.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="resources\xml\TK_Dyes.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -1045,6 +1011,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="resources\xml\TK_Unknown.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="resources\xml\TK_Talismans.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="resources\xml\walls\TK_Walls_CaveWall.xml">
@@ -1109,6 +1078,9 @@
     <None Include="resources\worlds\forest_maze.jm">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="resources\worlds\garden_of_horror.jm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="resources\worlds\guild\guild_hall1.jm">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -1121,7 +1093,16 @@
     <None Include="resources\worlds\guild\guild_hall4.jm">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="resources\worlds\haunted_cemetery.jm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="resources\worlds\hideout_of_limon.jm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="resources\worlds\hideout_of_stheno.jm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="resources\worlds\hideout_of_thessal.jm">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="resources\worlds\lost_halls.jm">
@@ -1136,6 +1117,9 @@
     <None Include="resources\worlds\marketplace.jm">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="resources\worlds\mortomus_hideout.jm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="resources\worlds\nexus.jm">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -1148,7 +1132,58 @@
     <None Include="resources\worlds\pirate_cave.jm">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="resources\worlds\puppet.jm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="resources\worlds\puppet_master_encore.jm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="resources\worlds\set_piece\avatar.jm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="resources\worlds\set_piece\candygnome.jm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="resources\worlds\set_piece\earth_elemental.jm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="resources\worlds\set_piece\fire_elemental.jm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="resources\worlds\set_piece\fluffy.jm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="resources\worlds\set_piece\ghost_ship.jm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="resources\worlds\set_piece\hermit.jm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="resources\worlds\set_piece\horde.jm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="resources\worlds\set_piece\julius.jm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="resources\worlds\set_piece\kage_kami.jm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="resources\worlds\set_piece\mushroom.jm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="resources\worlds\set_piece\rock_dragon.jm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="resources\worlds\set_piece\strange_magician.jm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="resources\worlds\set_piece\talisman_king.jm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="resources\worlds\set_piece\water_elemental.jm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="resources\worlds\set_piece\wind_elemental.jm">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="resources\worlds\shatters.jm">
@@ -1193,6 +1228,9 @@
     <None Include="resources\worlds\toxic_sewers.jm">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="resources\worlds\trials_of_souls.jm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="resources\worlds\undead_lair\undead_lair1.jm">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -1220,6 +1258,9 @@
     <Content Include="resources\xml\TK_Worlds.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <None Include="resources\worlds\wine_cellar.jm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="resources\worlds\woodland_labyrinth.jm">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

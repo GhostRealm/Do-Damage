@@ -5,6 +5,7 @@ using wServer.core.worlds;
 using wServer.logic;
 using wServer.networking;
 using wServer.networking.packets.outgoing;
+using common;
 
 namespace wServer.core.objects
 {
@@ -18,14 +19,35 @@ namespace wServer.core.objects
 
         private float bleeding = 0;
         private Position? pos;
-
-        public Enemy(CoreServerManager manager, ushort objType) : base(manager, objType)
+        
+        protected SV<int> _defense;
+        public int Defense
         {
-            stat = ObjectDesc.MaxHP == 0;
-            DamageCounter = new DamageCounter(this);
+            get => _defense.GetValue(); 
+            set => _defense.SetValue(value);
         }
 
-        public event EventHandler<BehaviorEventArgs> OnDeath;
+        private SV<int> _glowcolor;
+        public int GlowEnemy
+        {
+            get => _glowcolor.GetValue(); 
+            set => _glowcolor.SetValue(value);
+        }
+
+
+        public Enemy(GameServer manager, ushort objType) : base(manager, objType)
+        {
+            _defense = new SV<int>(this, StatDataType.Defense, ObjectDesc.Defense);
+            stat = ObjectDesc.MaxHP == 0;
+            DamageCounter = new DamageCounter(this);
+            _glowcolor = new SV<int>(this, StatDataType.GlowEnemy, 0);
+        }
+
+        protected override void ExportStats(IDictionary<StatDataType, object> stats, bool isOtherPlayer)
+        {
+            base.ExportStats(stats, isOtherPlayer);
+            stats[StatDataType.GlowEnemy] = GlowEnemy;
+        }
 
         public bool Epic { get; set; }
         public bool Legendary { get; set; }
@@ -35,29 +57,36 @@ namespace wServer.core.objects
 
         public void ClasifyEnemy()
         {
-            var Chance = _random.NextDouble();
+            var chance = World.Random.NextDouble();
 
-            if (Chance < 0.02)
+            if(chance < 0.2)
             {
-                Legendary = true;
-                Size += 200;
-                MaximumHP = MaximumHP * 3;
+                var type = World.Random.Next(0, 3);
+                switch (type)
+                {
+                    case 2:
+                        {
+                            Legendary = true;
+                            GlowEnemy = 0xFFFFFF;
+                        }
+                        break;
+                    case 1:
+                        {
+                            Epic = true;
+                            GlowEnemy = 0x4B0082;
+                        }
+                        break;
+                    case 0:
+                        {
+                            Rare = true;
+                            GlowEnemy = 0xEAC117;
+                        }
+                        break;
+                }
+
+                Size += (type + 1) * 25;
+                MaximumHP *= (type + 1);
                 HP = MaximumHP;
-                GlowEnemy = 0xEAC117;
-            }
-            else if (Chance < 0.04)
-            {
-                Epic = true;
-                Size += 125;
-                MaximumHP = MaximumHP * 2;
-                HP = MaximumHP;
-                GlowEnemy = 0x4B0082;
-            }
-            else if (Chance < 0.06)
-            {
-                Rare = true;
-                Size += 50;
-                GlowEnemy = 0xFFFFFF;
             }
         }
 
@@ -72,11 +101,12 @@ namespace wServer.core.objects
                 if (Size <= 0)
                     Size = Size;
                 else
-                    Size = _random.Next(Size + 200, Size + 300);
+                    Size = World.Random.Next(Size + 200, Size + 300);
 
                 MaximumHP = MaximumHP * 3;
                 HP = MaximumHP;
-                GlowEnemy = 0xEAC117;
+                Defense += 10;
+                GlowEnemy = 0xFFFFFF;
             }
             else if (clasified == "epic")
             {
@@ -85,10 +115,11 @@ namespace wServer.core.objects
                 if (Size <= 0)
                     Size = Size;
                 else
-                    Size = _random.Next(Size + 100, Size + 200);
+                    Size = World.Random.Next(Size + 100, Size + 200);
 
                 MaximumHP = MaximumHP * 2;
                 HP = MaximumHP;
+                Defense += 5;
                 GlowEnemy = 0x4B0082;
             }
             else if (clasified == "rare")
@@ -98,9 +129,9 @@ namespace wServer.core.objects
                 if (Size <= 0)
                     Size = Size;
                 else
-                    Size = _random.Next(Size, Size + 100);
-
-                GlowEnemy = 0xFFFFFF;
+                    Size = World.Random.Next(Size, Size + 100);
+                Defense += 2;
+                GlowEnemy = 0xEAC117;
             }
         }
 
@@ -109,16 +140,14 @@ namespace wServer.core.objects
             if (stat)
                 return 0;
 
-            if (!itsPoison && HasConditionEffect(ConditionEffects.Invincible))
+            if (!itsPoison && HasConditionEffect(ConditionEffectIndex.Invincible))
                 return 0;
 
-            if (!HasConditionEffect(ConditionEffects.Paused) && !HasConditionEffect(ConditionEffects.Stasis))
+            if (!HasConditionEffect(ConditionEffectIndex.Paused) && !HasConditionEffect(ConditionEffectIndex.Stasis))
             {
-                var def = ObjectDesc.Defense;
-
+                var def = Defense;
                 if (noDef)
                     def = 0;
-
                 var dmgd = (int)StatsManager.GetDefenseDamage(this, dmg, def);
 
                 var effDmg = dmgd;
@@ -126,7 +155,7 @@ namespace wServer.core.objects
                 if (effDmg > HP)
                     effDmg = HP;
 
-                if (!HasConditionEffect(ConditionEffects.Invulnerable))
+                if (!HasConditionEffect(ConditionEffectIndex.Invulnerable))
                     HP -= effDmg;
 
                 ApplyConditionEffect(effs);
@@ -138,12 +167,12 @@ namespace wServer.core.objects
                     Kill = HP < 0,
                     BulletId = 0,
                     ObjectId = from.Id
-                }, this, PacketPriority.Low);
+                }, this);
 
                 DamageCounter?.HitBy(from, time, null, effDmg);
 
                 if (HP < 0 && World != null)
-                    Death(time);
+                    Death(ref time);
 
                 return effDmg;
             }
@@ -151,17 +180,12 @@ namespace wServer.core.objects
             return 0;
         }
 
-        public void Death(TickTime time)
+        public void Death(ref TickTime time)
         {
-            if (this == null || World == null)
-                return;
-
             DamageCounter.Death(time);
-
-            if (CurrentState != null)
-                CurrentState.OnDeath(new BehaviorEventArgs(this, time));
-
-            OnDeath?.Invoke(this, new BehaviorEventArgs(this, time));
+            CurrentState?.OnDeath(this, ref time);
+            if (GameServer.BehaviorDb.Definitions.TryGetValue(ObjectType, out var loot))
+                loot.Item2?.Handle(this, time);
             World.LeaveWorld(this);
         }
 
@@ -173,27 +197,34 @@ namespace wServer.core.objects
             if (projectile == null)
                 return false;
 
-            if (HasConditionEffect(ConditionEffects.Invincible))
+            if (HasConditionEffect(ConditionEffectIndex.Invincible))
                 return false;
 
-            if (projectile.ProjectileOwner is Player && !HasConditionEffect(ConditionEffects.Paused) && !HasConditionEffect(ConditionEffects.Stasis))
+            if (projectile.Host is Player && !HasConditionEffect(ConditionEffectIndex.Paused) && !HasConditionEffect(ConditionEffectIndex.Stasis))
             {
-                var player = projectile.ProjectileOwner as Player;
+                var player = projectile.Host as Player;
                 var Inventory = player.Inventory;
-                var def = ObjectDesc.Defense;
+                var def = Defense;
 
                 if (projectile.ProjDesc.ArmorPiercing)
                     def = 0;
 
-                var dmg = (int)StatsManager.GetDefenseDamage(this, projectile.Damage, def);
 
-                if (!HasConditionEffect(ConditionEffects.Invulnerable))
+                var pDamage = (int)(projectile.Damage + (projectile.Damage * (projectile.Host as Player).TalismanExtraAbilityDamage));
+
+                var dmg = (int)StatsManager.GetDefenseDamage(this, pDamage, def);
+                if (!HasConditionEffect(ConditionEffectIndex.Invulnerable))
                     HP -= dmg;
+                
+                //var chance = 0.03;
+                //chance -= (player.Inventory[0].NumProjectiles / 2) / 100;
+                //chance = projectile.ProjDesc.MultiHit ? chance / 1.5 : chance;
+                //VampireBlast(player, chance, 2, 300, 100, time, this); // (player, chance, radius, damage, heal, time, entity)
 
                 for (var i = 0; i < 4; i++)
                 {
-                    
                     var item = Inventory[i];
+
                     if (item == null || !item.Legendary && !item.Revenge && !item.Mythical && !item.Eternal)
                         continue;
 
@@ -202,7 +233,6 @@ namespace wServer.core.objects
 
                     if (item.Electrify)
                         Electrify(player, i, time, this);
-
                 }
 
                 ApplyConditionEffect(projectile.ProjDesc.Effects);
@@ -210,17 +240,17 @@ namespace wServer.core.objects
                 World.BroadcastIfVisibleExclude(new Damage()
                 {
                     TargetId = Id,
-                    Effects = projectile.ConditionEffects,
+                    Effects = 0,
                     DamageAmount = (ushort)dmg,
                     Kill = HP < 0,
                     BulletId = projectile.ProjectileId,
-                    ObjectId = projectile.ProjectileOwner.Self.Id
-                }, this, projectile.ProjectileOwner as Player, PacketPriority.Low);
+                    ObjectId = projectile.Host.Id
+                }, this, projectile.Host as Player);
 
-                DamageCounter.HitBy(projectile.ProjectileOwner as Player, time, projectile, dmg);
+                DamageCounter.HitBy(projectile.Host as Player, time, projectile, dmg);
 
                 if (HP < 0 && World != null)
-                    Death(time);
+                    Death(ref time);
 
                 return true;
             }
@@ -232,32 +262,19 @@ namespace wServer.core.objects
         {
             base.Init(owner);
 
-            if (ObjectDesc.StunImmune)
-                ApplyConditionEffect(new ConditionEffect()
-                {
-                    Effect = ConditionEffectIndex.StunImmune,
-                    DurationMS = -1
-                });
-
-            if (ObjectDesc.StasisImmune)
-                ApplyConditionEffect(new ConditionEffect()
-                {
-                    Effect = ConditionEffectIndex.StasisImmune,
-                    DurationMS = -1
-                });
-
-            ClasifyEnemy();
+            if (ObjectDesc.Quest || ObjectDesc.Hero || ObjectDesc.Encounter)
+                ClasifyEnemy();
         }
 
-        public override void Tick(TickTime time)
+        public override void Tick(ref TickTime time)
         {
             if (pos == null)
                 pos = new Position() { X = X, Y = Y };
 
             if (HP == 0)
-                Death(time);
+                Death(ref time);
 
-            if (!stat && HasConditionEffect(ConditionEffects.Bleeding))
+            if (!stat && HasConditionEffect(ConditionEffectIndex.Bleeding))
             {
                 if (bleeding > 1)
                 {
@@ -268,14 +285,14 @@ namespace wServer.core.objects
                 bleeding += 28 * time.DeltaTime;
             }
 
-            base.Tick(time);
+            base.Tick(ref time);
         }
 
         private void Demonized(Player player, int slot)
         {
             if (player == null || player.World == null || player.Client == null)
                 return;
-            if (_random.NextDouble() < 0.3 && player.ApplyEffectCooldown(slot))
+            if (World.Random.NextDouble() < 0.3 && player.ApplyEffectCooldown(slot))
             {
                 player.setCooldownTime(4, slot);
 
@@ -287,22 +304,107 @@ namespace wServer.core.objects
                     TargetObjectId = Id,
                     Color = new ARGB(0xFFFFFF00),
                     Pos1 = new Position() { X = 1.5f }
-                }, player, PacketPriority.Low);
+                }, player);
                 player.World.BroadcastIfVisible(new Notification()
                 {
                     ObjectId = Id,
                     PlayerId = player.Id,
                     Message = "Demonized!",
                     Color = new ARGB(0xFFFF0000)
-                }, player, PacketPriority.Low);
+                }, player);
             }
+        }
+
+        private void VampireBlast(Player player, double chance, int size, int dam, int heal, TickTime time, Entity firstHit)
+        {
+            if (player == null || player.World == null || player.Client == null)
+                return;
+            if (World.Random.NextDouble() < chance)
+            {
+                Position procPos = new Position() { X = firstHit.X, Y = firstHit.Y };
+                Position playerPos = new Position() { X = player.X, Y = player.Y };
+                var pkts = new List<OutgoingMessage>()
+                {
+                    new ShowEffect()
+                    {
+                        EffectType = EffectType.Trail,
+                        TargetObjectId = firstHit.Id,
+                        Pos1 = playerPos,
+                        Color = new ARGB(0xFFFF0000)
+                    },
+                    new ShowEffect
+                    {
+                        EffectType = EffectType.Diffuse,
+                        Color = new ARGB(0xFFFF0000),
+                        TargetObjectId = Id,
+                        Pos1 = procPos,
+                        Pos2 = new Position { X = firstHit.X + size, Y = firstHit.Y }
+                    }
+                };
+
+                World.BroadcastIfVisible(pkts[0], ref procPos);
+                World.BroadcastIfVisible(pkts[1], ref procPos);
+
+                var totalDmg = dam;
+                var enemies = new List<Enemy>();
+
+                World.AOE(procPos, size, false, enemy =>
+                {
+                    enemies.Add(enemy as Enemy);
+                    totalDmg += (enemy as Enemy).Damage(player, time, (int)totalDmg, false);
+                });
+
+                if (!player.HasConditionEffect(ConditionEffectIndex.Sick))
+                    ActivateHealHp(player, heal);
+
+                if (player.HP < player.MaximumHP && enemies.Count > 0)
+                {
+                    for (var i = 0; i < 5; i++)
+                    {
+                        var a = player.World.Random.NextLength(enemies);
+
+                        World.BroadcastIfVisible(new ShowEffect()
+                        {
+                            EffectType = EffectType.Flow,
+                            TargetObjectId = player.Id,
+                            Pos1 = new Position() { X = a.X, Y = a.Y },
+                            Color = new ARGB(0xffffffff)
+                        }, ref playerPos);
+                    }
+                }
+            }
+        }
+        private static void ActivateHealHp(Player player, int amount)
+        {
+            if (amount <= 0)
+                return;
+
+            var maxHp = player.Stats[0];
+            var newHp = Math.Min(maxHp, player.HP + amount);
+            if (newHp == player.HP)
+                return;
+
+            player.World.BroadcastIfVisible(new ShowEffect()
+            {
+                EffectType = EffectType.Potion,
+                TargetObjectId = player.Id,
+                Color = new ARGB(0xffffffff)
+            }, player);
+            player.World.BroadcastIfVisible(new Notification()
+            {
+                Color = new ARGB(0xff00ff00),
+                ObjectId = player.Id,
+                Message = "+" + (newHp - player.HP)
+            }, player);
+
+            player.HP = newHp;
         }
 
         private void Electrify(Player player, int slot, TickTime time, Entity firstHit)
         {
             if (player == null || player.World == null || player.Client == null)
                 return;
-            if (_random.NextDouble() < 0.03)
+            if (World.Random.NextDouble() < 0.03)
             {
                 var current = firstHit;
                 var targets = new Entity[5];
@@ -313,7 +415,7 @@ namespace wServer.core.objects
 
                     var next = current.GetNearestEntity(10, false, e =>
                     {
-                        if (!(e is Enemy) || e.HasConditionEffect(ConditionEffects.Invincible) || e.HasConditionEffect(ConditionEffects.Stasis) || Array.IndexOf(targets, e) != -1)
+                        if (!(e is Enemy) || e.HasConditionEffect(ConditionEffectIndex.Invincible) || e.HasConditionEffect(ConditionEffectIndex.Stasis) || Array.IndexOf(targets, e) != -1)
                             return false;
 
                         return true;
@@ -333,11 +435,7 @@ namespace wServer.core.objects
                     var damage = 1000;
 
                     (targets[i] as Enemy).Damage(player, time, damage, false);
-                    targets[i].ApplyConditionEffect(new ConditionEffect()
-                    {
-                        Effect = ConditionEffectIndex.Slowed,
-                        DurationMS = 3000
-                    });
+                    targets[i].ApplyConditionEffect(ConditionEffectIndex.Slowed, 3000);
 
                     var prev = i == 0 ? player : targets[i - 1];
                     var notprev = targets[i];
@@ -364,8 +462,8 @@ namespace wServer.core.objects
                         }
                     };
 
-                    World.BroadcastIfVisible(pkts[0], player, PacketPriority.Low);
-                    World.BroadcastIfVisible(pkts[1], player, PacketPriority.Low);
+                    World.BroadcastIfVisible(pkts[0], player);
+                    World.BroadcastIfVisible(pkts[1], player);
                 }
             }
         }

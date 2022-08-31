@@ -191,7 +191,7 @@ public class MapUserInput
       this.clearInput();
    }
 
-   private function onMouseDown(event:MouseEvent) : void
+   internal function onMouseDown(event:MouseEvent) : void
    {
       var mouseX:Number = NaN;
       var mouseY:Number = NaN;
@@ -279,7 +279,7 @@ public class MapUserInput
       }
    }
 
-   private function onMouseUp(event:MouseEvent) : void
+   internal function onMouseUp(event:MouseEvent) : void
    {
       this.mouseDown_ = false;
    }
@@ -492,15 +492,6 @@ public class MapUserInput
                this.gs_.gsc_.playerText("/realm");
             }
             break;
-         case Parameters.data_.reconCloth:
-            if(this.gs_.map.name_ == "Cloth Bazaar"){
-               this.addTextLine.dispatch(new AddTextLineVO(Parameters.ERROR_CHAT_NAME, ("You're already are in the Cloth Bazaar...")));
-               return;
-            }
-            else{
-               this.gs_.gsc_.playerText("/clothbazaar");
-            }
-            break;
          case Parameters.data_.GPURenderToggle:
             Parameters.data_.GPURender = !Parameters.data_.GPURender;
               break;
@@ -515,15 +506,6 @@ public class MapUserInput
             }
             else{
                this.gs_.gsc_.playerText("/ghall");
-            }
-            break;
-         case Parameters.data_.reconMarket:
-            if(this.gs_.map.name_ == "Marketplace"){
-               this.addTextLine.dispatch(new AddTextLineVO(Parameters.ERROR_CHAT_NAME, ("You're already are in the Marketplace...")));
-               return;
-            }
-            else{
-               this.gs_.gsc_.playerText("/marketplace");
             }
             break;
          case Parameters.data_.partyInviteWorld:
