@@ -79,15 +79,12 @@ public class EquipmentToolTip extends ToolTip
          this.effects = new Vector.<Effect>();
          this.invType = invType;
          this.itemSlotTypeId = int(this.objectXML_.SlotType);
-          if(this.objectXML_.hasOwnProperty("Eternal")){
-              this.backgroundColor = this.playerCanUse || this.player_ == null ? 0x000000 : 6036765;
-              this.outlineColor = this.playerCanUse || player == null? 0x98ff98: 10965039;
-          }else if(this.objectXML_.hasOwnProperty("Legendary")){
+          if(this.objectXML_.hasOwnProperty("Legendary")){
               this.backgroundColor = this.playerCanUse || this.player_ == null ? 0x2c2d3d : 6036765;
-              this.outlineColor = this.playerCanUse || player == null? 0xebb011 : 10965039;
-          }else if(this.objectXML_.hasOwnProperty("Revenge") ||this.objectXML_.hasOwnProperty("Mythical") ){
+              this.outlineColor = this.playerCanUse || player == null? TooltipHelper.LEGENDARY_COLOR : 10965039;
+          }else if(this.objectXML_.hasOwnProperty("Mythical") ){
               this.backgroundColor = this.playerCanUse || this.player_ == null ? 0x222226 : 6036765;
-              this.outlineColor = this.playerCanUse || player == null? 0xcf1433 : 10965039;
+              this.outlineColor = this.playerCanUse || player == null? TooltipHelper.MYTHICAL_COLOR : 10965039;
           }
           else {
               this.backgroundColor = this.playerCanUse || this.player_ == null ? 0x363636 : 6036765;
@@ -235,8 +232,15 @@ public class EquipmentToolTip extends ToolTip
             else if(this.objectXML_.hasOwnProperty("Electrify")){
                this.itemEffectText_.text = "Electrify -> Upon hitting an enemy, you have a 3% chance to “cast” a scepter-like ability that deals 1000 damage and inflicts Slowed for 3 seconds to up to 5 targets.";
             }
+            else if(this.objectXML_.hasOwnProperty("Vampiric")){
+               var numProj:int = this.objectXML_.NumProjectiles;
+               var multi:Boolean = this.objectXML_.Projectile.hasOwnProperty("MultiHit")
+               var chance:Number = 3 - ((numProj / 3))
+               chance = multi ? chance / 1.5 : chance;
+               this.itemEffectText_.text = "Vampriric -> Upon hitting an enemy, you have a "+ round2(chance,1) +"% chance to “cast” a skull-like ability that deals 300 damage AOE damage and heals for 50hp.";
+            }
          }
-         else if(this.objectXML_.hasOwnProperty("Revenge") || this.objectXML_.hasOwnProperty("Mythical"))
+         else if(this.objectXML_.hasOwnProperty("Mythical"))
          {
             this.itemEffectText_ = new SimpleText(13, 0xcf1433, false, MAX_WIDTH);
             this.itemEffectText_.setBold(true);
@@ -259,38 +263,16 @@ public class EquipmentToolTip extends ToolTip
             else if(this.objectXML_.hasOwnProperty("Electrify")){
                this.itemEffectText_.text = "Electrify -> Upon hitting an enemy, you have a 3% chance to “cast” a scepter-like ability that deals 1000 damage and inflicts Slowed for 3 seconds to up to 5 targets.";
             }
-
-         }
-          else if (this.objectXML_.hasOwnProperty("Eternal")){
-             this.itemEffectText_ = new SimpleText(13, TooltipHelper.ETERNAL_COLOR, false, MAX_WIDTH);
-             this.itemEffectText_.setBold(true);
-             this.itemEffectText_.wordWrap = true;
-			if(this.objectXML_.hasOwnProperty("MonkeyKingsWrath")){
-				//SetFlash(this.itemEffectText_);
-				this.itemEffectText_.text = "Monkey King's Wrath ->  Filisha is OP.";
-			}
-            else if(this.objectXML_.hasOwnProperty("Lucky")){
-               this.itemEffectText_.text = "Lucky 15's -> 10% of increasing each stat by 15 (100 HP and MP) for 5 seconds. 20 seconds Cooldown.";
+            else if(this.objectXML_.hasOwnProperty("Vampiric")){
+               var numProj:int = this.objectXML_.NumProjectiles;
+               var multi:Boolean = this.objectXML_.Projectile.hasOwnProperty("MultiHit")
+               var chance:Number = 3 - ((numProj / 3))
+               chance = multi ? chance / 1.5 : chance;
+               this.itemEffectText_.text = "Vampriric -> Upon hitting an enemy, you have a "+ round2(chance,1) +"% chance to “cast” a skull-like ability that deals 300 damage AOE damage and heals for 50hp.";
             }
-            else if(this.objectXML_.hasOwnProperty("Insanity")){
-               this.itemEffectText_.text = "Insanity -> Has a 5% to get Berserk and Damaging for 3 seconds. 7 seconds Cooldown.";
-            }
-            else if(this.objectXML_.hasOwnProperty("HolyProtection")){
-               this.itemEffectText_.text = "Holy Protection -> 10% chance of being Purified (remove all Negative Status). 15 seconds Cooldown.";
-            }
-            else if(this.objectXML_.hasOwnProperty("GodBless")){
-               this.itemEffectText_.text = "God Bless -> Upon getting hit you have a 3% chance to get Invulnerable for 3 seconds. 5 seconds Cooldown.";
-            }
-            else if(this.objectXML_.hasOwnProperty("GodTouch")){
-               this.itemEffectText_.text = "God Touch -> Upon getting hit you have a 2% chance to get healed 25% of your health. 30 seconds Cooldown.";
-            }
-            else if(this.objectXML_.hasOwnProperty("Electrify")){
-               this.itemEffectText_.text = "Electrify -> Upon hitting an enemy, you have a 3% chance to “cast” a scepter-like ability that deals 1000 damage and inflicts Slowed for 3 seconds to up to 5 targets.";
-            }
-
          }
 
-         if(this.objectXML_.hasOwnProperty("Revenge") || this.objectXML_.hasOwnProperty("Legendary") || this.objectXML_.hasOwnProperty("Eternal") || this.objectXML_.hasOwnProperty("Mythical")){
+         if(this.objectXML_.hasOwnProperty("Legendary") || this.objectXML_.hasOwnProperty("Mythical")){
             switch(Parameters.data_.itemDataOutlines)
             {
                case 0:
@@ -382,13 +364,10 @@ public class EquipmentToolTip extends ToolTip
               case 1:
                   this.titleText_.filters = [new DropShadowFilter(0, 0, 0, 0.5, 12, 12)];
           }
-          if (this.objectXML_.hasOwnProperty("Eternal")) {
-              this.titleText_.setColor(TooltipHelper.ETERNAL_COLOR);
-              SetFlash(this.titleText_);
-          }else if(this.objectXML_.hasOwnProperty("Legendary")){
-              this.titleText_.setColor(0xebb011);
-          }else if(this.objectXML_.hasOwnProperty("Revenge")||this.objectXML_.hasOwnProperty("Mythical")){
-              this.titleText_.setColor(0xcf1433);
+          if(this.objectXML_.hasOwnProperty("Legendary")){
+              this.titleText_.setColor(TooltipHelper.LEGENDARY_COLOR);
+          }else if(this.objectXML_.hasOwnProperty("Mythical")){
+              this.titleText_.setColor(TooltipHelper.MYTHICAL_COLOR);
           }
 
          addChild(this.titleText_);
@@ -418,11 +397,9 @@ public class EquipmentToolTip extends ToolTip
          if(this.effects.length != 0 || this.comparisonResults.text != "" || this.objectXML_.hasOwnProperty("ExtraTooltipData"))
          {
             this.line1_ = new LineBreakDesign(MAX_WIDTH - 12,0);
-             if(this.objectXML_.hasOwnProperty("Eternal")) {
-                 this.line1_.setWidthColor(MAX_WIDTH-12, 0xFFFFFF);
-             }else if(this.objectXML_.hasOwnProperty("Legendary")){
+             if(this.objectXML_.hasOwnProperty("Legendary")){
                  this.line1_.setWidthColor(MAX_WIDTH-12,0x967bb6);
-             }else if(this.objectXML_.hasOwnProperty("Revenge")||this.objectXML_.hasOwnProperty("Mythical")){
+             }else if(this.objectXML_.hasOwnProperty("Mythical")){
                  this.line1_.setWidthColor(MAX_WIDTH-12,0xFFFFFF);
              }
             addChild(this.line1_);
@@ -754,6 +731,65 @@ public class EquipmentToolTip extends ToolTip
             }
          }
       }
+      private function getPoison(_arg1:XML, _arg2:XML=null):void
+      {
+         var _local3:ComPair = new ComPair(_arg1, _arg2, "totalDamage");
+         var _local4:ComPair = new ComPair(_arg1, _arg2, "radius");
+         var _local5:ComPair = new ComPair(_arg1, _arg2, "duration");
+         var _local7:ComPair = new ComPair(_arg1, _arg2, "impactDamage", 0);
+         var _local10:String = this.colorUntiered("Poison: ");
+
+
+
+
+
+
+
+
+         _local10 = (_local10 + TooltipHelper.compare(_local3.a, _local3.b, true, "", false, !(this.sameActivateEffect)) + " damage");
+         if (_local7.a){
+            _local10 = (_local10 + " (" + TooltipHelper.compare(_local7.a, _local7.b, true, "", false, !(this.sameActivateEffect)) + " on impact)");
+         }
+         _local10 = (_local10 + " within " + TooltipHelper.compareAndGetPlural(_local4.a, _local4.b, "square", true, !(this.sameActivateEffect)));
+         _local10 = (_local10 + " over "+ TooltipHelper.compareAndGetPlural(_local5.a, _local5.b, "second", false, !(this.sameActivateEffect)));
+         this.effects.push(new Effect(_local10, ""));
+         this.AddConditionToEffects(_arg1, _arg2, "Nothing", 5);
+         this.sameActivateEffect = true;
+      }
+      private var sameActivateEffect:Boolean;
+
+      private function AddConditionToEffects(_arg1:XML, _arg2:XML, _arg3:String="Nothing", _arg4:Number=5):void
+      {
+         var _local6:ComPair;
+         var _local7:String;
+         var _local5:String = ((_arg1.hasOwnProperty("@condEffect")) ? _arg1.@condEffect : _arg3);
+         if (_local5 != "Nothing"){
+            _local6 = new ComPair(_arg1, _arg2, "condDuration", _arg4);
+            if (_arg2){
+               _local7 = ((_arg2.hasOwnProperty("@condEffect")) ? _arg2.@condEffect : _arg3);
+               if (_local7 == "Nothing"){
+                  _local6.b = 0;
+               }
+            }
+
+            var condition:String = TooltipHelper.compareAndGetPlural(_local6.a, _local6.b, "second");
+            var duration:String = _local5;
+            this.effects.push(new Effect("Inflicts " + condition + " for " + duration, "Something"));
+         }
+      }
+
+      private function colorUntiered(_arg1:String):String
+      {
+         var _local2:Boolean = this.objectXML_.hasOwnProperty("Tier");
+         var _local3:Boolean = this.objectXML_.hasOwnProperty("@setType");
+         if (_local3){
+            return (TooltipHelper.wrapInFontTag(_arg1, ("#" + TooltipHelper.SET_COLOR.toString(16))));
+         }
+         if (!_local2){
+            return (TooltipHelper.wrapInFontTag(_arg1, ("#" + TooltipHelper.UNTIERED_COLOR.toString(16))));
+         }
+         return (_arg1);
+      }
 
       override protected function alignUI():void {
          this.titleText_.x = (this.icon_.width + 4);
@@ -1021,11 +1057,9 @@ public class EquipmentToolTip extends ToolTip
 
       private function makeLineTwo():void{
          this.line2_ = new LineBreakDesign((MAX_WIDTH - 12), 0);
-          if(this.objectXML_.hasOwnProperty("Eternal")){
-              this.line2_.setWidthColor((MAX_WIDTH -12), 0xFFFFFF);
-          }else if(this.objectXML_.hasOwnProperty("Legendary")){
+          if(this.objectXML_.hasOwnProperty("Legendary")){
               this.line2_.setWidthColor(MAX_WIDTH-12,0x967bb6);
-          }else if(this.objectXML_.hasOwnProperty("Revenge")||this.objectXML_.hasOwnProperty("Mythical")){
+          }else if(this.objectXML_.hasOwnProperty("Mythical")){
               this.line2_.setWidthColor(MAX_WIDTH-12,0xFFFFFF);
           }
          addChild(this.line2_);
@@ -1063,9 +1097,6 @@ public class EquipmentToolTip extends ToolTip
           if(this.objectXML_.hasOwnProperty("@setType") || this.objectXML_.hasOwnProperty("SetTier")) {
             _local_1 = TooltipHelper.SET_COLOR;
          }
-         else if(this.objectXML_.hasOwnProperty("Eternal")) {
-             _local_1 = TooltipHelper.ETERNAL_COLOR;
-         }
          else if(this.objectXML_.hasOwnProperty("SNormal")) {
             _local_1 = TooltipHelper.S;
          }
@@ -1102,6 +1133,12 @@ public class EquipmentToolTip extends ToolTip
          this.descText_.y = this.icon_.height + 2;
          addChild(this.descText_);
       }*/
+
+      private function round2(num:Number, decimals:int):Number
+      {
+         var m:int = Math.pow(10, decimals);
+         return Math.round(num * m) / m;
+      }
 
       private function buildCategorySpecificText() : void
       {
@@ -1237,6 +1274,26 @@ public class EquipmentToolTip extends ToolTip
       }
 
    }
+}
+
+class ComPair
+{
+   public var a:Number;
+   public var b:Number;
+
+   public function ComPair(_arg1:XML, _arg2:XML, _arg3:String, _arg4:Number=0)
+   {
+      this.a = (this.b = ((_arg1.hasOwnProperty(("@" + _arg3))) ? _arg1.@[_arg3] : _arg4));
+      if (_arg2){
+         this.b = ((_arg2.hasOwnProperty(("@" + _arg3))) ? _arg2.@[_arg3] : _arg4);
+      };
+   }
+   public function add(_arg1:Number):void
+   {
+      this.a = (this.a + _arg1);
+      this.b = (this.b + _arg1);
+   }
+
 }
 
 class Effect

@@ -29,8 +29,7 @@ package com.company.assembleegameclient.objects.thrown
       
       public function ThrownProjectile(id:uint, lifetime:int, start:Point, end:Point)
       {
-         this.bitmapData = ObjectLibrary.getTextureFromType(id);
-         this.bitmapData = TextureRedrawer.redraw(this.bitmapData,80,true,0,false);
+         this.bitmapData = TextureRedrawer.redraw(ObjectLibrary.getTextureFromType(id),80,true,0,true);
          _rotationDelta = 0.2;
          super(0,this.bitmapData);
          this.lifetime_ = this.timeLeft_ = lifetime;
@@ -43,7 +42,7 @@ package com.company.assembleegameclient.objects.thrown
          this.pathY_ = y_ = this.start_.y;
       }
       
-      override public function update(time:int, dt:int, interpolate:Boolean) : Boolean
+      override public function update(time:int, dt:int) : Boolean
       {
          this.timeLeft_ = this.timeLeft_ - dt;
          if(this.timeLeft_ <= 0)

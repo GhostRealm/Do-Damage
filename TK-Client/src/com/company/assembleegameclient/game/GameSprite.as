@@ -1,6 +1,5 @@
 package com.company.assembleegameclient.game
 {
-import com.company.assembleegameclient.game.events.MoneyChangedEvent;
 import com.company.assembleegameclient.map.Camera;
 import com.company.assembleegameclient.map.Map;
 import com.company.assembleegameclient.objects.GameObject;
@@ -15,6 +14,8 @@ import com.company.assembleegameclient.ui.RankText;
 import com.company.assembleegameclient.ui.TextBox;
 import com.company.assembleegameclient.ui.menu.PlayerMenu;
 import com.company.assembleegameclient.util.TextureRedrawer;
+import com.company.assembleegameclient.util.TileRedrawer;
+import com.company.assembleegameclient.util.redrawers.GlowRedrawer;
 import com.company.ui.SimpleText;
 import com.company.util.BitmapUtil;
 import com.company.util.CachingColorTransformer;
@@ -31,6 +32,7 @@ import flash.events.MouseEvent;
 import flash.external.ExternalInterface;
 import flash.filters.ColorMatrixFilter;
 import flash.filters.DropShadowFilter;
+import flash.system.System;
 import flash.utils.ByteArray;
 import flash.utils.getTimer;
 import flash.utils.setTimeout;
@@ -47,6 +49,7 @@ import kabam.rotmg.messaging.impl.incoming.MapInfo;
 import kabam.rotmg.servers.api.Server;
 import kabam.rotmg.stage3D.Renderer;
 import kabam.rotmg.ui.UIUtils;
+import kabam.rotmg.ui.view.BossHealthBar;
 import kabam.rotmg.ui.view.HUDView;
 
 import org.osflash.signals.Signal;
@@ -56,7 +59,6 @@ public class GameSprite extends Sprite
    protected static const PAUSED_FILTER:ColorMatrixFilter = new ColorMatrixFilter(MoreColorUtil.greyscaleFilterMatrix);
 
    public const closed:Signal = new Signal();
-   public const monitor:Signal = new Signal(String,int);
    public const modelInitialized:Signal = new Signal();
    public const drawCharacterWindow:Signal = new Signal(Player);
    public var map:Map;
@@ -84,6 +86,7 @@ public class GameSprite extends Sprite
    private var displaysPosY:uint = 4;
    public var dmgCounter:SimpleText;
    public var chatPlayerMenu:PlayerMenu;
+   public var bossHealthBar:BossHealthBar;
 
    public function GameSprite(server:Server, gameId:int, createCharacter:Boolean, charId:int, keyTime:int, key:ByteArray, model:PlayerModel, mapJSON:String)
    {
@@ -112,6 +115,10 @@ public class GameSprite extends Sprite
       else{
          this.updateScaleForTextBox(1.0);
       }
+
+      this.bossHealthBar = new BossHealthBar();
+      this.bossHealthBar.visible = false;
+      addChild(this.bossHealthBar);
    }
 
    public function updateScaleForTextBox(percentage:Number):void{
@@ -183,6 +190,13 @@ public class GameSprite extends Sprite
       this.hidePreloader();
       stage.dispatchEvent(new Event(Event.RESIZE));
       this.parent.parent.setChildIndex((this.parent.parent as Layers).top, 2);
+
+      if(Parameters.data_.showStatistics){
+         this.enableGameStatistics();
+      }
+
+      WebMain.STAGE.vsyncEnabled = Parameters.data_.vsync;
+      WebMain.STAGE.frameRate = Parameters.data_.fps;
    }
 
    private function showSafeAreaDisplays() : void
@@ -293,6 +307,20 @@ public class GameSprite extends Sprite
             this.creditDisplay_.x = (this.hudView.x - (6 * this.creditDisplay_.scaleX));
          }
       }
+      if (this.bossHealthBar != null)
+      {
+         if (uiscale)
+         {
+            this.bossHealthBar.scaleX = result;
+            this.bossHealthBar.scaleY = 1;
+            this.bossHealthBar.y = 0;
+         }
+         else
+         {
+            this.bossHealthBar.scaleX = sWidth;
+            this.bossHealthBar.scaleY = sHeight;
+         }
+      }
       if (this.rankText_ != null)
       {
          if (uiscale)
@@ -338,6 +366,26 @@ public class GameSprite extends Sprite
       }
    }
 
+   public var gameStatistics_:GameStatistics;
+
+   public function enableGameStatistics():void {
+      if (this.gameStatistics_ != null) {
+         this.gameStatistics_.visible = true;
+      }
+      else {
+         this.gameStatistics_ = new GameStatistics();
+         this.gameStatistics_.x = 600 - this.gameStatistics_.width * 2 - 24;
+         this.gameStatistics_.y = 64;
+         addChild(this.gameStatistics_);
+      }
+   }
+
+   public function disableGameStatistics():void {
+      if (this.gameStatistics_ != null) {
+         this.gameStatistics_.visible = false;
+      }
+   }
+
    public function connect() : void
    {
       if(!this.isGameStarted)
@@ -347,7 +395,6 @@ public class GameSprite extends Sprite
          this.gsc_.connect();
          this.idleWatcher_.start(this);
          this.lastUpdate_ = getTimer();
-         //stage.addEventListener(MoneyChangedEvent.MONEY_CHANGED,this.onMoneyChanged);
          stage.addEventListener(Event.ENTER_FRAME,this.onEnterFrame);
          if(Parameters.data_.FS){
             if (Parameters.data_.mscale == undefined)
@@ -371,7 +418,6 @@ public class GameSprite extends Sprite
          if(!contains(this.dmgCounter)){
             addChild(this.dmgCounter);
          }
-         LoopedProcess.addProcess(new LoopedCallback(100,this.updateNearestInteractive));
       }
    }
 
@@ -383,33 +429,27 @@ public class GameSprite extends Sprite
          Renderer.inGame = false;
          this.idleWatcher_.stop();
          this.gsc_.serverConnection.disconnect();
-         //stage.removeEventListener(MoneyChangedEvent.MONEY_CHANGED,this.onMoneyChanged);
          stage.removeEventListener(Event.ENTER_FRAME,this.onEnterFrame);
          stage.removeEventListener(Event.RESIZE, this.onScreenResize);
          stage.scaleMode = StageScaleMode.EXACT_FIT;
-         LoopedProcess.destroyAll();
          stage.dispatchEvent(new Event(Event.RESIZE));
          contains(this.map) && removeChild(this.map);
          this.map.dispose();
+         this.hudView && this.hudView.miniMap.dispose();
          CachingColorTransformer.clear();
          TextureRedrawer.clearCache();
+//         TileRedrawer.clearCache();
+         GlowRedrawer.clearCache();
          Projectile.dispose();
          this.gsc_.disconnect();
          Parameters.DamageCounter = [];
          if(contains(this.dmgCounter)){
             removeChild(this.dmgCounter);
          }
+         if(this.gameStatistics_ != null && contains(this.gameStatistics_)){
+            removeChild(this.gameStatistics_);
+         }
       }
-   }
-
-   /*private function onMoneyChanged(event:Event) : void
-   {
-      this.gsc_.checkCredits();
-   }*/
-
-   public function evalIsNotInCombatMapArea() : Boolean
-   {
-      return this.map.name_ == "Nexus" || this.map.name_ == "Vault" || this.map.name_ == "Guild Hall";
    }
 
    public function DamageCounter() : void
@@ -446,7 +486,6 @@ public class GameSprite extends Sprite
 
    private function onEnterFrame(event:Event) : void
    {
-      var avgFrameRate:Number = NaN;
       var time:int = getTimer();
       var dt:int = time - this.lastUpdate_;
       if(this.idleWatcher_.update(dt))
@@ -454,18 +493,24 @@ public class GameSprite extends Sprite
          this.closed.dispatch();
          return;
       }
-      LoopedProcess.runProcesses(time);
+
+      if(this.bossHealthBar != null && this.bossHealthBar.visible){
+         this.bossHealthBar.draw();
+      }
+
+      this.updateNearestInteractive();
+
       this.frameTimeSum_ = this.frameTimeSum_ + dt;
-      this.frameTimeCount_ = this.frameTimeCount_ + 1;
-      if(this.frameTimeSum_ > 300000)
+      this.frameTimeCount_++;
+      if(this.frameTimeSum_ >= 60)
       {
-         avgFrameRate = int(Math.round(1000 * this.frameTimeCount_ / this.frameTimeSum_));
+         if (this.gameStatistics_ != null && this.gameStatistics_.visible) {
+            this.gameStatistics_.update(int(Math.round(1000 * this.frameTimeCount_ / this.frameTimeSum_)));
+         }
          this.frameTimeCount_ = 0;
          this.frameTimeSum_ = 0;
       }
-      var mapTime:int = getTimer();
       this.map.update(time,dt);
-      this.monitor.dispatch("Map.update",getTimer() - mapTime);
       this.camera_.update(dt);
       var player:Player = this.map.player_;
       if(this.focus)
@@ -482,6 +527,7 @@ public class GameSprite extends Sprite
             this.rankText_.draw(player.numStars_);
             this.guildText_.draw(player.guildName_,player.guildRank_);
          }
+
          if(player.isPaused())
          {
             this.map.filters = [PAUSED_FILTER];
@@ -503,8 +549,6 @@ public class GameSprite extends Sprite
          this.moveRecords_.addRecord(time,player.x_,player.y_);
       }
       this.lastUpdate_ = time;
-      var delta:int = getTimer() - time;
-      this.monitor.dispatch("GameSprite.loop",delta);
       this.DamageCounter();
    }
 

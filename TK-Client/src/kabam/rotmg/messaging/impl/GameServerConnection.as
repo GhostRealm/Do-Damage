@@ -86,6 +86,7 @@ import kabam.rotmg.game.model.GameModel;
 import kabam.rotmg.game.model.PotionInventoryModel;
 import kabam.rotmg.game.signals.AddSpeechBalloonSignal;
 import kabam.rotmg.game.signals.AddTextLineSignal;
+import kabam.rotmg.game.view.components.QueuedStatusText;
 import kabam.rotmg.maploading.signals.HideMapLoadingSignal;
 import kabam.rotmg.market.signals.MemMarketAddSignal;
 import kabam.rotmg.market.signals.MemMarketBuySignal;
@@ -142,6 +143,7 @@ import kabam.rotmg.messaging.impl.incoming.market.MarketSearchResult;
 import kabam.rotmg.messaging.impl.incoming.party.InvitedToParty;
 import kabam.rotmg.messaging.impl.incoming.talisman.TalismanEssenceData;
 import kabam.rotmg.messaging.impl.outgoing.AcceptTrade;
+import kabam.rotmg.messaging.impl.outgoing.AoeAck;
 import kabam.rotmg.messaging.impl.outgoing.Buy;
 import kabam.rotmg.messaging.impl.outgoing.CancelTrade;
 import kabam.rotmg.messaging.impl.outgoing.ChangeGuildRank;
@@ -171,6 +173,7 @@ import kabam.rotmg.messaging.impl.outgoing.PlayerText;
 import kabam.rotmg.messaging.impl.outgoing.Pong;
 import kabam.rotmg.messaging.impl.outgoing.PotionStorageInteraction;
 import kabam.rotmg.messaging.impl.outgoing.RequestTrade;
+import kabam.rotmg.messaging.impl.outgoing.ShootAck;
 import kabam.rotmg.messaging.impl.outgoing.Reskin;
 import kabam.rotmg.messaging.impl.outgoing.SquareHit;
 import kabam.rotmg.messaging.impl.outgoing.Teleport;
@@ -187,8 +190,6 @@ import kabam.rotmg.messaging.impl.outgoing.market.MarketRemove;
 import kabam.rotmg.messaging.impl.outgoing.market.MarketSearch;
 import kabam.rotmg.messaging.impl.outgoing.party.JoinParty;
 import kabam.rotmg.messaging.impl.outgoing.party.PartyInvite;
-import kabam.rotmg.messaging.impl.outgoing.potionStorage.PotionStorage;
-import kabam.rotmg.messaging.impl.outgoing.potionStorage.PotionStorage;
 import kabam.rotmg.messaging.impl.outgoing.talisman.TalismanEssenceAction;
 import kabam.rotmg.minimap.control.UpdateGameObjectTileSignal;
 import kabam.rotmg.minimap.control.UpdateGroundTileSignal;
@@ -196,9 +197,8 @@ import kabam.rotmg.minimap.model.UpdateGroundTileVO;
 import kabam.rotmg.servers.api.Server;
 import kabam.rotmg.ui.model.Key;
 import kabam.rotmg.ui.model.UpdateGameObjectTileVO;
-import kabam.rotmg.ui.signals.EternalPopUpSignal;
 import kabam.rotmg.ui.signals.LegendaryPopUpSignal;
-import kabam.rotmg.ui.signals.RevengePopUpSignal;
+import kabam.rotmg.ui.signals.MythicalPopUpSignal;
 import kabam.rotmg.ui.signals.ShowKeySignal;
 import kabam.rotmg.ui.signals.ShowKeyUISignal;
 import kabam.rotmg.ui.signals.UpdateBackpackTabSignal;
@@ -374,7 +374,6 @@ public class GameServerConnection
 
       public function GameServerConnection(gs:GameSprite, server:Server, gameId:int, createCharacter:Boolean, charId:int, keyTime:int, key:ByteArray, mapJSON:String)
       {
-         super();
          this.injector = StaticInjectorContext.getInjector();
          this.addTextLine = this.injector.getInstance(AddTextLineSignal);
          this.addSpeechBalloon = this.injector.getInstance(AddSpeechBalloonSignal);
@@ -544,6 +543,8 @@ public class GameServerConnection
 
          messages.map(TALISMAN_ESSENCE_DATA).toMessage(TalismanEssenceData).toMethod(this.onTalismanEssenceData);
          messages.map(TALISMAN_ESSENCE_ACTION).toMessage(TalismanEssenceAction);
+         messages.map(AOEACK).toMessage(AoeAck);
+         messages.map(SHOOTACK).toMessage(ShootAck);
       }
 
       private function unmapMessages() : void {
@@ -617,6 +618,8 @@ public class GameServerConnection
          messages.unmap(FORGEFUSION);
          messages.unmap(ENGINE_FUEL_ACTION);
          messages.unmap(ESCAPE);
+         messages.unmap(AOEACK);
+         messages.unmap(SHOOTACK);
 
          /* Market */
          messages.unmap(MARKET_SEARCH);
@@ -649,10 +652,12 @@ public class GameServerConnection
       }
 
       private function onTalismanEssenceData(talismanEssenceData:TalismanEssenceData):void {
-         this.gs_.map.player_.essence_ = talismanEssenceData.essence_;
-         this.gs_.map.player_.essenceCap_ = talismanEssenceData.essenceCap_;
-         for(var i:int = 0; i < talismanEssenceData.talismans_.length; i++){
-            this.gs_.map.player_.addTalisman(talismanEssenceData.talismans_[i]);
+         if(this.player){
+            this.player.essence_ = talismanEssenceData.essence_;
+            this.player.essenceCap_ = talismanEssenceData.essenceCap_;
+            for(var i:int = 0; i < talismanEssenceData.talismans_.length; i++){
+               this.player.addTalisman(talismanEssenceData.talismans_[i]);
+            }
          }
       }
 
@@ -726,14 +731,13 @@ public class GameServerConnection
          this.serverConnection.sendMessage(playerHit);
       }
 
-      public function enemyHit(time:int, bulletId:int, targetId:int, kill:Boolean, itemType:int) : void
+      public function enemyHit(time:int, bulletId:int, targetId:int, kill:Boolean) : void
       {
          var enemyHit:EnemyHit = this.messages.require(ENEMYHIT) as EnemyHit;
          enemyHit.time_ = time;
          enemyHit.bulletId_ = bulletId;
          enemyHit.targetId_ = targetId;
          enemyHit.kill_ = kill;
-         enemyHit.itemType_ = itemType;
          this.serverConnection.sendMessage(enemyHit);
       }
 
@@ -756,14 +760,14 @@ public class GameServerConnection
          this.serverConnection.sendMessage(squareHit);
       }
 
-      /*public function aoeAck(time:int, x:Number, y:Number) : void
+      public function aoeAck(time:int, x:Number, y:Number) : void
       {
          var aoeAck:AoeAck = this.messages.require(AOEACK) as AoeAck;
          aoeAck.time_ = time;
          aoeAck.position_.x_ = x;
          aoeAck.position_.y_ = y;
          this.serverConnection.sendMessage(aoeAck);
-      }*/
+      }
 
       public function groundDamage(time:int, x:Number, y:Number) : void
       {
@@ -774,12 +778,12 @@ public class GameServerConnection
          this.serverConnection.sendMessage(groundDamage);
       }
 
-      /*public function shootAck(time:int) : void
+      public function shootAck(time:int) : void
       {
          var shootAck:ShootAck = this.messages.require(SHOOTACK) as ShootAck;
          shootAck.time_ = time;
          this.serverConnection.sendMessage(shootAck);
-      }*/
+      }
 
       public function playerText(textStr:String) : void
       {
@@ -979,7 +983,6 @@ public class GameServerConnection
             return;
          }
          var sObj:SellableObject = this.gs_.map.goDict_[sellableObjectId];
-         trace(sObj);
          if(sObj == null)
             return;
 
@@ -1165,7 +1168,7 @@ public class GameServerConnection
          var target:GameObject = map.goDict_[damage.targetId_];
          if(target != null)
          {
-            target.damage(-1,damage.damageAmount_,damage.effects_,damage.kill_,proj);
+            target.damage(-1,damage.damageAmount_,damage.effects_,damage.kill_,proj, damage.pierce_);
          }
 
          if (damage.objectId_ != playerId_ && damage.targetId_ != playerId_) // aka nothing to do wit parent player
@@ -1198,17 +1201,18 @@ public class GameServerConnection
          {
             if(needsAck)
             {
-               //this.shootAck(-1);
+               this.shootAck(-1);
             }
             return;
          }
+
          var proj:Projectile = FreeList.newObject(Projectile) as Projectile;
-         proj.reset(serverPlayerShoot.containerType_,0,serverPlayerShoot.ownerId_,serverPlayerShoot.bulletId_,serverPlayerShoot.angle_,this.gs_.lastUpdate_);
+         proj.reset(serverPlayerShoot.containerType_,0, serverPlayerShoot.ownerId_, serverPlayerShoot.bulletId_, serverPlayerShoot.angle_,this.gs_.lastUpdate_);
          proj.setDamage(serverPlayerShoot.damage_);
          this.gs_.map.addObj(proj,serverPlayerShoot.startingPos_.x_,serverPlayerShoot.startingPos_.y_);
          if(needsAck)
          {
-            //this.shootAck(this.gs_.lastUpdate_);
+            this.shootAck(this.gs_.lastUpdate_);
          }
       }
 
@@ -1237,19 +1241,19 @@ public class GameServerConnection
          var owner:GameObject = this.gs_.map.goDict_[enemyShoot.ownerId_];
          if(owner == null || owner.dead_)
          {
-            //this.shootAck(-1);
+            this.shootAck(-1);
             return;
          }
          for(var i:int = 0; i < enemyShoot.numShots_; i++)
          {
             proj = FreeList.newObject(Projectile) as Projectile;
             angle = enemyShoot.angle_ + enemyShoot.angleInc_ * i;
-            proj.reset(owner.objectType_,enemyShoot.bulletType_,enemyShoot.ownerId_,(enemyShoot.bulletId_ + i) % 256,angle,this.gs_.lastUpdate_);
+            proj.reset(owner.objectType_,enemyShoot.bulletType_,enemyShoot.ownerId_,(enemyShoot.bulletId_ + i) % 0xFFFF, angle,this.gs_.lastUpdate_);
             proj.setDamage(enemyShoot.damage_);
             this.gs_.map.addObj(proj,enemyShoot.startingPos_.x_,enemyShoot.startingPos_.y_);
             proj.addTo(this.gs_.map, enemyShoot.startingPos_.x_, enemyShoot.startingPos_.y_);
          }
-         //this.shootAck(this.gs_.lastUpdate_);
+         this.shootAck(this.gs_.lastUpdate_);
          owner.setAttack(owner.objectType_,enemyShoot.angle_ + enemyShoot.angleInc_ * ((enemyShoot.numShots_ - 1) / 2));
       }
 
@@ -1345,24 +1349,25 @@ public class GameServerConnection
 
       private function onNotification(notification:Notification) : void
       {
-         // used to be queued
-         var text:CharacterStatusText = null;
          var go:GameObject = this.gs_.map.goDict_[notification.objectId_];
-
-         if(go != null)
-         {
-            if (this.gs_.map.player_.objectId_ != notification.playerId_ && notification.objectId_ != playerId_ && !Parameters.data_.allyNotifs)
-            {
-               return;
-            }
-
-            text = new CharacterStatusText(go,notification.text_,notification.color_,2000);
-            this.gs_.map.mapOverlay_.addStatusText(text);
-            if(go == this.player && notification.text_ == "Quest Complete!")
-            {
-               this.gs_.map.quest_.completed();
+         if (go != null){
+            if (go == this.player){
+               if(notification.text_ == "Quest Complete!"){
+                  this.gs_.map.quest_.completed();
+               }
+               this.makeNotification(notification.text_, go, notification.color_, 1000);
+            }else{
+               if(go.props_.isEnemy_ || !Parameters.data_.noAllyNotifications) {
+                  this.makeNotification(notification.text_, go, notification.color_, 1000);
+               }
             }
          }
+      }
+
+      private function makeNotification(text:String, go:GameObject, color:uint, lifetime:int):void
+      {
+         var queuedStatusText:QueuedStatusText = new QueuedStatusText(go, text, color, lifetime);
+         this.gs_.map.mapOverlay_.addQueuedText(queuedStatusText);
       }
 
       private function onGlobalNotification(notification:GlobalNotification) : void
@@ -1384,17 +1389,12 @@ public class GameServerConnection
             case "showKeyUI":
                ShowKeyUISignal.instance.dispatch();
                break;
-            case "legloot":
+            case "legendary_loot":
                LegendaryPopUpSignal.instance.dispatch();
                break;
-            case "revloot":
-               RevengePopUpSignal.instance.dispatch();
+            case "mythical_loot":
+               MythicalPopUpSignal.instance.dispatch();
                break;
-             case "monkeyKing":
-                 RevengePopUpSignal.instance.dispatch();
-                 break;
-             case "eternalloot":
-                 EternalPopUpSignal.instance.dispatch();
                break;
          }
       }
@@ -1568,15 +1568,15 @@ public class GameServerConnection
          }
       }
 
-      private function onGoto(goto:Goto) : void
+      private function onGoto(_arg1:Goto) : void
       {
          this.gotoAck(this.gs_.lastUpdate_);
-         var go:GameObject = this.gs_.map.goDict_[goto.objectId_];
+         var go:GameObject = this.gs_.map.goDict_[_arg1.objectId_];
          if(go == null)
          {
             return;
          }
-         go.onGoto(goto.pos_.x_,goto.pos_.y_,this.gs_.lastUpdate_);
+         go.onGoto(_arg1.pos_.x_,_arg1.pos_.y_,this.gs_.lastUpdate_);
       }
 
       private function updateGameObject(go:GameObject, stats:Vector.<StatData>, isMyObject:Boolean) : void
@@ -1596,6 +1596,7 @@ public class GameServerConnection
                   continue;
                case StatData.HP_STAT:
                   go.hp_ = value;
+                  go.rtHp_ = go.hp_;
                   continue;
                case StatData.SIZE_STAT:
                   go.size_ = value;
@@ -1993,10 +1994,6 @@ public class GameServerConnection
          message.consume();
       }
 
-       private function get requireInterpolation():Boolean {
-           return this.jitterWatcher_ && this.jitterWatcher_.getNetJitter > Parameters.INTERPOLATION_THRESHOLD;
-       }
-
       private function processObjectStatus(objectStatus:ObjectStatusData, tickTime:int, tickId:int) : void
       {
          var oldLevel:int = 0;
@@ -2012,10 +2009,10 @@ public class GameServerConnection
             return;
          }
          var isMyObject:Boolean = objectStatus.objectId_ == this.playerId_;
-         var allyNotifs:Boolean = Parameters.data_.allyNotifs;
+         var noAllyNotifications:Boolean = Parameters.data_.noAllyNotifications;
          if(tickTime != 0 && !isMyObject)
          {
-            go.onTickPos(objectStatus.pos_.x_,objectStatus.pos_.y_,tickTime,tickId, this.requireInterpolation);
+            go.onTickPos(objectStatus.pos_.x_,objectStatus.pos_.y_,tickTime,tickId);
          }
          var player:Player = go as Player;
          if(player != null)
@@ -2041,7 +2038,7 @@ public class GameServerConnection
                }
                else
                {
-                  if (allyNotifs)
+                  if (noAllyNotifications)
                   {
                      player.levelUpEffect("Level Up!");
                   }
@@ -2049,7 +2046,7 @@ public class GameServerConnection
             }
             else if(player.exp_ > oldExp)
             {
-               if (!allyNotifs && !isMyObject)
+               if (!noAllyNotifications && !isMyObject)
                {
                   return;
                }
@@ -2123,6 +2120,9 @@ public class GameServerConnection
 
       private function onPing(ping:Ping) : void
       {
+         if(this.gs_.gameStatistics_ != null){
+            this.gs_.gameStatistics_.setPing(ping.roundTripTime_);
+         }
          var pong:Pong = this.messages.require(PONG) as Pong;
          pong.serial_ = ping.serial_;
          pong.time_ = getTimer();
@@ -2151,7 +2151,6 @@ public class GameServerConnection
 
       private function onDeath(death:Death) : void
       {
-         // keep for now, seems to fix the death issue
          disconnect();
 
          this.death = death;
@@ -2206,14 +2205,14 @@ public class GameServerConnection
          var effects:Vector.<uint> = null;
          if(this.player == null)
          {
-            //this.aoeAck(this.gs_.lastUpdate_,0,0);
+            this.aoeAck(this.gs_.lastUpdate_,0,0);
             return;
          }
-         var e:AOEEffect = new AOEEffect(aoe.pos_.toPoint(),aoe.radius_,16711680);
+         var e:AOEEffect = new AOEEffect(aoe.pos_.toPoint(),aoe.radius_,aoe.color_);// 16711680 color
          this.gs_.map.addObj(e,aoe.pos_.x_,aoe.pos_.y_);
          if(this.player.isInvincible() || this.player.isPaused())
          {
-            //this.aoeAck(this.gs_.lastUpdate_,this.player.x_,this.player.y_);
+            this.aoeAck(this.gs_.lastUpdate_,this.player.x_,this.player.y_);
             return;
          }
          var hit:Boolean = this.player.distTo(aoe.pos_) < aoe.radius_;
@@ -2226,9 +2225,9 @@ public class GameServerConnection
                effects = new Vector.<uint>();
                effects.push(aoe.effect_);
             }
-            this.player.damage(aoe.origType_,d,effects,false,null);
+            this.player.damage(aoe.origType_,d,effects,false,null, false);
          }
-         //this.aoeAck(this.gs_.lastUpdate_,this.player.x_,this.player.y_);
+         this.aoeAck(this.gs_.lastUpdate_,this.player.x_,this.player.y_);
       }
 
       private function onNameResult(nameResult:NameResult) : void

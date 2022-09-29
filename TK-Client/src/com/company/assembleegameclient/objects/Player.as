@@ -211,6 +211,8 @@ public class Player extends Character {
     private var activeTalismans_:Vector.<int>;
     public var essence_:int = 0;
     public var essenceCap_:int = 0;
+    public var damageIsAveraged_:Boolean;
+    public var shotsPierce_:Boolean;
 
     public function addTalisman(talismanData:TalismanData):void {
         this.talismans_[talismanData.type_] = new TalismanModel(talismanData);
@@ -276,6 +278,8 @@ public class Player extends Character {
             if(tierDesc.abilityLifeCost > 0.0){
                 this.talismanAbilityLifeCost_ = tierDesc.abilityLifeCost;
             }
+            this.damageIsAveraged_ = tierDesc.damageIsAveraged_;
+            this.shotsPierce_ = tierDesc.shotsPierce_;
         }
     }
 
@@ -290,7 +294,7 @@ public class Player extends Character {
         return ret;
     }
 
-    override public function update(time:int, dt:int, interpolate:Boolean):Boolean {
+    override public function update(time:int, dt:int):Boolean {
         var playerAngle:Number = NaN;
         var moveSpeed:Number = NaN;
         var moveVecAngle:Number = NaN;
@@ -320,9 +324,11 @@ public class Player extends Character {
             map_.removeObj(this.healingEffect_.objectId_);
             this.healingEffect_ = null;
         }
+
         if (map_.player_ == this && isPaused()) {
             return true;
         }
+
         if (this.relMoveVec_ != null) {
             playerAngle = Parameters.data_.cameraAngle;
             if (this.rotate_ != 0) {
@@ -345,13 +351,13 @@ public class Player extends Character {
             }
             this.walkTo(x_ + dt * moveVec_.x, y_ + dt * moveVec_.y);
         }
-        else if (!super.update(time, dt, interpolate)) {
+        else if (!super.update(time, dt)) {
             return false;
         }
 
         if (map_.player_ == this && square_.props_.maxDamage_ > 0 && square_.lastDamage_ + 500 < time && !isInvincible() && (square_.obj_ == null || !square_.obj_.props_.protectFromGroundDamage_)) {
             d = map_.gs_.gsc_.getNextDamage(square_.props_.minDamage_, square_.props_.maxDamage_);
-            damage(-1, d, null, hp_ <= d, null);
+            damage(-1, d, null, hp_ <= d, null, false);
             map_.gs_.gsc_.groundDamage(time, x_, y_);
             square_.lastDamage_ = time;
         }
@@ -895,7 +901,6 @@ public class Player extends Character {
         else if (objectXML.hasOwnProperty("MultiPhase")) {
             map_.gs_.gsc_.useItem(now, objectId_, 1, itemType, pW.x, pW.y, useType);
 
-
             if(this.talismanNoManaBar_) {
                 mpCost = int(this.maxHP_ * this.talismanAbilityLifeCost_);
                 if (mpCost <= this.hp_) {
@@ -1087,9 +1092,11 @@ public class Player extends Character {
         var rateOfFire:Number = Number(weaponXML.RateOfFire);
 
         this.attackPeriod_ = 1 / this.attackFrequency() * (1 / rateOfFire);
+
         if (time < attackStart_ + this.attackPeriod_) {
             return;
         }
+
         doneAction(map_.gs_, Tutorial.ATTACK_ACTION);
         attackAngle_ = attackAngle;
         attackStart_ = time;
@@ -1123,8 +1130,8 @@ public class Player extends Character {
                 SoundEffectLibrary.play(proj.sound_, 0.75, false);
             }
             map_.addObj(proj, x_ + Math.cos(attackAngle) * 0.3, y_ + Math.sin(attackAngle) * 0.3);
+            angle += arcGap;
             map_.gs_.gsc_.playerShoot(time, proj);
-            angle = angle + arcGap;
         }
     }
 }

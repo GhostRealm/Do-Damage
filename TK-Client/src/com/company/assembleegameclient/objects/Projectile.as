@@ -26,6 +26,8 @@ import flash.geom.Point;
 import flash.geom.Vector3D;
 import flash.utils.Dictionary;
 
+import kabam.rotmg.messaging.impl.GameServerConnection;
+
 public class Projectile extends BasicObject
 {
 
@@ -36,6 +38,7 @@ public class Projectile extends BasicObject
    public var projProps_:ProjectileProperties;
    public var texture_:BitmapData;
    public var bulletId_:uint;
+   public var colors_:Vector.<uint>;
    public var ownerId_:int;
    public var containerType_:int;
    public var bulletType_:uint;
@@ -45,7 +48,6 @@ public class Projectile extends BasicObject
    public var sound_:String;
    public var startX_:Number;
    public var startY_:Number;
-   public var first:Boolean = false;
    public var startTime_:int;
    public var angle_:Number = 0;
    public var radius:Number;
@@ -106,6 +108,7 @@ public class Projectile extends BasicObject
       hasShadow_ = Parameters.data_.drawShadows && this.props_.shadowSize_ > 0;
       var textureData:TextureData = ObjectLibrary.typeToTextureData_[this.props_.type_];
       this.texture_ = textureData.getTexture(objectId_);
+      this.colors_ = BloodComposition.getColors(this.texture_);
       this.damagesPlayers_ = this.containerProps_.isEnemy_;
       this.damagesEnemies_ = !this.damagesPlayers_;
       this.sound_ = this.containerProps_.oldSound_;
@@ -117,6 +120,9 @@ public class Projectile extends BasicObject
       else
       {
          size = ObjectLibrary.getSizeFromType(this.containerType_);
+      }
+      if (Parameters.data_.projOutline) {
+         this.texture_ = TextureRedrawer.redraw(this.texture_, size * 4, false, 0, true, 3, 15.5 * (size / 800));
       }
       this.p_.setSize(8 * (size / 100));
       this.damage_ = 0;
@@ -234,37 +240,29 @@ public class Projectile extends BasicObject
       }
    }
 
-   override public function update(time:int, dt:int, interpolate:Boolean) : Boolean
+   override public function update(time:int, dt:int) : Boolean
    {
-      var colors:Vector.<uint> = null;
-      var player:Player = null;
-      var isPlayer:Boolean = false;
-      var isTargetAnEnemy:Boolean = false;
-      var sendMessage:Boolean = false;
-      var dmg:int = 0;
-      var dead:Boolean = false;
       var elapsed:int = time - this.startTime_;
-      if(elapsed > this.projProps_.lifetime_)
-      {
+      if(elapsed > this.projProps_.lifetime_) {
          return false;
       }
+
       var p:Point = this.staticPoint_;
       this.positionAt(elapsed,p);
-      if(!this.moveTo(p.x,p.y) || square_.tileType_ == 255)
+
+      if(!this.moveTo(p.x,p.y) || square_.tileType_ == 0xFF)
       {
-         if(this.damagesPlayers_)
-         {
+         if(this.damagesPlayers_) {
             map_.gs_.gsc_.squareHit(time,this.bulletId_,this.ownerId_);
          }
          else if(square_.obj_ != null)
          {
-            colors = BloodComposition.getColors(this.texture_);
             switch(Parameters.data_.reduceParticles){
                case 2:
-                  map_.addObj(new HitEffect(colors, 100, 3, this.angle_, this.projProps_.speed_), p.x, p.y);
+                  map_.addObj(new HitEffect(colors_, 100, 3, this.angle_, this.projProps_.speed_), p.x, p.y);
                   break;
                case 1:
-                  map_.addObj(new HitEffect(colors, 100, 1, this.angle_, this.projProps_.speed_), p.x, p.y);
+                  map_.addObj(new HitEffect(colors_, 100, 1, this.angle_, this.projProps_.speed_), p.x, p.y);
                   break;
                case 0:
                   break;
@@ -272,21 +270,20 @@ public class Projectile extends BasicObject
          }
          return false;
       }
+
       if(square_.obj_ != null && (!square_.obj_.props_.isEnemy_ || !this.damagesEnemies_) && (square_.obj_.props_.enemyOccupySquare_ || !this.projProps_.passesCover_ && square_.obj_.props_.occupySquare_))
       {
-         if(this.damagesPlayers_)
-         {
+         if(this.damagesPlayers_) {
             map_.gs_.gsc_.otherHit(time,this.bulletId_,this.ownerId_,square_.obj_.objectId_);
          }
          else
          {
-            colors = BloodComposition.getColors(this.texture_);
             switch(Parameters.data_.reduceParticles){
                case 2:
-                     map_.addObj(new HitEffect(colors, 100, 3, this.angle_, this.projProps_.speed_), p.x, p.y);
+                     map_.addObj(new HitEffect(colors_, 100, 3, this.angle_, this.projProps_.speed_), p.x, p.y);
                     break;
                case 1:
-                     map_.addObj(new HitEffect(colors, 100, 1, this.angle_, this.projProps_.speed_), p.x, p.y);
+                     map_.addObj(new HitEffect(colors_, 100, 1, this.angle_, this.projProps_.speed_), p.x, p.y);
                     break;
                case 0:
                     break;
@@ -294,17 +291,18 @@ public class Projectile extends BasicObject
          }
          return false;
       }
+
       var target:GameObject = this.getHit(p.x,p.y);
       if(target != null)
       {
-         player = map_.player_;
-         isPlayer = player != null;
-         isTargetAnEnemy = target.props_.isEnemy_;
-         sendMessage = isPlayer && !player.isPaused() && !player.isHidden() && (this.damagesPlayers_ || isTargetAnEnemy && this.ownerId_ == player.objectId_);
+         var player:Player = map_.player_;
+         var isPlayer:Boolean = player != null;
+         var isTargetAnEnemy:Boolean = target.props_.isEnemy_;
+         var sendMessage:Boolean = (isPlayer && this.damagesPlayers_) || (isTargetAnEnemy && this.ownerId_ == player.objectId_);
          if(sendMessage)
          {
-            dmg = GameObject.damageWithDefense(this.damage_,target.defense_,this.projProps_.armorPiercing_,target.condition_[0]);
-            dead = false;
+            var dmg:int = GameObject.damageWithDefense(this.damage_,target.defense_,this.projProps_.armorPiercing_,target.condition_[0]);
+            var dead:Boolean = false;
             if(target.hp_ <= dmg)
             {
                dead = true;
@@ -313,15 +311,16 @@ public class Projectile extends BasicObject
                   doneAction(map_.gs_,Tutorial.KILL_ACTION);
                }
             }
+
             if(target == player)
             {
                map_.gs_.gsc_.playerHit(this.bulletId_,this.ownerId_);
-               target.damage(this.containerType_,dmg,this.projProps_.effects_,false,this);
+               target.damage(this.containerType_, dmg, this.projProps_.effects_,false, this, player.shotsPierce_);
             }
             else if(target.props_.isEnemy_)
             {
-               map_.gs_.gsc_.enemyHit(elapsed,this.bulletId_,target.objectId_, dead, this.containerType_);
-               target.damage(this.containerType_,dmg,this.projProps_.effects_,dead,this);
+               map_.gs_.gsc_.enemyHit(time, this.bulletId_, target.objectId_, dead);
+               target.damage(this.containerType_, dmg, this.projProps_.effects_, dead, this, false);
                if(target != null && (target.props_.isQuest_ || target.props_.isChest_))
                {
                   if(isNaN(Parameters.DamageCounter[target.objectId_]))
@@ -338,6 +337,7 @@ public class Projectile extends BasicObject
                map_.gs_.gsc_.otherHit(time,this.bulletId_,this.ownerId_,target.objectId_);
             }
          }
+
          if(this.projProps_.multiHit_)
          {
             this.multiHitDict_[target] = true;
@@ -359,46 +359,31 @@ public class Projectile extends BasicObject
       var minDist:Number = Number.MAX_VALUE;
       var minGO:GameObject = null;
 
-      if (damagesEnemies_)
+      var hittables:Vector.<GameObject> = damagesEnemies_ ? map_.hitTEnemies_ : map_.hitTPlayers_;
+      for each(go in hittables)
       {
-         for each(go in map_.hitTEnemies_)
-         {
-            xDiff = go.x_ > pX?Number(go.x_ - pX):Number(pX - go.x_);
-            yDiff = go.y_ > pY?Number(go.y_ - pY):Number(pY - go.y_);
-            if(!(xDiff > go.radius_ || yDiff > go.radius_))
-            {
-               if(!(this.projProps_.multiHit_ && this.multiHitDict_[go] != null))
-               {
-                  dist = Math.sqrt(xDiff * xDiff + yDiff * yDiff);
-                  if(dist < minDist)
-                  {
-                     minDist = dist;
-                     minGO = go;
-                  }
-               }
-            }
+         if (this.projProps_.multiHit_ && this.multiHitDict_[go] != null) {
+            continue;
          }
-      }
-      else if (damagesPlayers_)
-      {
-         for each(go in map_.hitTPlayers_)
-         {
+
+         if(go.isInvincible() || go.dead_ || go.isPaused() || go.isHidden() || go.isStasis()) {
+            continue;
+         }
+
+         if ((this.damagesEnemies_ && go.props_.isEnemy_) || (this.damagesPlayers_ && go.props_.isPlayer_)) {
             xDiff = go.x_ > pX?Number(go.x_ - pX):Number(pX - go.x_);
             yDiff = go.y_ > pY?Number(go.y_ - pY):Number(pY - go.y_);
             if(!(xDiff > go.radius_ || yDiff > go.radius_))
             {
-               if(!(this.projProps_.multiHit_ && this.multiHitDict_[go] != null))
+               if(go == map_.player_) {
+                  return go;
+               }
+
+               dist = Math.sqrt(xDiff * xDiff + yDiff * yDiff);
+               if(dist < minDist)
                {
-                  if(go == map_.player_)
-                  {
-                     return go;
-                  }
-                  dist = Math.sqrt(xDiff * xDiff + yDiff * yDiff);
-                  if(dist < minDist)
-                  {
-                     minDist = dist;
-                     minGO = go;
-                  }
+                  minDist = dist;
+                  minGO = go;
                }
             }
          }
@@ -410,11 +395,6 @@ public class Projectile extends BasicObject
    override public function draw(graphicsData:Vector.<IGraphicsData>, camera:Camera, time:int) : void
    {
       var texture:BitmapData = this.texture_;
-
-      if (Parameters.data_.projOutline) {
-         var size:Number = (this.projProps_.size_ >= 0?this.projProps_.size_:ObjectLibrary.getSizeFromType(this.containerType_)) * 8;
-         texture = TextureRedrawer.redraw(texture, size, false, 0, true, 3, 15.5 * (size / 800));
-      }
       var r:Number = this.props_.rotation_ == 0?Number(0):Number(time / this.props_.rotation_);
       this.staticVector3D_.x = x_;
       this.staticVector3D_.y = y_;

@@ -347,6 +347,190 @@
       <Index>0x35</Index>
     </Texture>
   </Ground>
+  <Ground type="0x4500" id="Eagle SP 1">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0x15</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4501" id="Eagle SP 2">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0x24</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4502" id="Eagle SP 3">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0x25</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4503" id="Eagle SP 4">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0x1a</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4504" id="Eagle SP 5">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0x1b</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4505" id="Eagle SP 6">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0x1c</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4506" id="Eagle SP 7">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0x2a</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4507" id="Eagle SP 8">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0x2b</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4508" id="Eagle SP 9">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0x2c</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4509" id="Eagle SP 10">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0x56</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4510" id="Eagle SP 11">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0x57</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4511" id="Eagle SP 12">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0x58</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4512" id="Eagle SP 13">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0x59</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4513" id="Eagle SP 14">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0x66</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4514" id="Eagle SP 15">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0x67</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4515" id="Eagle SP 16">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0x68</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4516" id="Eagle SP 17">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0x69</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4517" id="Eagle SP 18">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0x76</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4518" id="Eagle SP 19">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0x77</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4519" id="Eagle SP 20">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0xa6</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4520" id="Eagle SP 21">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0xa7</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4521" id="Eagle SP 22">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0xa8</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4115" id="Corrupt Floor">
+    <RandomTexture>
+      <Texture>
+        <File>CustomObj1</File>
+        <Index>0xa1</Index>
+      </Texture>
+      <Texture>
+        <File>CustomObj1</File>
+        <Index>0xa2</Index>
+      </Texture>
+      <Texture>
+        <File>CustomObj1</File>
+        <Index>0xa3</Index>
+      </Texture>
+    </RandomTexture>
+    <RandomOffset />
+    <BlendingPriority>1</BlendingPriority>
+  </Ground>
+  <Ground type="0x4010" id="Water Elemental">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0x34</Index>
+    </Texture>
+    <Sink />
+    <Speed>0.85</Speed>
+    <Animate dx=".4" dy=".4">Wave</Animate>
+    <BlendPriority>-10</BlendPriority>
+  </Ground>
+  <Ground type="0x4000" id="Water Bridge UP">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0x08</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4001" id="Water Bridge DN">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0x09</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4002" id="Water Bridge RT">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0x0a</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4003" id="Water Bridge LT">
+    <Texture>
+      <File>customEnvironmentMortomus</File>
+      <Index>0x0b</Index>
+    </Texture>
+  </Ground>
   <Ground type="0x2040" id="Nexus Stairs UP 1">
     <Texture>
       <File>customEnvironmentMortomus</File>
@@ -610,6 +794,12 @@
     <Texture>
       <File>customEnvironment</File>
       <Index>0x6b</Index>
+    </Texture>
+  </Ground>
+  <Ground type="0x4220" id="Dark Red Grass">
+    <Texture>
+      <File>customEnvironment</File>
+      <Index>0x8c</Index>
     </Texture>
   </Ground>
   <Ground type="0x155" id="Lava creep 1">
@@ -2262,7 +2452,38 @@
       <File>d3LofiObjEmbed</File>
       <Index>0x5b</Index>
     </Texture>
-    <NoWalk />
+    <Sink />
+    <Speed>0.75</Speed>
+    <Animate dx="2.5">Flow</Animate>
+    <Push />
+    <XOffset>.0625</XOffset>
+    <YOffset>.0625</YOffset>
+  </Ground>
+  <Ground type="0x4300" id="Black Water Frozen 1">
+    <Texture>
+      <File>d3LofiObjEmbed</File>
+      <Index>0x5b</Index>
+    </Texture>
+    <Sink />
+    <Speed>0.75</Speed>
+    <Animate dx="-2.5">Flow</Animate>
+    <Push />
+    <XOffset>.0625</XOffset>
+    <YOffset>.0625</YOffset>
+  </Ground>
+  <Ground type="0x4330" id="Black Water Frozen Dmg">
+    <Texture>
+      <File>d3LofiObjEmbed</File>
+      <Index>0x5b</Index>
+    </Texture>
+    <Sink />
+    <Speed>0.75</Speed>
+    <Animate dx="2.5">Flow</Animate>
+    <Push />
+    <MinDamage>45</MinDamage>
+    <MaxDamage>55</MaxDamage>
+    <XOffset>.0625</XOffset>
+    <YOffset>.0625</YOffset>
   </Ground>
   <Ground type="0xd6a" id="Black Water Light Frozen">
     <Texture>
@@ -5086,6 +5307,80 @@
     <BlendPriority>20</BlendPriority>
     <Speed>1</Speed>
   </Ground>
+  <Ground type="0x4310" id="Snow Replace">
+    <RandomTexture>
+      <Texture>
+        <File>lofiObj3</File>
+        <Index>0x1c0</Index>
+      </Texture>
+      <Texture>
+        <File>lofiObj3</File>
+        <Index>0x1c0</Index>
+      </Texture>
+      <Texture>
+        <File>lofiObj3</File>
+        <Index>0x1c0</Index>
+      </Texture>
+      <Texture>
+        <File>lofiObj3</File>
+        <Index>0x1c1</Index>
+      </Texture>
+      <Texture>
+        <File>lofiObj3</File>
+        <Index>0x1c2</Index>
+      </Texture>
+      <Texture>
+        <File>lofiObj3</File>
+        <Index>0x1c3</Index>
+      </Texture>
+      <Texture>
+        <File>lofiObj3</File>
+        <Index>0x1c4</Index>
+      </Texture>
+      <Texture>
+        <File>lofiObj3</File>
+        <Index>0x1c5</Index>
+      </Texture>
+    </RandomTexture>
+    <Speed>.95</Speed>
+  </Ground>
+  <Ground type="0x4325" id="Snow Replace Snowball">
+    <RandomTexture>
+      <Texture>
+        <File>lofiObj3</File>
+        <Index>0x1c0</Index>
+      </Texture>
+      <Texture>
+        <File>lofiObj3</File>
+        <Index>0x1c0</Index>
+      </Texture>
+      <Texture>
+        <File>lofiObj3</File>
+        <Index>0x1c0</Index>
+      </Texture>
+      <Texture>
+        <File>lofiObj3</File>
+        <Index>0x1c1</Index>
+      </Texture>
+      <Texture>
+        <File>lofiObj3</File>
+        <Index>0x1c2</Index>
+      </Texture>
+      <Texture>
+        <File>lofiObj3</File>
+        <Index>0x1c3</Index>
+      </Texture>
+      <Texture>
+        <File>lofiObj3</File>
+        <Index>0x1c4</Index>
+      </Texture>
+      <Texture>
+        <File>lofiObj3</File>
+        <Index>0x1c5</Index>
+      </Texture>
+    </RandomTexture>
+    <Speed>.95</Speed>
+  </Ground>
   <Ground type="0xb9" id="Snow">
     <RandomTexture>
       <Texture>
@@ -5131,6 +5426,13 @@
     </Texture>
     <Speed>.95</Speed>
     <BlendPriority>21</BlendPriority>
+  </Ground>
+  <Ground type="0x4311" id="Turret Ground">
+    <Texture>
+      <File>CustomObj1</File>
+      <Index>0x53</Index>
+    </Texture>
+    <Speed>.95</Speed>
   </Ground>
   <Ground type="0x81" id="Snow White">
     <Texture>

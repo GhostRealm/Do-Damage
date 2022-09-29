@@ -18,7 +18,9 @@ package kabam.rotmg.messaging.impl.incoming
       public var duration_:Number;
       
       public var origType_:int;
-      
+
+      public var color_:uint;
+
       public function Aoe(id:uint, callback:Function)
       {
          this.pos_ = new WorldPosData();
@@ -33,11 +35,12 @@ package kabam.rotmg.messaging.impl.incoming
          this.effect_ = data.readUnsignedByte();
          this.duration_ = data.readFloat();
          this.origType_ = data.readUnsignedShort();
+         this.color_ = data.readInt();
       }
       
       override public function toString() : String
       {
-         return formatToString("AOE","pos_","radius_","damage_","effect_","duration_","origType_");
+         return formatToString("AOE","pos_","radius_","damage_","effect_","duration_","origType_","color_");
       }
    }
 }

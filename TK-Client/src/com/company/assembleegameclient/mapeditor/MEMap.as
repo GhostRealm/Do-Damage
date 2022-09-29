@@ -27,13 +27,13 @@ package com.company.assembleegameclient.mapeditor
       
       private static var transbackgroundBD_:BitmapData = new transbackgroundEmbed_().bitmapData;
       
-      public static const NUM_SQUARES:int = 256;
+      public static const NUM_SQUARES:int = 512;
       
       public static const SQUARE_SIZE:int = 16;
       
       public static const SIZE:int = 512;
       
-      public static const MIN_ZOOM:Number = 0.125;
+      public static const MIN_ZOOM:Number = 0.0625;
       
       public static const MAX_ZOOM:Number = 16;
        

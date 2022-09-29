@@ -81,11 +81,11 @@
     <Tier tier="2">
       <StatType type="0" scale="perLevel" amount="20" />
       <StatType type="26" scale="perLevel" amount="-2" />
-      <StatType type="0" scale="perLevel" percentage="0.20" />
-      <StatType type="22" scale="perLevel" percentage="-0.03" />
-      <StatType type="28" scale="perLevel" percentage="-0.05" />
-      <StatType type="20" scale="perLevel" percentage="-0.03" />
-      <StatType type="27" scale="perLevel" percentage="-0.03" />
+      <StatType type="0" scale="perLevel" percentage="0.15" />
+      <StatType type="22" scale="perLevel" percentage="-0.030" />
+      <StatType type="28" scale="perLevel" percentage="-0.050" />
+      <StatType type="20" scale="perLevel" percentage="-0.030" />
+      <StatType type="27" scale="perLevel" percentage="-0.030" />
     </Tier>
   </Talisman>
   <Talisman type="0x08">
@@ -134,8 +134,7 @@
       <StatType type="0" scale="perLevel" amount="-10" />
       <StatType type="20" scale="perLevel" amount="2" />
       <StatType type="22" scale="perLevel" amount="2" />
-      <ExtraDamageOn type="full" stat="health" scale="perLevel" percentage="0.04" />
-      <ExtraDamageOn type="notfull" stat="health" scale="perLevel" percentage="-0.04" />
+      <ExtraDamageOn stat="health" scale="perLevel" percentage="0.04" />
     </Tier>
   </Talisman>
   <Talisman type="0x10">
@@ -180,10 +179,10 @@
       <StatType type="20" scale="perLevel" amount="2" />
     </Tier>
     <Tier tier="2">
-      <Health condition="below" percent="0.75" scale="perLevel" add="0.035">RateOfFire</Health>
-      <Health condition="below" percent="0.75" scale="perLevel" add="0.035">HealthRegen</Health>
-      <Health condition="above" percent="0.75" scale="perLevel" add="-0.015">RateOfFire</Health>
-      <Health condition="above" percent="0.75" scale="perLevel" add="-0.035">HealthRegen</Health>
+      <Health condition="below" percent="0.80" scale="perLevel" add="0.015">RateOfFire</Health>
+      <Health condition="below" percent="0.80" scale="perLevel" add="0.035">HealthRegen</Health>
+      <Health condition="above" percent="0.80" scale="perLevel" add="-0.035">RateOfFire</Health>
+      <Health condition="above" percent="0.80" scale="perLevel" add="-0.035">HealthRegen</Health>
       <StatType type="26" scale="perLevel" amount="-1" />
       <StatType type="20" scale="perLevel" amount="2" />
     </Tier>
@@ -229,8 +228,8 @@
       <StatType type="0" scale="perLevel" amount="-10" />
     </Tier>
     <Tier tier="2">
-      <Leech prob="0.06" type="mana" scale="perLevel" percentage="0.001" />
-      <Extra percentage="-0.09" scale="perLevel">LifeRegen</Extra>
+      <Leech prob="1" type="mana" scale="perLevel" percentage="0.001" />
+      <Extra percentage="-0.09" scale="perLevel">ManaRegen</Extra>
       <StatType type="3" scale="perLevel" amount="10" />
       <StatType type="0" scale="perLevel" amount="-10" />
     </Tier>
@@ -277,11 +276,11 @@
       <ImmuneTo effect="ArmorBroken" />
     </Tier>
     <Tier tier="2">
+      <StatType type="21" scale="perLevel" amount="2" />
       <Extra percentage="-0.04" scale="perLevel">LifeRegen</Extra>
       <Extra percentage="-0.04" scale="perLevel">ManaRegen</Extra>
       <StatType type="21" scale="perLevel" percentage="0.06" />
       <StatType type="3" scale="perLevel" amount="-10" />
-      <StatType type="21" scale="perLevel" amount="2" />
     </Tier>
   </Talisman>
   <Talisman type="0x16">
@@ -299,7 +298,7 @@
       <LootBoost percentage="0.01" scale="perLevel" />
     </Tier>
     <Tier tier="2">
-      <LootBoost percentage="0.075" scale="flat" />
+      <LootBoost percentage="0.075" scale="perLevel" />
       <LootBoostPerPlayer percentage="-0.025" scale="perLevel" />
       <LootBoost percentage="0.01" scale="perLevel" />
     </Tier>

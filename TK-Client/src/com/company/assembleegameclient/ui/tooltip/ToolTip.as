@@ -52,6 +52,8 @@ public class ToolTip extends Sprite
 
    private const graphicsData_:Vector.<IGraphicsData> = new <IGraphicsData>[lineStyle_,backgroundFill_,path_,GraphicsUtil.END_FILL,GraphicsUtil.END_STROKE];
 
+   public var updateRedraw_:Boolean;
+
    public function ToolTip(background:uint, backgroundAlpha:Number, outline:uint, outlineAlpha:Number, followMouse:Boolean = true)
    {
       super();
@@ -106,21 +108,32 @@ public class ToolTip extends Sprite
          this.alignUI();
          this.draw();
          this.position();
-         addEventListener(Event.ENTER_FRAME,this.onEnterFrame);
+         addEventListener(Event.ENTER_FRAME, this.onEnterFrame);
+
+
+//         if(!this.updateRedraw_){
+//            addEventListener(Event.ENTER_FRAME, this.onEnterFrame);
+//         }
       }
+
+//      if(this.updateRedraw_) {
+//         addEventListener(Event.ENTER_FRAME, this.onEnterFrame);
+//      }
    }
 
    private function onRemovedFromStage(event:Event) : void
    {
-      if(this.followMouse_)
-      {
-         removeEventListener(Event.ENTER_FRAME,this.onEnterFrame);
-      }
+      removeEventListener(Event.ENTER_FRAME,this.onEnterFrame);
    }
 
    private function onEnterFrame(event:Event) : void
    {
-      this.position();
+      if(this.followMouse_){
+         this.position();
+      }
+      if(this.updateRedraw_) {
+         this.draw();
+      }
    }
 
 

@@ -88,7 +88,13 @@ public class TalismanToolTip extends ToolTip
                     symbol = "";
                 }
 
-                this.effects.push(new Effect("" , symbol + xml.@amount + " " + StatData.statToName(xml.@type) + scaleType));
+                var percentage:Number = xml.@percentage;
+                if(percentage > 0.0 || percentage < 0.0){
+                    this.effects.push(new Effect("" , (percentage < 0 ? "" : " +") + (percentage * 100.0) + "% " + StatData.statToName(xml.@type) + scaleType));
+                }
+                else{
+                    this.effects.push(new Effect("" , symbol + xml.@amount + " " + StatData.statToName(xml.@type) + scaleType));
+                }
             }
 
             xml = null;
@@ -116,6 +122,31 @@ public class TalismanToolTip extends ToolTip
 
                 this.effects.push(new Effect("" , symbol + (xml.@percentage * 100.0) + "% " + type + scaleType));
             }
+
+            xml = null;
+            for each(xml in tierXML.Leech){
+
+                var scaleType:String = "";
+                if(xml.@scale == "perLevel") {
+                    scaleType = " Per Level"
+                }
+
+                var symbol:String = "+";
+                if(xml.@percentage < 0){
+                    symbol = "";
+                }
+
+                var type:String = xml.@type;
+                switch(type){
+                    case "health":
+                        type = " Maximum HP"; break;
+                    case "mana":
+                        type = " Maximum MP"; break;
+                }
+
+                this.effects.push(new Effect("" , (xml.@prob * 100.0) + "% chance to leech " + (xml.@percentage * 100.0) + "% of" + type + scaleType));
+            }
+
 
             xml = null;
             for each(xml in tierXML.ImmuneTo){
@@ -147,7 +178,14 @@ public class TalismanToolTip extends ToolTip
                 }
 
                 var type:String = xml.@type;
-                this.effects.push(new Effect("", symbol + (xml.@percentage * 100.0) + "% " + type + " " + scaleType + " Per Potion Stacked"));
+                switch(type){
+                    case "health":
+                        type = " Maximum HP"; break;
+                    case "mana":
+                        type = " Maximum MP"; break;
+                }
+
+                this.effects.push(new Effect("", symbol + (xml.@percentage * 100.0) + "%" + type + scaleType + " Per Potion Stacked"));
             }
 
             if(tierXML.hasOwnProperty("ShotsPierceArmour")){
@@ -231,18 +269,6 @@ public class TalismanToolTip extends ToolTip
                 if(xml.@scale == "perLevel") {
                     scaleType = " Per Level"
                 }
-                var symbol:String = "+";
-                if(xml.@percentage < 0){
-                    symbol = "";
-                }
-
-                var type:String = xml.@type;
-                if(type == "full"){
-                    type = " When full ";
-                }
-                else if(type == "notfull") {
-                    type = " When not full ";
-                }
 
                 var stat:String = xml.@stat;
                 if(stat == "health"){
@@ -252,7 +278,7 @@ public class TalismanToolTip extends ToolTip
                     stat = "MP";
                 }
 
-                this.effects.push(new Effect("", symbol + (xml.@percentage * 100.0) + "% Extra Damage" + scaleType + type + stat));
+                this.effects.push(new Effect("", (xml.@percentage * 100.0) + "% Extra Weapon Damage " + scaleType + " When full " + stat + " - when not"));
             }
 
             this.effects.push(new Effect("",""));

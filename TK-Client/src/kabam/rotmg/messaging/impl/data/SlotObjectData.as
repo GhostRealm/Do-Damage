@@ -22,14 +22,14 @@ package kabam.rotmg.messaging.impl.data
       {
          this.objectId_ = data.readInt();
          this.slotId_ = data.readUnsignedByte();
-         this.objectType_ = data.readShort();
+         this.objectType_ = data.readInt();
       }
       
       public function writeToOutput(data:IDataOutput) : void
       {
          data.writeInt(this.objectId_);
          data.writeByte(this.slotId_);
-         data.writeShort(this.objectType_);
+         data.writeInt(this.objectType_);
       }
       
       public function toString() : String

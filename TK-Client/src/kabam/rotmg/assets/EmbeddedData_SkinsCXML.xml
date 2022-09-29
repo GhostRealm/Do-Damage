@@ -8,7 +8,7 @@
     </AnimatedTexture>
     <PlayerClassType>0x0310</PlayerClassType>
   </Object>
-  <Object type="0x3400" id="Auru">
+  <Object type="0x3406" id="Auru">
     <Skin />
     <Class>Skin</Class>
     <AnimatedTexture>
@@ -359,7 +359,7 @@
     </AnimatedTexture>
     <PlayerClassType>0x0322</PlayerClassType>
   </Object>
-  <Object type="0x0368" id="Slime Wizard">
+  <Object type="0x0368" id="Djinn Wizzy">
     <Skin />
     <Class>Skin</Class>
     <AnimatedTexture>

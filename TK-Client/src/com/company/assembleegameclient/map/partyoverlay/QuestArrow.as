@@ -13,10 +13,7 @@ package com.company.assembleegameclient.map.partyoverlay
    
    public class QuestArrow extends GameObjectArrow
    {
-       
-      
-      //public var map_:Map;
-      
+
       public function QuestArrow(map:Map)
       {
          super(16352321,12919330,true);
@@ -70,6 +67,7 @@ package com.company.assembleegameclient.map.partyoverlay
          var questObj:GameObject = this.map_.quest_.getObject(time);
          if(questObj != go_)
          {
+            map_.gs_.bossHealthBar.setGameObject(questObj);
             setGameObject(questObj);
             setToolTip(this.getToolTip(questObj,time));
          }

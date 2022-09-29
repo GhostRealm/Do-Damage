@@ -11,10 +11,11 @@ import flash.utils.Dictionary;
 
 public class Parameters {
     public static const BUILD_VERSION:String = "2";
-    public static const MINOR_VERSION:String = "5";
-    public static const PATCH_VERSION:String = "2";
+    public static const MINOR_VERSION:String = "7";
+    public static const PATCH_VERSION:String = "6";
     public static const FULL_BUILD_VERSION:String = BUILD_VERSION + "." + MINOR_VERSION + "." + PATCH_VERSION;
     public static const PORT:int = 2050;
+    public static const LOCAL_HOST:Boolean = false;
     public static const FELLOW_GUILD_COLOR:uint = 10944349;
     public static const PARTY_MEMBER_COLOR:uint = 0xffc0cb;
     public static const NAME_CHOSEN_COLOR:uint = 16572160;
@@ -30,7 +31,6 @@ public class Parameters {
     public static const GUILD_CREATION_PRICE:int = 1000;
     public static const NEXUS_GAMEID:int = -2;
     public static const MAPTEST_GAMEID:int = -6;
-    public static const INTERPOLATION_THRESHOLD:int = 1000;
     public static const MAX_SINK_LEVEL:Number = 18;
     public static const TERMS_OF_USE_URL:String = "https://www.kabam.com/corporate/terms-of-service";
     public static const PRIVACY_POLICY_URL:String = "https://www.kabam.com/corporate/privacy-policy";
@@ -91,7 +91,6 @@ public class Parameters {
     }
 
     public static function setDefaults():void {
-        setDefaultKey("tpToCaller", KeyCodes.UNSET);
         setDefaultKey("partyJoinWorld", KeyCodes.UNSET);
         setDefaultKey("partyInviteWorld", KeyCodes.UNSET);
         setDefaultKey("partyChat", KeyCodes.P);
@@ -136,6 +135,8 @@ public class Parameters {
         setDefaultKey("useHealthPotion", KeyCodes.F);
         setDefaultKey("useMagicPotion", KeyCodes.V);
         setDefaultKey("switchTabs", KeyCodes.B);
+        setDefaultKey("refresh_button_servers", KeyCodes.R);
+        setDefault("showStatistics", false);
         setDefault("disableAllParticles", false);
         setDefault("uiQuality", false);
         setDefault("FS", true);
@@ -175,8 +176,9 @@ public class Parameters {
         setDefault("hpBars", true);
         setDefault("allyShots", true);
         setDefault("allyDamage", true);
-        setDefault("allyNotifs", true);
-
+        setDefault("noAllyNotifications", false);
+        setDefault("fps", 60);
+        setDefault("vsync", true);
     }
 
     private static function setDefaultKey(keyName:String, key:uint):void {

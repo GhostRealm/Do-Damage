@@ -5,22 +5,13 @@ package kabam.rotmg.messaging.impl.incoming
    
    public class EnemyShoot extends IncomingMessage
    {
-       
-      
       public var bulletId_:uint;
-      
       public var ownerId_:int;
-      
       public var bulletType_:int;
-      
       public var startingPos_:WorldPosData;
-      
       public var angle_:Number;
-      
       public var damage_:int;
-      
       public var numShots_:int;
-      
       public var angleInc_:Number;
       
       public function EnemyShoot(id:uint, callback:Function)
@@ -31,12 +22,12 @@ package kabam.rotmg.messaging.impl.incoming
       
       override public function parseFromInput(data:IDataInput) : void
       {
-         this.bulletId_ = data.readUnsignedByte();
+         this.bulletId_ = data.readInt();
          this.ownerId_ = data.readInt();
          this.bulletType_ = data.readUnsignedByte();
          this.startingPos_.parseFromInput(data);
          this.angle_ = data.readFloat();
-         this.damage_ = data.readShort();
+         this.damage_ = data.readInt();
          if(data.bytesAvailable > 0)
          {
             this.numShots_ = data.readUnsignedByte();

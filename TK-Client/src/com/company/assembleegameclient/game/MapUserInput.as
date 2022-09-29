@@ -157,9 +157,6 @@ public class MapUserInput
       stage.addEventListener(MouseEvent.RIGHT_CLICK,this.disableRightClick);
    }
 
-   public function disableRightClick(_arg1:MouseEvent):void {
-   }
-
    private function onRemovedFromStage(event:Event) : void
    {
       var stage:Stage = this.gs_.stage;
@@ -180,6 +177,9 @@ public class MapUserInput
       }
       stage.removeEventListener(Event.ENTER_FRAME,this.onEnterFrame);
       stage.removeEventListener(MouseEvent.RIGHT_CLICK,this.disableRightClick);
+   }
+
+   public function disableRightClick(_arg1:MouseEvent):void {
    }
 
    private function onActivate(event:Event) : void
@@ -463,6 +463,7 @@ public class MapUserInput
                this.addTextLine.dispatch(new AddTextLineVO(Parameters.ERROR_CHAT_NAME, (("You're already are in the Nexus..."))));
                return;
             }
+            this.gs_.hudView.triggerNexus();
             this.gs_.gsc_.escape();
             Parameters.data_.needsRandomRealm = false;
             Parameters.save();
