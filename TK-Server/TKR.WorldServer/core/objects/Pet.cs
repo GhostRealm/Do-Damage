@@ -1,6 +1,4 @@
-﻿using TKR.WorldServer.core.miscfile.thread;
-
-namespace TKR.WorldServer.core.objects
+﻿namespace TKR.WorldServer.core.objects
 {
     public class Pet : Entity, IPlayer
     {
@@ -9,7 +7,6 @@ namespace TKR.WorldServer.core.objects
         public Player PlayerOwner { get; set; }
 
         public void Damage(int dmg, Entity src) { }
-        public override bool HitByProjectile(Projectile projectile, TickTime time) => false;
 
         public bool IsVisibleToEnemy() => false;
     }

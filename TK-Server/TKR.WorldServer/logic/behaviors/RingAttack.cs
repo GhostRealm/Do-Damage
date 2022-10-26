@@ -1,9 +1,8 @@
 ﻿using System;
 using TKR.Shared.resources;
-using TKR.WorldServer.core.miscfile.datas;
-using TKR.WorldServer.core.miscfile.structures;
-using TKR.WorldServer.core.miscfile.thread;
 using TKR.WorldServer.core.objects;
+using TKR.WorldServer.core.structures;
+using TKR.WorldServer.core.worlds;
 using TKR.WorldServer.networking.packets.outgoing;
 using TKR.WorldServer.utils;
 
@@ -88,25 +87,12 @@ namespace TKR.WorldServer.logic.behaviors
                     var dmg = Random.Next(desc.MinDamage + enemyClasified, desc.MaxDamage + enemyClasified);
                     var startAngle = angle * (count - 1) / 2;
 
-                    int prjId = 0;
-
                     var prjPos = new Position() { X = Host.X, Y = Host.Y };
-                    var prjs = new Projectile[count];
 
-                    for (var i = 0; i < count; i++)
+                    var prjId = Host.GetNextBulletId(count);
+                    var pkt = new EnemyShootMessage()
                     {
-                        var prj = Host.CreateProjectile(desc, Host.ObjectType, dmg, time.TotalElapsedMs, prjPos, (float)(startAngle + angle * i));
-
-                        Host.World.AddProjectile(prj);
-
-                        if (i == 0)
-                            prjId = prj.ProjectileId;
-
-                        prjs[i] = prj;
-                    }
-
-                    var pkt = new EnemyShoot()
-                    {
+                        Spawned = Host.Spawned,
                         BulletId = prjId,
                         OwnerId = Host.Id,
                         StartingPos = prjPos,
@@ -114,7 +100,8 @@ namespace TKR.WorldServer.logic.behaviors
                         Damage = (short)dmg,
                         BulletType = (byte)desc.BulletType,
                         AngleInc = (float)angleInc,
-                        NumShots = (byte)count
+                        NumShots = (byte)count,
+                        ObjectType = Host.ObjectType
                     };
 
                     if (isQuest)

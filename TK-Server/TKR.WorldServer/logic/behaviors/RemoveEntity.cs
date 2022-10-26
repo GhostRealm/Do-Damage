@@ -1,6 +1,6 @@
 ﻿using System.Linq;
-using TKR.WorldServer.core.miscfile.thread;
 using TKR.WorldServer.core.objects;
+using TKR.WorldServer.core.worlds;
 using TKR.WorldServer.logic;
 using TKR.WorldServer.utils;
 
@@ -19,23 +19,12 @@ namespace TKR.WorldServer.logic.behaviors
 
         protected override void OnStateEntry(Entity host, TickTime time, ref object state)
         {
-            var lastKilled = -1;
-            var killed = 0;
-
-            while (killed != lastKilled)
-            {
-                lastKilled = killed;
-
-                foreach (var entity in host.GetNearestEntitiesByName(dist, children).OfType<Enemy>())
-                {
-                    entity.Spawned = true;
-                    entity.Death(ref time);
-                    killed++;
-                }
-            }
+            foreach (var entity in host.GetNearestEntitiesByName(dist, children).OfType<Enemy>())
+                entity.Expunge();
         }
 
         protected override void TickCore(Entity host, TickTime time, ref object state)
-        { }
+        {
+        }
     }
 }

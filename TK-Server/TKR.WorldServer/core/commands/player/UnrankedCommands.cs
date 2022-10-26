@@ -9,17 +9,15 @@ using TKR.Shared.database.party;
 using TKR.Shared.isc.data;
 using TKR.Shared.resources;
 using TKR.Shared.utils;
-using TKR.WorldServer.core.miscfile.stats;
-using TKR.WorldServer.core.miscfile.datas;
-using TKR.WorldServer.core.miscfile.thread;
+using TKR.WorldServer.core.net.stats;
 using TKR.WorldServer.core.objects;
-using TKR.WorldServer.core.worlds.logic;
+using TKR.WorldServer.core.structures;
+using TKR.WorldServer.core.worlds;
+using TKR.WorldServer.core.worlds.impl;
 using TKR.WorldServer.logic.loot;
 using TKR.WorldServer.networking.packets.outgoing;
 using TKR.WorldServer.networking.packets.outgoing.party;
 using TKR.WorldServer.utils;
-using TKR.WorldServer.core.miscfile.structures;
-using TKR.WorldServer.logic;
 
 namespace TKR.WorldServer.core.commands.player
 {
@@ -593,19 +591,6 @@ namespace TKR.WorldServer.core.commands.player
         }
     }
 
-    internal class CheckEnemiesKilled : Command
-    {
-        public override string CommandName => "checkenemieskilled";
-        public override string Alias => "cek";
-
-        protected override bool Process(Player player, TickTime time, string args)
-        {
-            var account = player.GameServer.Database.GetAccount(player.AccountId);
-            player.SendInfo("Enemies Killed: " + account.EnemiesKilled);
-            return true;
-        }
-    }
-
     internal class CheckFuelContributed : Command
     {
         public override string CommandName => "checkfuelcontributed";
@@ -643,21 +628,6 @@ namespace TKR.WorldServer.core.commands.player
 
         protected override bool Process(Player player, TickTime time, string args)
         {
-            var lootBoost = Loot.GetPlayerLootBoost(player);
-
-            if (NexusWorld.WeekendLootBoostEvent > 0.0f)
-                player.SendInfo($"Weekend Bonus provides: {(int)(NexusWorld.WeekendLootBoostEvent * 100.0)}%");
-
-            if (player.LDBoostTime > 0)
-                player.SendInfo($"Loot Drop provides: 25%");
-
-            var allLoot = 0.0;
-            if (player.TalismanLootBoostPerPlayer != 0.0 && player.World.Players.Count != 1)
-                allLoot += player.TalismanLootBoostPerPlayer * (player.World.Players.Count - 1);
-
-            var amt = (player.TalismanLootBoost + allLoot + (player.TalismanCanOnlyGetWhiteBags ? 0.5 : 0.0));
-            if(amt != 0.0)
-                player.SendInfo($"Talisman's provide: {amt * 100.0} % ");
             switch (player.GameServer.WorldManager.Nexus.EngineStage)
             {
                 case 1: player.SendInfo($"Stage 1 Strange Engine provides: 25%"); break;
@@ -665,6 +635,28 @@ namespace TKR.WorldServer.core.commands.player
                 case 3: player.SendInfo($"Stage 3 Strange Engine provides: 75%"); break;
                 default: break;
             }
+
+            if (player.LDBoostTime > 0)
+                player.SendInfo($"Loot Drop provides: 25%");
+
+            if (player.HasTalismanEffect(TalismanEffectType.PocketChange))
+                player.SendInfo($"Pocket Change provides: 30%");
+
+            if (player.HasTalismanEffect(TalismanEffectType.LuckOfTheIrish))
+                player.SendInfo($"Luck of the Irish provides: 20%");
+
+            if (player.HasTalismanEffect(TalismanEffectType.PartyOfOne))
+            {
+                var partyOfOneAmount = 50;
+                if (player.World.Players.Count != 1)
+                    partyOfOneAmount = -partyOfOneAmount;
+                player.SendInfo($"Party of One provides: {partyOfOneAmount}% ");
+            }
+
+            if (NexusWorld.WeekendLootBoostEvent > 0.0f)
+                player.SendInfo($"Weekend Bonus provides: {(int)(NexusWorld.WeekendLootBoostEvent * 100.0)}%");
+
+            var lootBoost = Loot.GetPlayerLootBoost(player);
             player.SendInfo($"You have {Math.Round(lootBoost * 100.0f, 3)}% increased loot chance");
             return true;
         }
@@ -748,15 +740,14 @@ namespace TKR.WorldServer.core.commands.player
                 player.ApplyConditionEffect(ConditionEffectIndex.Invulnerable, 3000);
                 player.ApplyConditionEffect(ConditionEffectIndex.Invisible, 3000);
                 player.ApplyConditionEffect(ConditionEffectIndex.Stunned, 3000);
-                player.ApplyConditionEffect(ConditionEffectIndex.Paralyzed, 3000);
 
                 var world = player.World;
 
                 var pt = new IntPoint();
                 do
                 {
-                    pt.X = world.Random.Next(0, world.Map.Width);
-                    pt.Y = world.Random.Next(0, world.Map.Height);
+                    pt.X = Random.Shared.Next(0, world.Map.Width);
+                    pt.Y = Random.Shared.Next(0, world.Map.Height);
                 }
                 while (world.Map[pt.X, pt.Y].Terrain != TerrainType.Mountains || !world.IsPassable(pt.X, pt.Y, true) || world.AnyPlayerNearby(pt.X, pt.Y, 5));
 
@@ -1023,13 +1014,7 @@ namespace TKR.WorldServer.core.commands.player
 
             player.GameServer.Database.IgnoreAccount(srcAccount, targetAccount, true);
 
-            player.Client.SendPacket(new AccountList()
-            {
-                AccountListId = 1, // ignore list
-                AccountIds = srcAccount.IgnoreList
-                    .Select(i => i.ToString())
-                    .ToArray()
-            });
+            player.Client.SendPacket(new AccountListMessage(1, srcAccount.IgnoreList.Select(i => i.ToString()).ToArray()));
 
             player.SendInfo(playerName + " has been added to your ignore list.");
             return true;
@@ -1098,13 +1083,7 @@ namespace TKR.WorldServer.core.commands.player
 
             player.GameServer.Database.LockAccount(srcAccount, targetAccount, true);
 
-            player.Client.SendPacket(new AccountList()
-            {
-                AccountListId = 0, // locked list
-                AccountIds = player.Client.Account.LockList
-                    .Select(i => i.ToString())
-                    .ToArray()
-            });
+            player.Client.SendPacket(new AccountListMessage(0, srcAccount.LockList.Select(i => i.ToString()).ToArray()));
 
             player.SendInfo(playerName + " has been locked.");
             return true;
@@ -1437,13 +1416,7 @@ namespace TKR.WorldServer.core.commands.player
 
             player.GameServer.Database.IgnoreAccount(srcAccount, targetAccount, false);
 
-            player.Client.SendPacket(new AccountList()
-            {
-                AccountListId = 1, // ignore list
-                AccountIds = srcAccount.IgnoreList
-                    .Select(i => i.ToString())
-                    .ToArray()
-            });
+            player.Client.SendPacket(new AccountListMessage(1, srcAccount.IgnoreList.Select(i => i.ToString()).ToArray()));
 
             player.SendInfo(playerName + " no longer ignored.");
             return true;
@@ -1480,13 +1453,7 @@ namespace TKR.WorldServer.core.commands.player
 
             player.GameServer.Database.LockAccount(srcAccount, targetAccount, false);
 
-            player.Client.SendPacket(new AccountList()
-            {
-                AccountListId = 0, // locked list
-                AccountIds = player.Client.Account.LockList
-                    .Select(i => i.ToString())
-                    .ToArray()
-            });
+            player.Client.SendPacket(new AccountListMessage(0, srcAccount.LockList.Select(i => i.ToString()).ToArray()));
 
             player.SendInfo(playerName + " no longer locked.");
             return true;

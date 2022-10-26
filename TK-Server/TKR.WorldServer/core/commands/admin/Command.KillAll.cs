@@ -1,9 +1,9 @@
 ﻿using System.Linq;
 using TKR.Shared;
 using TKR.Shared.utils;
-using TKR.WorldServer.core.miscfile.thread;
 using TKR.WorldServer.core.objects;
-using TKR.WorldServer.core.worlds.logic;
+using TKR.WorldServer.core.worlds;
+using TKR.WorldServer.core.worlds.impl;
 
 namespace TKR.WorldServer.core.commands
 {
@@ -23,16 +23,14 @@ namespace TKR.WorldServer.core.commands
                 }
 
                 var total = 0;
-                foreach(var _ in player.World.Enemies.Values)
+                foreach(var entity in player.World.Enemies.Values)
                 {
-                    if(_.ObjectDesc == null
-                        || _.ObjectDesc.ObjectId == null
-                        || !_.ObjectDesc.Enemy
-                        || !_.ObjectDesc.ObjectId.ContainsIgnoreCase(args))
+                    if(entity.Dead || entity.ObjectDesc == null
+                        || entity.ObjectDesc.IdName == null
+                        || !entity.ObjectDesc.Enemy
+                        || !entity.ObjectDesc.IdName.ContainsIgnoreCase(args))
                         continue;
-
-                    _.Spawned = true;
-                    _.Death(ref time);
+                    entity.Expunge();
                     total++;
                 }
                 player.SendInfo($"{total} enem{(total > 1 ? "ies" : "y")} killed!");

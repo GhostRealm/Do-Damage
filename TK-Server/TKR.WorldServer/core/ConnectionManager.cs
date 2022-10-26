@@ -2,13 +2,12 @@
 using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
-using System.Security.Principal;
 using TKR.Shared.database.account;
 using TKR.Shared.isc.data;
 using TKR.Shared.resources;
 using TKR.WorldServer.core.miscfile;
 using TKR.WorldServer.core.worlds;
-using TKR.WorldServer.core.worlds.logic;
+using TKR.WorldServer.core.worlds.impl;
 using TKR.WorldServer.networking;
 using TKR.WorldServer.networking.packets.outgoing;
 
@@ -31,7 +30,6 @@ namespace TKR.WorldServer.core
         public ConnectionManager(GameServer gameServer)
         {
             GameServer = gameServer;
-
             MaxPlayerCount = GameServer.Configuration.serverSettings.maxPlayers;
         }
 
@@ -202,39 +200,31 @@ namespace TKR.WorldServer.core
             }
 
             // send out map info
-            var mapSize = Math.Max(world.Map.Width, world.Map.Height);
+            var mapSize = (short)Math.Max(world.Map.Width, world.Map.Height);
 
             client.SendPackets(new OutgoingMessage[]
             {
-                    new MapInfo()
-                    {
-                        Music = world.Music,
-                        Width = mapSize,
-                        Height = mapSize,
-                        Name = world.IdName,
-                        DisplayName = world.DisplayName,
-                        Seed = seed,
-                        Background = world.Background,
-                        Difficulty = world.Difficulty,
-                        AllowPlayerTeleport = world.AllowTeleport,
-                        ShowDisplays = world.ShowDisplays,
-                        DisableShooting = world.DisableShooting,
-                        DisableAbilities = world.DisableAbilities
-                    },
-                    new AccountList() // send out account lock/ignore list
-                    {
-                        AccountListId = 0, // locked list
-                        AccountIds = client.Account.LockList.Select(i => i.ToString()).ToArray()
-                    },
-                    new AccountList()
-                    {
-                        AccountListId = 1, // ignore list
-                        AccountIds = client.Account.IgnoreList.Select(i => i.ToString()).ToArray()
-                    }
+                new MapInfoMessage()
+                {
+                    Width = mapSize,
+                    Height = mapSize,
+                    Music = world.Music,
+                    Name = world.IdName,
+                    DisplayName = world.DisplayName,
+                    Seed = seed,
+                    Background = world.Background,
+                    Difficulty = world.Difficulty,
+                    AllowPlayerTeleport = world.AllowTeleport,
+                    ShowDisplays = world.ShowDisplays,
+                    DisableShooting = world.DisableShooting,
+                    DisableAbilities = world.DisableAbilities
+                },
+                new AccountListMessage(0, client.Account.LockList.Select(i => i.ToString()).ToArray()),
+                new AccountListMessage(1, client.Account.IgnoreList.Select(i => i.ToString()).ToArray())
             });
             client.State = ProtocolState.Handshaked;
 
-            Connecting.TryAdd(client, DateTime.Now.AddSeconds(CONNECTING_TTL));
+            _ = Connecting.TryAdd(client, DateTime.Now.AddSeconds(CONNECTING_TTL));
         }
 
         public int GetPlayerCount() => Clients.Count + ReconnectInfo.Count;
@@ -294,10 +284,6 @@ namespace TKR.WorldServer.core
             serverInfo.players = GetPlayerCount();
             serverInfo.maxPlayers = MaxPlayerCount;
             serverInfo.playerList.Remove(playerInfo);
-        }
-
-        public void Dispose()
-        {
         }
     }
 }

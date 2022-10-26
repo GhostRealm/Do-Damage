@@ -89,19 +89,19 @@ namespace TKR.WorldServer.logic
                         )
                     ),
                 new State("Waiting",
-                    new ConditionalEffect(ConditionEffectIndex.Invulnerable),
+                    new ConditionEffectBehavior(ConditionEffectIndex.Invulnerable),
                     new SetAltTexture(1),
                     new EntityNotExistsTransition("Protection Crystal", 10, "Start1.0")
                     ),
                 new State("Dead",
-                    new ConditionalEffect(ConditionEffectIndex.Invulnerable),
+                    new ConditionEffectBehavior(ConditionEffectIndex.Invulnerable),
                     new SetAltTexture(3),
                     new Taunt(0.99, "NOOOO!!!!!!"),
                     new Flash(0xFF0000, .1, 1000),
                     new TimedTransition(2000, "Suicide")
                     ),
                 new State("Suicide",
-                    new ConditionalEffect(ConditionEffectIndex.StunImmune, true),
+                    new ConditionEffectBehavior(ConditionEffectIndex.StunImmune, true),
                     new Shoot(12, 8, fixedAngle: 360 / 8, projectileIndex: 1),
                     new Suicide()
                     )
@@ -110,6 +110,7 @@ namespace TKR.WorldServer.logic
                 LootTemplates.DustLoot()
                 ),
             new Threshold(0.001,
+                TierLoot.TalismanLoot(0.03),
                 new TierLoot(10, ItemType.Weapon, 0.12),
                 new TierLoot(11, ItemType.Weapon, 0.09),
                 new TierLoot(11, ItemType.Armor, 0.09),

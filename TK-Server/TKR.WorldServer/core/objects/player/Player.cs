@@ -10,22 +10,19 @@ using TKR.Shared;
 using TKR.Shared.database.character.inventory;
 using TKR.Shared.database.party;
 using TKR.Shared.resources;
-using TKR.WorldServer.core.miscfile;
-using TKR.WorldServer.core.miscfile.datas;
-using TKR.WorldServer.core.miscfile.stats;
-using TKR.WorldServer.core.miscfile.thread;
-using TKR.WorldServer.core.miscfile.world;
+using TKR.WorldServer.core.net.datas;
 using TKR.WorldServer.core.net.handlers;
+using TKR.WorldServer.core.net.stats;
+using TKR.WorldServer.core.objects.containers;
 using TKR.WorldServer.core.objects.inventory;
 using TKR.WorldServer.core.objects.player;
-using TKR.WorldServer.core.terrain;
+using TKR.WorldServer.core.structures;
 using TKR.WorldServer.core.worlds;
-using TKR.WorldServer.core.worlds.logic;
+using TKR.WorldServer.core.worlds.impl;
 using TKR.WorldServer.logic;
 using TKR.WorldServer.networking;
 using TKR.WorldServer.networking.packets.outgoing;
 using TKR.WorldServer.utils;
-using TKR.WorldServer.core.miscfile.structures;
 
 namespace TKR.WorldServer.core.objects
 {
@@ -128,6 +125,9 @@ namespace TKR.WorldServer.core.objects
         private SV<int> _texture1;
         private SV<int> _texture2;
         private SV<bool> _xpBoosted;
+
+        public StatsManager Stats;
+
         internal class APIRank{ public int accID; public int charID; }
         internal class APIResp{ [JsonProperty("rank")] public string charRank { get; set; }}
 
@@ -139,7 +139,7 @@ namespace TKR.WorldServer.core.objects
         public bool IsSupporter5 => Client.Rank.Rank >= RankingType.Supporter5;
         public bool IsCommunityManager => Client.Rank.IsCommunityManager;
 
-        public Player(Client client, bool saveInventory = true) : base(client.GameServer, client.Character.ObjectType)
+        public Player(Client client) : base(client.GameServer, client.Character.ObjectType)
         {
             var settings = GameServer.Resources.Settings;
             var gameData = GameServer.Resources.GameData;
@@ -156,7 +156,7 @@ namespace TKR.WorldServer.core.objects
             _fame = new SV<int>(this, StatDataType.Fame, client.Character.Fame, true);
             _fameGoal = new SV<int>(this, StatDataType.FameGoal, 0, true);
             _stars = new SV<int>(this, StatDataType.Stars, 0);
-            _guild = new SV<string>(this, StatDataType.Guild, "");
+            _guild = new SV<string>(this, StatDataType.GuildName, "");
             _guildRank = new SV<int>(this, StatDataType.GuildRank, -1);
             _rank = new SV<int>(this, StatDataType.Rank, (int)client.Rank.Rank); // we need to export this to client so dont remove
             _credits = new SV<int>(this, StatDataType.Credits, client.Account.Credits, true);
@@ -167,7 +167,7 @@ namespace TKR.WorldServer.core.objects
             _glow = new SV<int>(this, StatDataType.Glow, 0);
             _admin = new SV<int>(this, StatDataType.Admin, client.Rank.IsAdmin ? 1 : 0);
             _xpBoosted = new SV<bool>(this, StatDataType.XPBoost, client.Character.XPBoostTime != 0, true);
-            _mp = new SV<int>(this, StatDataType.MP, client.Character.MP);
+            _mp = new SV<int>(this, StatDataType.Mana, client.Character.MP);
             _hasBackpack = new SV<bool>(this, StatDataType.HasBackpack, client.Character.HasBackpack, true);
             _oxygenBar = new SV<int>(this, StatDataType.OxygenBar, -1, true);
             _baseStat = new SV<int>(this, StatDataType.BaseStat, client.Account.SetBaseStat, true);
@@ -175,8 +175,6 @@ namespace TKR.WorldServer.core.objects
             _colornamechat = new SV<int>(this, StatDataType.ColorNameChat, 0);
             _colorchat = new SV<int>(this, StatDataType.ColorChat, 0);
             _partyId = new SV<int>(this, StatDataType.PartyId, client.Account.PartyId, true);
-
-            _noManaBar = new SV<int>(this, StatDataType.NoManaBar, 0);
 
             UpgradeEnabled = client.Character.UpgradeEnabled;
 
@@ -226,7 +224,7 @@ namespace TKR.WorldServer.core.objects
             LDBoostTime = client.Character.LDBoostTime;
 
             var s = (ushort)client.Character.Skin;
-            if (gameData.Skins.Keys.Contains(s))
+            if (gameData.Skins.ContainsKey(s))
             {
                 SetDefaultSkin(s);
                 SetDefaultSize(gameData.Skins[s].Size);
@@ -249,20 +247,22 @@ namespace TKR.WorldServer.core.objects
             Stacks = new ItemStacker[] { HealthPots, MagicPots };
 
             if (client.Character.Datas == null)
-                client.Character.Datas = new ItemData[20];
+                client.Character.Datas = new ItemData[28];
 
-            Inventory = new Inventory(this, Utils.ResizeArray(Client.Character.Items.Select(_ => (_ == 0xffff || !gameData.Items.ContainsKey(_)) ? null : gameData.Items[_]).ToArray(), 20), Client.Character.Datas);
-
+            Inventory = new Inventory(this, Utils.ResizeArray(Client.Character.Items.Select(_ => (_ == 0xffff || !gameData.Items.ContainsKey(_)) ? null : gameData.Items[_]).ToArray(), 28), Utils.ResizeArray(Client.Character.Datas, 28));
             Inventory.InventoryChanged += (sender, e) => Stats.ReCalculateValues();
-            SlotTypes = Utils.ResizeArray(gameData.Classes[ObjectType].SlotTypes, 20);
+            SlotTypes = Utils.ResizeArray(gameData.Classes[ObjectType].SlotTypes, 28);
+
+            _talismanEffects = new SV<int>(this, StatDataType.TALISMAN_EFFECT_MASK_STAT, 0);
+
             Stats = new StatsManager(this);
 
-            GameServer.Database.IsMuted(client.IpAddress).ContinueWith(t =>
+            _ = GameServer.Database.IsMuted(client.IpAddress).ContinueWith(t =>
             {
                 Muted = !Client.Rank.IsAdmin && t.IsCompleted && t.Result;
             });
 
-            GameServer.Database.IsLegend(AccountId).ContinueWith(t =>
+            _ = GameServer.Database.IsLegend(AccountId).ContinueWith(t =>
             {
                 Glow = t.Result && client.Account.GlowColor == 0 ? 0xFF0000 : client.Account.GlowColor;
             });
@@ -274,8 +274,6 @@ namespace TKR.WorldServer.core.objects
             }
 
             ToggleLootChanceNotification = client.Account.ToggleLootChanceNotification;
-
-            LoadTalismanData();
         }
 
         public bool ToggleLootChanceNotification;
@@ -359,7 +357,8 @@ namespace TKR.WorldServer.core.objects
             dmg = (int)Stats.GetDefenseDamage(dmg, false);
             if (!HasConditionEffect(ConditionEffectIndex.Invulnerable))
                 HP -= dmg;
-            World.BroadcastIfVisibleExclude(new Damage()
+
+            World.BroadcastIfVisibleExclude(new DamageMessage()
             {
                 TargetId = Id,
                 Effects = 0,
@@ -370,31 +369,21 @@ namespace TKR.WorldServer.core.objects
             }, this, this);
 
             if (HP <= 0)
-                Death(src.ObjectDesc.DisplayId ??
-                      src.ObjectDesc.ObjectId,
-                      src);
+                Death(src.ObjectDesc.DisplayId ?? src.ObjectDesc.IdName, src.Spawned);
         }
 
-        public void Death(string killer, Entity entity = null, WmapTile tile = null, bool rekt = false)
+        public void Death(string killer, bool rekt = false)
         {
             if (Client.State == ProtocolState.Disconnected || _dead)
                 return;
             _dead = true;
 
-            if (tile != null && tile.Spawned)
-                rekt = true;
-
-            if (World is VaultWorld)
+            if (rekt)
             {
-                Rekted(true);
+                GenerateGravestone(true);
+                ReconnectToNexus();
                 return;
             }
-
-            if (Rekted(rekt))
-                return;
-
-            if (NonPermaKillEnemy(entity, killer))
-                return;
 
             if (Resurrection())
                 return;
@@ -408,19 +397,8 @@ namespace TKR.WorldServer.core.objects
             GenerateGravestone();
             AnnounceDeath(killer);
 
-            Client.SendPacket(new Death()
-            {
-                AccountId = AccountId,
-                CharId = Client.Character.CharId,
-                KilledBy = killer
-            });
-
-            World.StartNewTimer(1000, (w, t) =>
-            {
-                if (Client.Player != this)
-                    return;
-                Client.Disconnect("Death");
-            });
+            Client.SendPacket(new DeathMessage(AccountId, Client.Character.CharId, killer));
+            Client.Disconnect("Death");
         }
 
         public int GetCurrency(CurrencyType currency)
@@ -429,10 +407,8 @@ namespace TKR.WorldServer.core.objects
             {
                 case CurrencyType.Gold:
                     return Credits;
-
                 case CurrencyType.Fame:
                     return CurrentFame;
-
                 default:
                     return 0;
             }
@@ -444,79 +420,9 @@ namespace TKR.WorldServer.core.objects
             return playerDesc.Stats.Where((t, i) => Stats.Base[i] >= t.MaxValue).Count() + (UpgradeEnabled ? playerDesc.Stats.Where((t, i) => i == 0 ? Stats.Base[i] >= t.MaxValue + 50 : i == 1 ? Stats.Base[i] >= t.MaxValue + 50 : Stats.Base[i] >= t.MaxValue + 10).Count() : 0);
         }
 
-        public override bool HitByProjectile(Projectile projectile, TickTime time)
-        {
-            if (projectile.Host is Player || IsInvulnerable)
-                return false;
-
-            #region Item Effects
-
-            for (var i = 0; i < 4; i++)
-            {
-                var item = Inventory[i];
-                if (item == null || !item.Legendary && !item.Mythical)
-                    continue;
-
-                /* Eternal Effects */
-                if (item.MonkeyKingsWrath)
-                {
-                    MonkeyKingsWrath(i);
-                }
-                /* Revenge Effects */
-                if (item.GodTouch)
-                {
-                    GodTouch(i);
-                }
-
-                if (item.GodBless)
-                {
-                    GodBless(i);
-                }
-
-                /* Legendary Effects */
-                if (item.Clarification)
-                {
-                    Clarification(i);
-                }
-            }
-
-            #endregion Item Effects
-
-            var dmg = (int)Stats.GetDefenseDamage(projectile.Damage, projectile.ProjDesc.ArmorPiercing);
-            if (!HasConditionEffect(ConditionEffectIndex.Invulnerable))
-                HP -= dmg;
-            ApplyConditionEffect(projectile.ProjDesc.Effects);
-            World.BroadcastIfVisibleExclude(new Damage()
-            {
-                TargetId = Id,
-                Effects = 0,
-                DamageAmount = dmg,
-                Kill = HP <= 0,
-                BulletId = projectile.ProjectileId,
-                ObjectId = projectile.Host.Id
-            }, this, this);
-
-            if (HP <= 0)
-                Death(projectile.Host.ObjectDesc.DisplayId ?? projectile.Host.ObjectDesc.ObjectId, projectile.Host);
-
-            return base.HitByProjectile(projectile, time);
-        }
-
         public override void Init(World owner)
         {
             base.Init(owner);
-
-            var x = 0;
-            var y = 0;
-            var spawnRegions = owner.GetSpawnPoints();
-            if (spawnRegions.Any())
-            {
-                var rand = new System.Random();
-                var sRegion = spawnRegions.ElementAt(rand.Next(0, spawnRegions.Length));
-                x = sRegion.Key.X;
-                y = sRegion.Key.Y;
-            }
-            Move(x + 0.5f, y + 0.5f);
 
             // spawn pet if player has one attached
             SpawnPetIfAttached(owner);
@@ -525,13 +431,16 @@ namespace TKR.WorldServer.core.objects
             FameGoal = GetFameGoal(FameCounter.ClassStats[ObjectType].BestFame);
             ExperienceGoal = GetExpGoal(Client.Character.Level);
             Stars = GetStars();
-            UpdateEssenceCap();
 
             if (owner.IdName.Equals("Ocean Trench"))
                 Breath = 100;
 
             SetNewbiePeriod();
             PlayerUpdate = new PlayerUpdate(this);
+
+            if (owner is NexusWorld nexus)
+                if (nexus.EngineStage != 0)
+                    EngineNotif($"The engine runs smoothly with enough fuel to last a while.");
         }
 
         public void HandleIO(ref TickTime time)
@@ -553,16 +462,16 @@ namespace TKR.WorldServer.core.objects
 
                 try
                 {
-                    NReader rdr = null;
+                    NetworkReader rdr = null;
                     if (incomingMessage.Payload.Length != 0)
-                        rdr = new NReader(new MemoryStream(incomingMessage.Payload));
+                        rdr = new NetworkReader(new MemoryStream(incomingMessage.Payload));
                     handler.Handle(incomingMessage.Client, rdr, ref time);
                     rdr?.Dispose();
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Error processing packet ({((incomingMessage.Client.Account != null) ? incomingMessage.Client.Account.Name : "")}, {incomingMessage.Client.IpAddress})\n{ex}");
-                    if (!(ex is EndOfStreamException))
+                    if (ex is not EndOfStreamException)
                         StaticLogger.Instance.Error($"Error processing packet ({((incomingMessage.Client.Account != null) ? incomingMessage.Client.Account.Name : "")}, {incomingMessage.Client.IpAddress})\n{ex}");
                     incomingMessage.Client.SendFailure("An error occurred while processing data from your client.", FailureMessage.MessageWithDisconnect);
                 }
@@ -572,20 +481,22 @@ namespace TKR.WorldServer.core.objects
         public void Reconnect(World world)
         {
             if (world == null)
-                SendError("Portal Not Implemented!");
-            else
             {
-                Client.Reconnect(new Reconnect()
-                {
-                    Host = "",
-                    Port = GameServer.Configuration.serverInfo.port,
-                    GameId = world.Id,
-                    Name = world.IdName
-                });
-                var party = DbPartySystem.Get(Client.Account.Database, Client.Account.PartyId);
-                if (party != null && party.PartyLeader.Item1 == Client.Account.Name && party.PartyLeader.Item2 == Client.Account.AccountId)
-                    party.WorldId = -1;
+                SendError("Portal Not Implemented!");
+                return;
             }
+
+            Client.Reconnect(new Reconnect()
+            {
+                Host = "",
+                Port = GameServer.Configuration.serverInfo.port,
+                GameId = world.Id,
+                Name = world.IdName
+            });
+
+            var party = DbPartySystem.Get(Client.Account.Database, Client.Account.PartyId);
+            if (party != null && party.PartyLeader.Item1 == Client.Account.Name && party.PartyLeader.Item2 == Client.Account.AccountId)
+                party.WorldId = -1;
         }
 
         public void RestoreDefaultSkin() => Skin = _originalSkin;
@@ -666,7 +577,7 @@ namespace TKR.WorldServer.core.objects
                     return;
                 }
 
-                if (!(obj is Player))
+                if (obj is not Player)
                 {
                     SendError("Can only teleport to players.");
                     RestartTPPeriod();
@@ -726,11 +637,7 @@ namespace TKR.WorldServer.core.objects
             var id = Id;
             var tpPkts = new OutgoingMessage[]
             {
-                new Goto()
-                {
-                    ObjectId = id,
-                    Pos = position
-                },
+                new GotoMessage(id, position),
                 new ShowEffect()
                 {
                     EffectType = EffectType.Teleport,
@@ -743,19 +650,10 @@ namespace TKR.WorldServer.core.objects
             World.ForeachPlayer(_ =>
             {
                 _.AwaitGotoAck(time.TotalElapsedMs);
-                if (_ == null || _.Client == null)
-                {
-                    var nullPlayer = _ == null;
-                    var nullClient = _?.Client ?? null;
-                    Console.WriteLine($"Error NULL | Player: {nullPlayer} | Client: {nullClient}");
-                }
-                else
-                {
-                    _.Client.SendPackets(tpPkts);
-                }
+                _.Client.SendPackets(tpPkts);
             });
 
-            PlayerUpdate.UpdateTiles = true;
+            PlayerUpdate.UpdateTiles();
         }
         
         public bool DeltaTime;
@@ -765,13 +663,8 @@ namespace TKR.WorldServer.core.objects
             if (KeepAlive(time))
             {
                 if (DeltaTime)
-                    SendInfo($"[DeltaTime]: {World.DisplayName} -> {time.ElapsedMsDelta} | {time.LogicTime}");
+                    SendInfo($"[DeltaTime]: {World.DisplayName} -> {time.ElapsedMsDelta}");
                 
-                PlayerUpdate.SendUpdate();
-                PlayerUpdate.SendNewTick(time.ElapsedMsDelta);
-
-                HandleTalismans(ref time);
-
                 HandleBreath(ref time);
 
                 if(World is NexusWorld)
@@ -786,7 +679,6 @@ namespace TKR.WorldServer.core.objects
                 GroundEffect(time);
                 TickActivateEffects(time);
 
-                /* Item Effects */
                 TimeEffects(time);
                 SpecialEffects();
 
@@ -822,18 +714,15 @@ namespace TKR.WorldServer.core.objects
             if (World.IdName != "Ocean Trench" || World.IdName != "Hideout of Thessal")
                 return;
             if (Breath > 0)
-                Breath -= 20 * time.DeltaTime * 5;
+                Breath -= 20 * time.BehaviourTickTime;
             else
-                HP -= (int)(20 * time.DeltaTime * 5);
+                HP -= (int)(20 * time.BehaviourTickTime);
 
             if (HP < 0)
-            {
                 Death("Suffocation");
-                return;
-            }
         }
 
-        internal void setCooldownTime(int time, int slot)
+        internal void SetCooldownTime(int time, int slot)
         {
             if (slot == 0)
                 _canApplyEffect0 = time * 1000;
@@ -943,23 +832,23 @@ namespace TKR.WorldServer.core.objects
             stats[StatDataType.Fame] = Fame;
             stats[StatDataType.FameGoal] = FameGoal;
             stats[StatDataType.Stars] = Stars;
-            stats[StatDataType.Guild] = Guild;
+            stats[StatDataType.GuildName] = Guild;
             stats[StatDataType.GuildRank] = GuildRank;
             stats[StatDataType.NameChosen] = (Client.Account?.NameChosen ?? NameChosen) ? 1 : 0;
             stats[StatDataType.Texture1] = Texture1;
             stats[StatDataType.Texture2] = Texture2;
             stats[StatDataType.Skin] = Skin;
             stats[StatDataType.Glow] = Glow;
-            stats[StatDataType.MP] = MP;
+            stats[StatDataType.Mana] = MP;
             stats[StatDataType.Inventory0] = Inventory[0]?.ObjectType ?? -1;
             stats[StatDataType.Inventory1] = Inventory[1]?.ObjectType ?? -1;
             stats[StatDataType.Inventory2] = Inventory[2]?.ObjectType ?? -1;
             stats[StatDataType.Inventory3] = Inventory[3]?.ObjectType ?? -1;
             stats[StatDataType.Inventory4] = Inventory[4]?.ObjectType ?? -1;
-            stats[StatDataType.MaximumHP] = Stats[0];
-            stats[StatDataType.MaximumMP] = Stats[1];
-            stats[StatDataType.HPBoost] = Stats.Boost[0];
-            stats[StatDataType.MPBoost] = Stats.Boost[1];
+            stats[StatDataType.MaximumHealth] = Stats[0];
+            stats[StatDataType.MaximumMana] = Stats[1];
+            stats[StatDataType.HealthBoost] = Stats.Boost[0];
+            stats[StatDataType.ManaBoost] = Stats.Boost[1];
             stats[StatDataType.OxygenBar] = OxygenBar;
             stats[StatDataType.ColorNameChat] = ColorNameChat;
             stats[StatDataType.ColorChat] = ColorChat;
@@ -968,6 +857,23 @@ namespace TKR.WorldServer.core.objects
             stats[StatDataType.InventoryData1] = Inventory.Data[1]?.GetData() ?? "{}";
             stats[StatDataType.InventoryData2] = Inventory.Data[2]?.GetData() ?? "{}";
             stats[StatDataType.InventoryData3] = Inventory.Data[3]?.GetData() ?? "{}";
+
+            stats[StatDataType.TALISMAN_0_STAT] = Inventory[20]?.ObjectType ?? -1;
+            stats[StatDataType.TALISMAN_1_STAT] = Inventory[21]?.ObjectType ?? -1;
+            stats[StatDataType.TALISMAN_2_STAT] = Inventory[22]?.ObjectType ?? -1;
+            stats[StatDataType.TALISMAN_3_STAT] = Inventory[23]?.ObjectType ?? -1;
+            stats[StatDataType.TALISMAN_4_STAT] = Inventory[24]?.ObjectType ?? -1;
+            stats[StatDataType.TALISMAN_5_STAT] = Inventory[25]?.ObjectType ?? -1;
+            stats[StatDataType.TALISMAN_6_STAT] = Inventory[26]?.ObjectType ?? -1;
+            stats[StatDataType.TALISMAN_7_STAT] = Inventory[27]?.ObjectType ?? -1;
+            stats[StatDataType.TALISMANDATA_0_STAT] = Inventory.Data[20]?.GetData() ?? "{}";
+            stats[StatDataType.TALISMANDATA_1_STAT] = Inventory.Data[21]?.GetData() ?? "{}";
+            stats[StatDataType.TALISMANDATA_2_STAT] = Inventory.Data[22]?.GetData() ?? "{}";
+            stats[StatDataType.TALISMANDATA_3_STAT] = Inventory.Data[23]?.GetData() ?? "{}";
+            stats[StatDataType.TALISMANDATA_4_STAT] = Inventory.Data[24]?.GetData() ?? "{}";
+            stats[StatDataType.TALISMANDATA_5_STAT] = Inventory.Data[25]?.GetData() ?? "{}";
+            stats[StatDataType.TALISMANDATA_6_STAT] = Inventory.Data[26]?.GetData() ?? "{}";
+            stats[StatDataType.TALISMANDATA_7_STAT] = Inventory.Data[27]?.GetData() ?? "{}";
         }
 
         private void CerberusClaws(TickTime time)
@@ -1095,7 +1001,7 @@ namespace TKR.WorldServer.core.objects
 
         private void Clarification(int slot)
         {
-            if (World.Random.NextDouble() < 0.1 && ApplyEffectCooldown(slot))
+            if (Random.Shared.NextDouble() < 0.1 && ApplyEffectCooldown(slot))
             {
                 World.BroadcastIfVisible(new ShowEffect()
                 {
@@ -1114,7 +1020,7 @@ namespace TKR.WorldServer.core.objects
                 }, this);
 
                 ActivateHealMp(this, 30 * Stats[1] / 100);
-                setCooldownTime(10, slot);
+                SetCooldownTime(10, slot);
             }
         }
 
@@ -1122,10 +1028,10 @@ namespace TKR.WorldServer.core.objects
         {
             if (item.MonkeyKingsWrath)
             {
-                if (World.Random.NextDouble() < .5 && ApplyEffectCooldown(slot))// 50 % chance
+                if (Random.Shared.NextDouble() < .5 && ApplyEffectCooldown(slot))// 50 % chance
                 {
                     Size = 100;
-                    setCooldownTime(10, slot);
+                    SetCooldownTime(10, slot);
                     World.BroadcastIfVisible(new ShowEffect()
                     {
                         EffectType = EffectType.AreaBlast,
@@ -1157,37 +1063,47 @@ namespace TKR.WorldServer.core.objects
         private void GenerateGravestone(bool phantomDeath = false)
         {
             var playerDesc = GameServer.Resources.GameData.Classes[ObjectType];
-            //var maxed = playerDesc.Stats.Where((t, i) => Stats.Base[i] >= t.MaxValue).Count();
+
             var maxed = playerDesc.Stats.Where((t, i) => Stats.Base[i] >= t.MaxValue).Count() + (UpgradeEnabled ? playerDesc.Stats.Where((t, i) => i == 0 ? Stats.Base[i] >= t.MaxValue + 50 : i == 1 ? Stats.Base[i] >= t.MaxValue + 50 : Stats.Base[i] >= t.MaxValue + 10).Count() : 0);
+           
             ushort objType;
-            int time;
+            int? time = null;
             switch (maxed)
             {
-                case 16: objType = 0xa00e; time = 600000; break;
-                case 15: objType = 0xa00d; time = 600000; break;
-                case 14: objType = 0xa00c; time = 600000; break;
-                case 13: objType = 0xa00b; time = 600000; break;
-                case 12: objType = 0xa00a; time = 600000; break;
-                case 11: objType = 0xa009; time = 600000; break;
-                case 10: objType = 0xa008; time = 600000; break;
-                case 9: objType = 0xa007; time = 600000; break;
-                case 8: objType = 0x0735; time = 600000; break;
-                case 7: objType = 0x0734; time = 600000; break;
-                case 6: objType = 0x072b; time = 600000; break;
-                case 5: objType = 0x072a; time = 600000; break;
-                case 4: objType = 0x0729; time = 600000; break;
-                case 3: objType = 0x0728; time = 600000; break;
-                case 2: objType = 0x0727; time = 600000; break;
-                case 1: objType = 0x0726; time = 600000; break;
+                case 16: objType = 0xa00e; break;
+                case 15: objType = 0xa00d; break;
+                case 14: objType = 0xa00c; break;
+                case 13: objType = 0xa00b; break;
+                case 12: objType = 0xa00a; break;
+                case 11: objType = 0xa009; break;
+                case 10: objType = 0xa008; break;
+                case 9: objType = 0xa007; break;
+                case 8: objType = 0x0735; break;
+                case 7: objType = 0x0734; break;
+                case 6: objType = 0x072b; break;
+                case 5: objType = 0x072a; break;
+                case 4: objType = 0x0729; break;
+                case 3: objType = 0x0728; break;
+                case 2: objType = 0x0727; break;
+                case 1: objType = 0x0726; break;
                 default:
-                    objType = 0x0725; time = 300000;
-                    if (Level < 20) { objType = 0x0724; time = 60000; }
-                    if (Level <= 1) { objType = 0x0723; time = 30000; }
+                    objType = 0x0725;
+                    time = 300000;
+                    if (Level < 20)
+                    {
+                        objType = 0x0724;
+                        time = 60000;
+                    }
+                    if (Level <= 1)
+                    {
+                        objType = 0x0723;
+                        time = 30000;
+                    }
                     break;
             }
 
             var deathMessage = Name + " (" + maxed + (UpgradeEnabled ? "/16, " : "/8, ") + Client.Character.Fame + ")";
-            //var deathMessage = Name + " (" + maxed + ("/8, ") + _client.Character.Fame + ")";
+
             var obj = new StaticObject(GameServer, objType, time, true, true, false);
             obj.Move(X, Y);
             obj.Name = (!phantomDeath) ? deathMessage : $"{Name} got rekt";
@@ -1196,7 +1112,7 @@ namespace TKR.WorldServer.core.objects
 
         private void GodBless(int slot)
         {
-            if (World.Random.NextDouble() < 0.07 && ApplyEffectCooldown(slot))
+            if (Random.Shared.NextDouble() < 0.07 && ApplyEffectCooldown(slot))
             {
                 World.BroadcastIfVisible(new ShowEffect()
                 {
@@ -1214,13 +1130,13 @@ namespace TKR.WorldServer.core.objects
                 }, this);
 
                 ApplyConditionEffect(ConditionEffectIndex.Invulnerable, 3000);
-                setCooldownTime(10, slot);
+                SetCooldownTime(10, slot);
             }
         }
 
         private void GodTouch(int slot)
         {
-            if (World.Random.NextDouble() < 0.02 && ApplyEffectCooldown(slot))
+            if (Random.Shared.NextDouble() < 0.02 && ApplyEffectCooldown(slot))
             {
                 ActivateHealHp(this, 25 * Stats[0] / 100);
                 World.BroadcastIfVisible(new ShowEffect()
@@ -1238,7 +1154,7 @@ namespace TKR.WorldServer.core.objects
                     PlayerId = Id,
                     ObjectId = Id
                 }, this);
-                setCooldownTime(30, slot);
+                SetCooldownTime(30, slot);
             }
         }
 
@@ -1252,12 +1168,9 @@ namespace TKR.WorldServer.core.objects
             {
                 var vitalityStat = Stats[6];
 
-                HealthRegenCarry += (1.0 + (0.24 * vitalityStat)) * time.DeltaTime;
-                if(TalismanExtraLifeRegen > 0.0f)
-                    HealthRegenCarry += (HealthRegenCarry * TalismanExtraLifeRegen);
-                if(TalismanHealthHPRegen > 0.0f)
-                    HealthRegenCarry += (HealthRegenCarry * TalismanHealthHPRegen);
-
+                HealthRegenCarry += (1.0 + (0.36 * vitalityStat)) * time.DeltaTime;
+                if (HasTalismanEffect(TalismanEffectType.CallToArms))
+                    HealthRegenCarry *= 2.0;
                 if (HasConditionEffect(ConditionEffectIndex.Healing))
                     HealthRegenCarry += 20.0 * time.DeltaTime;
 
@@ -1274,9 +1187,9 @@ namespace TKR.WorldServer.core.objects
             {
                 var wisdomStat = Stats[7];
 
-                ManaRegenCarry += (0.5 + 0.12 * wisdomStat) * time.DeltaTime;
-                if(TalismanExtraManaRegen > 0.0f)
-                    ManaRegenCarry += (ManaRegenCarry * TalismanExtraManaRegen);
+                ManaRegenCarry += (1.0 + (0.24 * wisdomStat)) * time.DeltaTime;
+                if (HasTalismanEffect(TalismanEffectType.CallToArms))
+                    ManaRegenCarry *= 2.0;
 
                 if (HasConditionEffect(ConditionEffectIndex.MPTRegeneration))
                     ManaRegenCarry += 20.0 * time.DeltaTime;
@@ -1296,7 +1209,7 @@ namespace TKR.WorldServer.core.objects
 
             if (item.OutOfOneMind)
             {
-                if (World.Random.NextDouble() < 0.02 && ApplyEffectCooldown(Slot))
+                if (Random.Shared.NextDouble() < 0.02 && ApplyEffectCooldown(Slot))
                 {
                     World.BroadcastIfVisible(new Notification()
                     {
@@ -1307,13 +1220,13 @@ namespace TKR.WorldServer.core.objects
                     }, this);
 
                     ApplyConditionEffect(ConditionEffectIndex.Berserk, 3000);
-                    setCooldownTime(10, Slot);
+                    SetCooldownTime(10, Slot);
                 }
             }
 
             if (item.SteamRoller)
             {
-                if (World.Random.NextDouble() < 0.05 && ApplyEffectCooldown(Slot))
+                if (Random.Shared.NextDouble() < 0.05 && ApplyEffectCooldown(Slot))
                 {
                     World.BroadcastIfVisible(new Notification()
                     {
@@ -1324,13 +1237,13 @@ namespace TKR.WorldServer.core.objects
                     }, this);
 
                     ApplyConditionEffect(ConditionEffectIndex.Armored, 5000);
-                    setCooldownTime(10, Slot);
+                    SetCooldownTime(10, Slot);
                 }
             }
 
             if (item.Mutilate)
             {
-                if (World.Random.NextDouble() < 0.08 && ApplyEffectCooldown(Slot))
+                if (Random.Shared.NextDouble() < 0.08 && ApplyEffectCooldown(Slot))
                 {
                     World.BroadcastIfVisible(new Notification()
                     {
@@ -1341,14 +1254,14 @@ namespace TKR.WorldServer.core.objects
                     }, this);
 
                     ApplyConditionEffect(ConditionEffectIndex.Damaging, 3000);
-                    setCooldownTime(10, Slot);
+                    SetCooldownTime(10, Slot);
                 }
             }
         }
 
         private void MonkeyKingsWrath(int slot)
         {
-            if (World.Random.NextDouble() < .5 && ApplyEffectCooldown(slot))// 50 % chance
+            if (Random.Shared.NextDouble() < .5 && ApplyEffectCooldown(slot))// 50 % chance
             {
                 World.BroadcastIfVisible(new ShowEffect()
                 {
@@ -1365,28 +1278,15 @@ namespace TKR.WorldServer.core.objects
                     PlayerId = Id,
                     ObjectId = Id
                 }, this);
-
-                Client.SendPacket(new GlobalNotification() { Text = "monkeyKing" });
-                setCooldownTime(10, slot);
+                Client.SendPacket(new GlobalNotificationMessage(0, "monkeyKing"));
+                SetCooldownTime(10, slot);
             }
-        }
-
-        private bool NonPermaKillEnemy(Entity entity, string killer)
-        {
-            if (entity == null)
-                return false;
-
-            if (!entity.Spawned)
-                return false;
-
-            GenerateGravestone(true);
-            ReconnectToNexus();
-            return true;
         }
 
         private void ReconnectToNexus()
         {
-            HP = 1;
+            HP = Stats[0];
+            MP = Stats[1];
             Client.Reconnect(new Reconnect()
             {
                 Host = "",
@@ -1397,15 +1297,6 @@ namespace TKR.WorldServer.core.objects
             var party = DbPartySystem.Get(Client.Account.Database, Client.Account.PartyId);
             if (party != null && party.PartyLeader.Item1 == Client.Account.Name && party.PartyLeader.Item2 == Client.Account.AccountId)
                 party.WorldId = -1;
-        }
-
-        private bool Rekted(bool rekt)
-        {
-            if (!rekt)
-                return false;
-            GenerateGravestone(true);
-            ReconnectToNexus();
-            return true;
         }
 
         private bool Resurrection()
@@ -1429,7 +1320,7 @@ namespace TKR.WorldServer.core.objects
         {
             if (item.Insanity)
             {
-                if (World.Random.NextDouble() < 0.05 && ApplyEffectCooldown(slot))
+                if (Random.Shared.NextDouble() < 0.05 && ApplyEffectCooldown(slot))
                 {
                     World.BroadcastIfVisible(new Notification()
                     {
@@ -1439,7 +1330,7 @@ namespace TKR.WorldServer.core.objects
                         ObjectId = Id
                     }, this);
 
-                    setCooldownTime(10, slot);
+                    SetCooldownTime(10, slot);
                     ApplyConditionEffect(ConditionEffectIndex.Berserk, 3000);
                     ApplyConditionEffect(ConditionEffectIndex.Damaging, 3000);
                 }
@@ -1447,7 +1338,7 @@ namespace TKR.WorldServer.core.objects
 
             if (item.HolyProtection)
             {
-                if (World.Random.NextDouble() < 0.1 && ApplyEffectCooldown(slot))
+                if (Random.Shared.NextDouble() < 0.1 && ApplyEffectCooldown(slot))
                 {
                     if (!(HasConditionEffect(ConditionEffectIndex.Quiet)
                         || HasConditionEffect(ConditionEffectIndex.Weak)
@@ -1475,7 +1366,7 @@ namespace TKR.WorldServer.core.objects
                         ObjectId = Id
                     }, this);
 
-                    setCooldownTime(7, slot);
+                    SetCooldownTime(7, slot);
 
                     foreach (var effect in NegativeEffs)
                         RemoveCondition(effect);
@@ -1509,7 +1400,7 @@ namespace TKR.WorldServer.core.objects
 
                 ApplyConditionEffect(ConditionEffectIndex.Invisible, 4000);
                 ApplyConditionEffect(ConditionEffectIndex.Speedy, 4000);
-                setCooldownTime(30, slot);
+                SetCooldownTime(30, slot);
             }
         }
 
@@ -1526,11 +1417,11 @@ namespace TKR.WorldServer.core.objects
             var petId = PetId;
             if (petId != 0)
             {
-                var pet = new Pet(GameServer, this, (ushort)petId);
-                pet.Move(X, Y);
-                owner.EnterWorld(pet);
-                pet.SetDefaultSize(pet.ObjectDesc.Size);
-                Pet = pet;
+                //var pet = new Pet(GameServer, this, (ushort)petId);
+                //pet.Move(X, Y);
+                //owner.EnterWorld(pet);
+                //pet.SetDefaultSize(pet.ObjectDesc.Size);
+                //Pet = pet;
             }
         }
 
@@ -1544,9 +1435,9 @@ namespace TKR.WorldServer.core.objects
 
                 if (item.Lucky)
                 {
-                    if (World.Random.NextDouble() < 0.1 && ApplyEffectCooldown(slot))
+                    if (Random.Shared.NextDouble() < 0.1 && ApplyEffectCooldown(slot))
                     {
-                        setCooldownTime(20, slot);
+                        SetCooldownTime(20, slot);
                         for (var j = 0; j < 8; j++)
                             Stats.Boost.ActivateBoost[j].Push(j == 0 || j == 1 ? 100 : 15, false);
                         Stats.ReCalculateValues();

@@ -2,9 +2,8 @@
 using System.Collections.Generic;
 using TKR.Shared;
 using TKR.Shared.resources;
-using TKR.WorldServer.core.miscfile.thread;
 using TKR.WorldServer.core.objects;
-using TKR.WorldServer.core.worlds.logic;
+using TKR.WorldServer.core.worlds.impl;
 
 namespace TKR.WorldServer.logic
 {
@@ -18,7 +17,6 @@ namespace TKR.WorldServer.logic
 
         public DamageCounter Corpse { get; set; }
         public Player LastHitter { get; private set; }
-        public Projectile LastProjectile { get; private set; }
         public DamageCounter Parent { get; set; }
         public int TotalDamage { get; private set; }
 
@@ -30,7 +28,7 @@ namespace TKR.WorldServer.logic
         }
 
         private bool Dead;
-        public void Death(TickTime time)
+        public void Death()
         {
             if (Dead)
                 return;
@@ -46,25 +44,6 @@ namespace TKR.WorldServer.logic
 
             if (enemy.World is RealmWorld)
                 (enemy.World as RealmWorld).EnemyKilled(enemy, (Parent ?? this).LastHitter);
-
-            var lastHitPlayer_ = (Parent ?? this).LastHitter;
-
-            if (lastHitPlayer_ != null)
-            {
-                var account = lastHitPlayer_.GameServer.Database.GetAccount(lastHitPlayer_.AccountId);
-                account.EnemiesKilled++;
-                account.FlushAsync();
-                if (account.EnemiesKilled % 1000 == 0)
-                {
-                    var guild = lastHitPlayer_.GameServer.Database.GetGuild(account.GuildId);
-                    if (guild != null)
-                    {
-                        lastHitPlayer_.SendInfo("Congratulations! You just killed another 1000 enemies! Reward: 1 Guild point.");
-                        guild.GuildPoints += 1;
-                        guild.FlushAsync();
-                    }
-                }
-            }
 
             var lvlUps = 0;
             foreach (var player in enemy.World.Players.Values)
@@ -118,7 +97,7 @@ namespace TKR.WorldServer.logic
             return dat.ToArray();
         }
 
-        public void HitBy(Player player, TickTime time, Projectile projectile, int dmg)
+        public void HitBy(Player player, int dmg)
         {
             var hitters = GetHitters();
             if (!hitters.TryGetValue(player, out int totalDmg))
@@ -128,15 +107,13 @@ namespace TKR.WorldServer.logic
             TotalDamage += trueDmg;
             hitters[player] = totalDmg + trueDmg;
 
-            LastProjectile = projectile;
             LastHitter = player;
 
-            player.FameCounter.Hit(projectile, Host);
+            player.FameCounter.Hit();
         }
 
         public void TransferData(DamageCounter dc)
         {
-            dc.LastProjectile = LastProjectile;
             dc.LastHitter = LastHitter;
             dc.TotalDamage = TotalDamage;
 

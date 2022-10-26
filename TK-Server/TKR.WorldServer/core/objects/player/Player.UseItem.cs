@@ -4,21 +4,16 @@ using System.Collections.Generic;
 using System.Linq;
 using TKR.Shared;
 using TKR.Shared.resources;
-using TKR.WorldServer.core.miscfile;
-using TKR.WorldServer.core.miscfile.datas;
-using TKR.WorldServer.core.miscfile.stats;
-using TKR.WorldServer.core.miscfile.thread;
-using TKR.WorldServer.core.miscfile.world;
+using TKR.WorldServer.core.net.datas;
+using TKR.WorldServer.core.net.stats;
 using TKR.WorldServer.core.objects.containers;
 using TKR.WorldServer.core.objects.inventory;
-using TKR.WorldServer.core.objects.player;
+using TKR.WorldServer.core.structures;
 using TKR.WorldServer.core.worlds;
-using TKR.WorldServer.core.worlds.logic;
+using TKR.WorldServer.core.worlds.impl;
 using TKR.WorldServer.networking;
 using TKR.WorldServer.networking.packets.outgoing;
-using TKR.WorldServer.networking.packets.outgoing.talisman;
 using TKR.WorldServer.utils;
-using TKR.WorldServer.core.miscfile.structures;
 
 namespace TKR.WorldServer.core.objects
 {
@@ -56,7 +51,7 @@ namespace TKR.WorldServer.core.objects
         {
             var entity = World.GetEntity(objId);
 
-            var dustItem = World.GameServer.ItemDustWeights.ItemDusts.GetRandom(World.Random);
+            var dustItem = World.GameServer.ItemDustWeights.ItemDusts.GetRandom(Random.Shared);
             if (entity is Container container)
                 container.Inventory[slot] = dustItem;
             else
@@ -67,21 +62,28 @@ namespace TKR.WorldServer.core.objects
 
         public void AETalismanFragment(TickTime time, Item item, Position target, int slot, int objId, ActivateEffect eff)
         {
+            var dustItem = World.GameServer.ItemDustWeights.Talismans.GetRandom(Random.Shared);
             var entity = World.GetEntity(objId);
 
-            var dustItem = World.GameServer.ItemDustWeights.TalismanFragment.GetRandom(World.Random);
+            if (Random.Shared.NextDouble() < 0.05)
+            {
+                dustItem = null;
+                SendInfo($"The talisman crumbles in your hands");
+            }
+
             if (entity is Container container)
                 container.Inventory[slot] = dustItem;
             else
                 Inventory[slot] = dustItem;
 
-            SendInfo($"Opened a Talisman Fragment and obtained a {dustItem.DisplayName ?? dustItem.ObjectId}");
+            if(dustItem != null)
+                SendInfo($"Opened a Talisman Fragment and obtained a {dustItem.DisplayName ?? dustItem.ObjectId}");
         }
         public void AESpecialDust(TickTime time, Item item, Position target, int slot, int objId, ActivateEffect eff)
         {
             var entity = World.GetEntity(objId);
 
-            var dustItem = World.GameServer.ItemDustWeights.SpecialDust.GetRandom(World.Random);
+            var dustItem = World.GameServer.ItemDustWeights.SpecialDust.GetRandom(Random.Shared);
             if (entity is Container container)
                 container.Inventory[slot] = dustItem;
             else
@@ -363,10 +365,7 @@ namespace TKR.WorldServer.core.objects
 
         private void Activate(int clientTime, TickTime time, Item item, int slot, Position target, int objId, int sellmaxed, int useType)
         {
-            if (item.MpCost != 0 && TalismanAbilityLifeCost > 0.0f)
-                HP -= (int)(Stats[0] * TalismanAbilityLifeCost);
-            else 
-                MP -= item.MpCost;
+            MP -= item.MpCost;
 
             var entity1 = World.GetEntity(objId);
 
@@ -448,9 +447,7 @@ namespace TKR.WorldServer.core.objects
                         AEDye(time, item, target, eff);
                         break;
 
-                    case ActivateEffects.Shoot:
-                        AEShoot(clientTime, time, item, target, eff);
-                        break;
+                    case ActivateEffects.Shoot: break; // handled in PlayerShoot.cs
 
                     case ActivateEffects.IncrementStat:
                         AEIncrementStat(time, item, target, eff, objId, slot, sellmaxed);
@@ -477,7 +474,7 @@ namespace TKR.WorldServer.core.objects
                         break;
 
                     case ActivateEffects.BulletNova:
-                        AEBulletNova(clientTime, time, item, target, eff);
+                        AEBulletNova(item, target, eff);
                         break;
 
                     case ActivateEffects.ConditionEffectSelf:
@@ -506,23 +503,6 @@ namespace TKR.WorldServer.core.objects
 
                     case ActivateEffects.StasisBlast:
                         StasisBlast(time, item, target, eff);
-                        break;
-
-                    case ActivateEffects.Pet:
-
-                        #region Pet
-
-                        Entity en = Resolve(GameServer, eff.ObjectId);
-                        en.Move(X, Y);
-                        en.SetPlayerOwner(this);
-                        World.EnterWorld(en);
-                        World.StartNewTimer(30 * 1000, (w, t) =>
-                        {
-                            w.LeaveWorld(en);
-                        });
-
-                        #endregion Pet
-
                         break;
 
                     case ActivateEffects.Decoy:
@@ -576,12 +556,12 @@ namespace TKR.WorldServer.core.objects
                         AEPermaPet(time, item, target, eff);
                         break;
 
-                    case ActivateEffects.Backpack:
-                        AEBackpack(time, item, target, slot, objId, eff);
+                    case ActivateEffects.Pet:
+                        AEPet(time, item, target, eff);
                         break;
 
-                    case ActivateEffects.UnlockTalisman:
-                        AEUnlockTalisman(time, item, target, slot, objId, eff);
+                    case ActivateEffects.Backpack:
+                        AEBackpack(time, item, target, slot, objId, eff);
                         break;
 
                     default:
@@ -590,44 +570,6 @@ namespace TKR.WorldServer.core.objects
                 }
             }
         }
-
-        private void AEUnlockTalisman(TickTime time, Item item, Position target, int slot, int objId, ActivateEffect eff)
-        {
-            var entity = World.GetEntity(objId);
-            var desc = GameServer.Resources.GameData.GetTalisman(eff.Type);
-            if (desc == null)
-            {
-                SendError("Error unable to consume!");
-                if (entity is Container container)
-                    container.Inventory[slot] = item;
-                else
-                    Inventory[slot] = item;
-                return;
-            }
-
-            var accountId = AccountId;
-
-            if (GameServer.Database.HasTalismanUnlocked(accountId, eff.Type))
-            {
-                SendInfo("You have already unlocked this talisman!");
-                if (entity is Container container)
-                    container.Inventory[slot] = item;
-                else
-                    Inventory[slot] = item;
-                return;
-            }
-
-            var cost = (int)(desc.BaseUpgradeCost * desc.CostMultiplier);
-            if (desc.MaxLevels == 1)
-                cost = (int)(desc.BaseUpgradeCost + desc.TierUpgradeCost * desc.CostMultiplier);
-            
-            GameServer.Database.UnlockTalisman(accountId, eff.Type, 1, 0, cost, 0);
-
-            var newTalismanInfo = new TalismanData(eff.Type, 1, 0, cost, 0, false);
-
-            Client.Player.UnlockTalisman(newTalismanInfo);
-        }
-
         private void AEAddFame(TickTime time, Item item, Position target, ActivateEffect eff)
         {
             if (World is TestWorld || Client.Account == null)
@@ -657,7 +599,6 @@ namespace TKR.WorldServer.core.objects
             var containerItem = entity as Container;
             if (HasBackpack)
             {
-                SendInfo("You already have a Backpack!");
                 if (containerItem != null)
                     containerItem.Inventory[slot] = item;
                 else
@@ -667,46 +608,40 @@ namespace TKR.WorldServer.core.objects
             HasBackpack = true;
         }
 
-      
-        private void AEBulletNova(int clientTimem, TickTime time, Item item, Position target, ActivateEffect eff)
+        private void AEBulletNova(Item item, Position target, ActivateEffect eff)
         {
-            var shoots = item.SpellProjectiles == 0 ? 20 : item.SpellProjectiles;
-            var prjs = new Projectile[shoots];
-            var prjDesc = item.Projectiles[0]; //Assume only one
-            var batch = new OutgoingMessage[shoots + 1];
-            for (var i = 0; i < shoots; i++)
-            {
-                var baseDmg = World.Random.Next(prjDesc.MinDamage, prjDesc.MaxDamage);
-                var dmg = (int)(baseDmg + (baseDmg * TalismanExtraAbilityDamage));
+            var numShots = item.SpellProjectiles == 0 ? 20 : item.SpellProjectiles;
+            var projectileDesc = item.Projectiles[0];
 
-                var proj = CreateProjectile(prjDesc, item.ObjectType,
-                    dmg, 
-                    time.TotalElapsedMs, target, (float)(i * (Math.PI * 2) / shoots));
-                World.AddProjectile(proj);
-                FameCounter.Shoot();
-                batch[i] = new ServerPlayerShoot()
+            var shoots = new List<OutgoingMessage>(numShots);
+            var allyShoots = new List<OutgoingMessage>(numShots);
+            for (var i = 0; i < numShots; i++)
+            {
+                var nextBulletId = GetNextBulletId(1, true);
+
+                var angle = (float)(i * (Math.PI * 2) / numShots);
+                shoots.Add(new ServerPlayerShoot()
                 {
-                    BulletId = proj.ProjectileId,
+                    BulletType = projectileDesc.BulletType,
+                    ObjectType = item.ObjectType,
+                    BulletId = nextBulletId,
                     OwnerId = Id,
                     ContainerType = item.ObjectType,
                     StartingPos = target,
-                    Angle = proj.Angle,
-                    Damage = (short)proj.Damage
-                };
-                prjs[i] = proj;
+                    Angle = angle,
+                    Damage = Stats.GetAttackDamage(projectileDesc.MinDamage, projectileDesc.MaxDamage, true)
+                });
             }
-            batch[shoots] = new ShowEffect()
+            World.BroadcastIfVisible(new ShowEffect()
             {
                 EffectType = EffectType.Trail,
                 Pos1 = target,
                 TargetObjectId = Id,
                 Color = new ARGB(eff.Color != 0 ? eff.Color : 0xFFFF00AA)
-            };
-
-            foreach (var player in World.Players.Values)
-                if(player.SqDistTo(this) < PlayerUpdate.VISIBILITY_RADIUS_SQR)
-                   player.Client.SendPackets(batch);
+            }, this);
+            World.BroadcastIfVisible(shoots, ref target);
         }
+
         private void AEClearConditionEffectAura(TickTime time, Item item, Position target, ActivateEffect eff)
         {
             this.AOE(eff.Range, true, player =>
@@ -845,12 +780,6 @@ namespace TKR.WorldServer.core.objects
 
         private void AEHeal(TickTime time, Item item, Position target, ActivateEffect eff)
         {
-            if (TalismanNoPotionHealing)
-            {
-                ApplyConditionEffect(ConditionEffectIndex.Stunned, 600);
-                return;
-            }
-
             if (HasConditionEffect(ConditionEffectIndex.Sick))
                 return;
 
@@ -1258,9 +1187,7 @@ namespace TKR.WorldServer.core.objects
 
                 var damage = eff.UseWisMod ? UseWisMod(eff.TotalDamage) : eff.TotalDamage;
 
-                var dmg = (int)(damage + (damage * TalismanExtraAbilityDamage));
-
-                (targets[i] as Enemy).Damage(this, time, (int)dmg, false);
+                (targets[i] as Enemy).Damage(this, ref time, (int)damage, false);
 
                 if (eff.ConditionEffect != null)
                     targets[i].ApplyConditionEffect(new ConditionEffect(eff.ConditionEffect.Value, (int)(eff.EffectDuration * 1000)));
@@ -1282,12 +1209,6 @@ namespace TKR.WorldServer.core.objects
 
         private void AEMagic(TickTime time, Item item, Position target, ActivateEffect eff)
         {
-            if (TalismanNoPotionHealing)
-            {
-                ApplyConditionEffect(ConditionEffectIndex.Stunned, 600);
-                return;
-            }
-
             for (var i = 0; i < 4; i++)
             {
                 var item1 = Inventory[i];
@@ -1316,7 +1237,7 @@ namespace TKR.WorldServer.core.objects
 
             var entity = World.GetEntity(objId);
 
-            var dustItem = World.GameServer.ItemDustWeights.MagicDust.GetRandom(World.Random);
+            var dustItem = World.GameServer.ItemDustWeights.MagicDust.GetRandom(Random.Shared);
             if (entity is Container container)
                 container.Inventory[slot] = dustItem;
             else
@@ -1341,7 +1262,7 @@ namespace TKR.WorldServer.core.objects
 
             var entity = World.GetEntity(objId);
 
-            var dustItem = World.GameServer.ItemDustWeights.FrozenCoin.GetRandom(World.Random);
+            var dustItem = World.GameServer.ItemDustWeights.FrozenCoin.GetRandom(Random.Shared);
             if (entity is Container container)
                 container.Inventory[slot] = dustItem;
             else
@@ -1371,13 +1292,22 @@ namespace TKR.WorldServer.core.objects
         {
             var entity = World.GetEntity(objId);
 
-            var dustItem = World.GameServer.ItemDustWeights.MiscDust.GetRandom(World.Random);
+            var dustItem = World.GameServer.ItemDustWeights.MiscDust.GetRandom(Random.Shared);
             if (entity is Container container)
                 container.Inventory[slot] = dustItem;
             else
                 Inventory[slot] = dustItem;
 
             SendInfo($"You Scattered used a Miscellaneous Dust and obtained a {dustItem.DisplayName ?? dustItem.ObjectId}");
+        }
+
+        private void AEPet(TickTime time, Item item, Position target, ActivateEffect eff)
+        {
+            var type = GameServer.Resources.GameData.IdToObjectType[eff.ObjectId];
+
+            var pet = new Pet(GameServer, this, type);
+            pet.Move(X, Y);
+            World.EnterWorld(pet);
         }
 
         private void AEPermaPet(TickTime time, Item item, Position target, ActivateEffect eff)
@@ -1425,11 +1355,8 @@ namespace TKR.WorldServer.core.objects
 
                 world.AOE(target, eff.Radius, false, entity =>
                 {
-                    var dmg = (int)(impDamage + (impDamage * TalismanExtraAbilityDamage));
-
                     PoisonEnemy(world, (Enemy)entity, eff);
-
-                    ((Enemy)entity).Damage(this, time, dmg, true);
+                    ((Enemy)entity).Damage(this, ref time, impDamage, true);
                 });
             });
         }
@@ -1438,7 +1365,7 @@ namespace TKR.WorldServer.core.objects
         {
             var entity = World.GetEntity(objId);
 
-            var dustItem = World.GameServer.ItemDustWeights.PotionDust.GetRandom(World.Random);
+            var dustItem = World.GameServer.ItemDustWeights.PotionDust.GetRandom(Random.Shared);
             if (entity is Container container)
                 container.Inventory[slot] = dustItem;
             else
@@ -1476,26 +1403,6 @@ namespace TKR.WorldServer.core.objects
             }, this);
         }
 
-        private void AEShoot(int time, TickTime tickTime, Item item, Position target, ActivateEffect eff)
-        {
-            var arcGap = item.ArcGap * Math.PI / 180;
-            var startAngle = Math.Atan2(target.Y - Y, target.X - X) - (item.NumProjectiles - 1) / 2 * arcGap;
-            var prjDesc = item.Projectiles[0]; //Assume only one
-
-            var sPkts = new OutgoingMessage[item.NumProjectiles];
-            for (var i = 0; i < item.NumProjectiles; i++)
-            {
-                var bulletId = GetNextBulletId();
-                var proj = PlayerShootProjectile(time, bulletId, item.ObjectType, (float)(startAngle + arcGap * i), target, prjDesc, true);
-                World.AddProjectile(proj);
-                sPkts[i] = new AllyShoot(proj.ProjectileId, Id, item.ObjectType, proj.Angle);
-                FameCounter.Shoot();
-            }
-
-            for (var i = 0; i < item.NumProjectiles; i++)
-                World.BroadcastIfVisibleExclude(sPkts[i], this, this);
-        }
-
         private void AEShurikenAbility(int time, TickTime tickTime, Item item, Position target, ActivateEffect eff, int useType)
         {
             switch (useType)
@@ -1504,22 +1411,8 @@ namespace TKR.WorldServer.core.objects
                     ApplyPermanentConditionEffect(ConditionEffectIndex.NinjaSpeedy);
                     break;
                 case END_USE:
-                    if (item.MpEndCost != 0 && TalismanAbilityLifeCost > 0.0f)
-                    {
-                        if (HP >= item.MpEndCost)
-                        {
-                            HP -= (int)(Stats[0] * TalismanAbilityLifeCost);
-                            AEShoot(time, tickTime, item, target, eff);
-                        }
-                    }
-                    else
-                    {
-                        if (MP >= item.MpEndCost)
-                        {
-                            MP -= item.MpEndCost;
-                            AEShoot(time, tickTime, item, target, eff);
-                        }
-                    }
+                    if (MP >= item.MpEndCost)
+                        MP -= item.MpEndCost;
                     RemoveCondition(ConditionEffectIndex.NinjaSpeedy);
                     break;
             }
@@ -1533,22 +1426,8 @@ namespace TKR.WorldServer.core.objects
                     ApplyPermanentConditionEffect(ConditionEffectIndex.NinjaBerserk);
                     break;
                 case END_USE:
-                    if (item.MpEndCost != 0 && TalismanAbilityLifeCost > 0.0f)
-                    {
-                        if (HP >= item.MpEndCost)
-                        {
-                            HP -= (int)(Stats[0] * TalismanAbilityLifeCost);
-                            AEShoot(time, tickTime, item, target, eff);
-                        }
-                    }
-                    else
-                    {
-                        if (MP >= item.MpEndCost)
-                        {
-                            MP -= item.MpEndCost;
-                            AEShoot(time, tickTime, item, target, eff);
-                        }
-                    }
+                    if (MP >= item.MpEndCost)
+                        MP -= item.MpEndCost;
                     RemoveCondition(ConditionEffectIndex.NinjaBerserk);
                     break;
             }
@@ -1562,22 +1441,8 @@ namespace TKR.WorldServer.core.objects
                     ApplyPermanentConditionEffect(ConditionEffectIndex.NinjaDamaging);
                     break;
                 case END_USE:
-                    if (item.MpEndCost != 0 && TalismanAbilityLifeCost > 0.0f)
-                    {
-                        if (HP >= item.MpEndCost)
-                        {
-                            HP -= (int)(Stats[0] * TalismanAbilityLifeCost);
-                            AEShoot(time, tickTime, item, target, eff);
-                        }
-                    }
-                    else
-                    {
-                        if (MP >= item.MpEndCost)
-                        {
-                            MP -= item.MpEndCost;
-                            AEShoot(time, tickTime, item, target, eff);
-                        }
-                    }
+                    if (MP >= item.MpEndCost)
+                        MP -= item.MpEndCost;
                     RemoveCondition(ConditionEffectIndex.NinjaDamaging);
                     break;
             }
@@ -1596,33 +1461,20 @@ namespace TKR.WorldServer.core.objects
                 range = UseWisMod(eff.Range);
             }
 
-            this.AOE(range, true, (Action<Entity>)(player =>
+            this.AOE(range, true, player =>
             {
                 if (player.HasConditionEffect(ConditionEffectIndex.HPBoost))
-                {
                     return;
-                }
-
-                if (!player.HasConditionEffect(ConditionEffectIndex.HPBoost))
-                {
-                    World.StartNewTimer(0, (Action<World, TickTime>)((world, t) => player.ApplyConditionEffect(ConditionEffectIndex.HPBoost, duration)));
-                }
 
                 ((Player)player).Stats.Boost.ActivateBoost[idx].Push(amount, false);
                 ((Player)player).Stats.ReCalculateValues();
 
-                // hack job to allow instant heal of nostack boosts
-                //if (eff.NoStack && amount > 0 && idx == 0)
-                //{
-                //    ((Player)player).HP = Math.Min(((Player)player).Stats[0], ((Player)player).HP + amount);
-                //}
-
-                World.StartNewTimer(duration, (Action<World, TickTime>)((world, t) =>
+                World.StartNewTimer(duration, (world, t) =>
                 {
                     ((Player)player).Stats.Boost.ActivateBoost[idx].Pop(amount, false);
                     ((Player)player).Stats.ReCalculateValues();
-                }));
-            }));
+                });
+            });
 
             World.BroadcastIfVisible(new ShowEffect()
             {
@@ -1856,11 +1708,8 @@ namespace TKR.WorldServer.core.objects
 
             World.AOE(target, eff.Radius, false, enemy =>
             {
-                var baseDmg = effDamage;
-                var dmg = (int)(baseDmg + (baseDmg * TalismanExtraAbilityDamage));
-
                 enemies.Add(enemy as Enemy);
-                totalDmg += (enemy as Enemy).Damage(this, time, (int)dmg, false);
+                totalDmg += (enemy as Enemy).Damage(this, ref time, (int)effDamage, false);
             });
 
             var players = new List<Player>();
@@ -1877,8 +1726,8 @@ namespace TKR.WorldServer.core.objects
             {
                 for (var i = 0; i < 5; i++)
                 {
-                    var a = World.Random.NextLength(enemies);
-                    var b = World.Random.NextLength(players);
+                    var a = Random.Shared.NextLength(enemies);
+                    var b = Random.Shared.NextLength(players);
 
                     World.BroadcastIfVisible(new ShowEffect()
                     {
@@ -1978,9 +1827,10 @@ namespace TKR.WorldServer.core.objects
                     if (remainingDmg < thisDmg)
                         thisDmg = remainingDmg;
 
-                    if (enemy.IsRemovedFromWorld)
+                    if (enemy.Dead)
                         return false;
-                    enemy?.Damage(this, t, thisDmg, true);
+
+                    enemy?.Damage(this, ref t, thisDmg, true);
                     remainingDmg -= thisDmg;
                     if (remainingDmg <= 0)
                         return true;

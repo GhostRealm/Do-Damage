@@ -1,5 +1,5 @@
 ﻿using TKR.Shared;
-using TKR.WorldServer.core.miscfile.datas;
+using TKR.WorldServer.core.net.datas;
 using TKR.WorldServer.networking.packets.outgoing;
 
 namespace TKR.WorldServer.networking.packets.outgoing.market
@@ -11,14 +11,14 @@ namespace TKR.WorldServer.networking.packets.outgoing.market
         public MarketData[] Results;
         public string Description;
 
-        protected override void Write(NWriter wtr)
+        public override void Write(NetworkWriter wtr)
         {
             wtr.Write((short)Results.Length);
             for (int i = 0; i < Results.Length; i++)
             {
                 Results[i].Write(wtr);
             }
-            wtr.WriteUTF(Description);
+            wtr.WriteUTF16(Description);
         }
     }
 }

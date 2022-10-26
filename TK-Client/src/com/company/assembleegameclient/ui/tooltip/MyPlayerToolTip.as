@@ -76,7 +76,7 @@ public class MyPlayerToolTip extends ToolTip
          this.mpBar_ = new StatusBar(176,16,6325472,5526612,"MP");
          this.mpBar_.x = 6;
          this.mpBar_.y = _loc3_;
-         this.mpBar_.visible = !this.player_.talismanNoManaBar_;
+         this.mpBar_.visible = true;
          addChild(this.mpBar_);
          _loc3_ = Number(_loc3_ + 24);
          this.stats_ = new StatsView(188, 45);
@@ -95,7 +95,6 @@ public class MyPlayerToolTip extends ToolTip
          this.iGrid.x = 8;
          this.iGrid.y = _loc3_;
          addChild(this.iGrid);
-         trace(this.player_.equipment_);
          this.iGrid.setItems(this.player_.equipment_, this.player_.equipData_);
          _loc3_ = Number(_loc3_ + 92);
          if(this.player_.hasBackpack_)

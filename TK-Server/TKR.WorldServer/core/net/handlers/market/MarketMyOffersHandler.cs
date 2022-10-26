@@ -1,7 +1,7 @@
 ﻿using TKR.Shared;
 using TKR.Shared.database.market;
-using TKR.WorldServer.core.miscfile.datas;
-using TKR.WorldServer.core.miscfile.thread;
+using TKR.WorldServer.core.net.datas;
+using TKR.WorldServer.core.worlds;
 using TKR.WorldServer.networking;
 using TKR.WorldServer.networking.packets.outgoing.market;
 
@@ -11,7 +11,7 @@ namespace TKR.WorldServer.core.net.handlers.market
     {
         public override MessageId MessageId => MessageId.MARKET_MY_OFFERS;
 
-        public override void Handle(Client client, NReader rdr, ref TickTime tickTime)
+        public override void Handle(Client client, NetworkReader rdr, ref TickTime tickTime)
         {
             if (!IsAvailable(client) || !IsEnabledOrIsVipMarket(client))
                 return;

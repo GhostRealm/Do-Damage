@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using TKR.Shared.database.character.inventory;
 using TKR.Shared.resources;
-using TKR.WorldServer.core.miscfile;
+using TKR.WorldServer.core.objects.containers;
 
 namespace TKR.WorldServer.core.objects.inventory
 {
@@ -17,7 +17,7 @@ namespace TKR.WorldServer.core.objects.inventory
 
         private object _invLock = new object();
 
-        public Inventory(IContainer parent) : this(parent, new Item[20], new ItemData[20])
+        public Inventory(IContainer parent) : this(parent, new Item[28], new ItemData[28])
         { }
 
         public Inventory(IContainer parent, Item[] items, ItemData[] datas)
@@ -128,6 +128,24 @@ namespace TKR.WorldServer.core.objects.inventory
                     for (var i = 4; i < 12 || plr.HasBackpack && i < plr.Inventory.Length; i++)
                         if (_items[i] == null)
                             return i;
+
+                    if(item.SlotType == 26)
+                        for (var i = 20; i < 28; i++)
+                            if (_items[i] != null && item.TalismanItemDesc != null && item.TalismanItemDesc.OnlyOne && _items[i].ObjectType == item.ObjectType)
+                                return -1;
+
+                    for (var i = 20; i < 28; i++)
+                        if (_items[i] == null && playerDesc.SlotTypes[i] == item.SlotType)
+                        {
+                            if (i < 24 && item.TalismanItemDesc.Common)
+                                return i;
+
+                            if ((i == 24 || i == 25) && item.TalismanItemDesc.Legendary)
+                                return i;
+
+                            if ((i == 26 || i == 27) && item.TalismanItemDesc.Mythic)
+                                return i;
+                        }
                 }
                 else
                 {

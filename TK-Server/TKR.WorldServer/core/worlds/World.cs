@@ -1,23 +1,20 @@
 ﻿using Pipelines.Sockets.Unofficial.Arenas;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Threading;
+using TKR.Shared;
 using TKR.Shared.database;
 using TKR.Shared.resources;
-using TKR.WorldServer.core.miscfile.census;
-using TKR.WorldServer.core.miscfile.structures;
-using TKR.WorldServer.core.miscfile.thread;
-using TKR.WorldServer.core.miscfile.world;
+using TKR.WorldServer.core.net.datas;
 using TKR.WorldServer.core.objects;
 using TKR.WorldServer.core.objects.containers;
 using TKR.WorldServer.core.objects.player;
+using TKR.WorldServer.core.objects.vendors;
+using TKR.WorldServer.core.structures;
 using TKR.WorldServer.core.terrain;
+using TKR.WorldServer.core.worlds.census;
 using TKR.WorldServer.core.worlds.impl;
-using TKR.WorldServer.core.worlds.logic;
-using TKR.WorldServer.memory;
 using TKR.WorldServer.networking;
 using TKR.WorldServer.networking.packets.outgoing;
 using TKR.WorldServer.utils;
@@ -29,9 +26,7 @@ namespace TKR.WorldServer.core.worlds
         public const int NEXUS_ID = -2;
         public const int TEST_ID = -6;
 
-        private static int NextEntityId;
-
-        public readonly Random Random = new Random();
+        private int NextEntityId;
 
         public int Id { get; }
         public string IdName { get; set; }
@@ -43,10 +38,10 @@ namespace TKR.WorldServer.core.worlds
 
         public bool IsRealm { get; set; }
         public bool AllowTeleport { get; protected set; }
-        public int Background { get; protected set; }
+        public byte Background { get; protected set; }
         public byte Blocking { get; protected set; }
         public string Music { get; set; }
-        public int Difficulty { get; protected set; }
+        public byte Difficulty { get; protected set; }
         public bool Deleted { get; protected set; }
         public bool DisableShooting { get; set; }
         public bool DisableAbilities { get; set; }
@@ -54,22 +49,23 @@ namespace TKR.WorldServer.core.worlds
 
         public readonly Wmap Map;
         public readonly GameServer GameServer;
-        public CollisionMap<Entity> EnemiesCollision { get; private set; }
-        public CollisionMap<Entity> PlayersCollision { get; private set; }
-
         public bool ShowDisplays { get; protected set; }
 
-        public ConcurrentDictionary<int, Player> Players { get; private set; } = new ConcurrentDictionary<int, Player>();
-        public ConcurrentDictionary<int, Enemy> Enemies { get; private set; } = new ConcurrentDictionary<int, Enemy>();
-        public ConcurrentDictionary<int, Enemy> Quests { get; private set; } = new ConcurrentDictionary<int, Enemy>();
-        public ConcurrentDictionary<int, StaticObject> StaticObjects { get; private set; } = new ConcurrentDictionary<int, StaticObject>();
-        public ConcurrentDictionary<int, Container> Containers { get; private set; } = new ConcurrentDictionary<int, Container>();
-        public ConcurrentDictionary<int, Portal> Portals { get; private set; } = new ConcurrentDictionary<int, Portal>();
-        public ConcurrentDictionary<int, Pet> Pets { get; private set; } = new ConcurrentDictionary<int, Pet>();
-        public Dictionary<int, Dictionary<int, Projectile>> Projectiles { get; private set; } = new Dictionary<int, Dictionary<int, Projectile>>();
-        private readonly List<WorldTimer> Timers = new List<WorldTimer>();
+        public CollisionMap<Entity> EnemiesCollision { get; private set; }
+        public CollisionMap<Entity> PlayersCollision { get; private set; }
+        public Dictionary<int, Player> Players { get; private set; } = new Dictionary<int, Player>();
+        public Dictionary<int, Enemy> Enemies { get; private set; } = new Dictionary<int, Enemy>();
+        public Dictionary<int, Enemy> Quests { get; private set; } = new Dictionary<int, Enemy>();
+        public Dictionary<int, StaticObject> StaticObjects { get; private set; } = new Dictionary<int, StaticObject>();
+        public Dictionary<int, Container> Containers { get; private set; } = new Dictionary<int, Container>();
+        public Dictionary<int, Portal> Portals { get; private set; } = new Dictionary<int, Portal>();
+        public Dictionary<int, Pet> Pets { get; private set; } = new Dictionary<int, Pet>();
+        public Dictionary<int, SellableObject> SellableObjects { get; private set; } = new Dictionary<int, SellableObject>();
 
-        public ObjectPools ObjectPools { get; private set; }
+        private readonly List<Entity> EntitiesToAdd = new List<Entity>();
+        private readonly List<Entity> EntitiesToRemove = new List<Entity>();
+
+        private readonly List<WorldTimer> Timers = new List<WorldTimer>();
 
         public WorldBranch WorldBranch { get; private set; }
         public World ParentWorld { get; set; }
@@ -78,7 +74,6 @@ namespace TKR.WorldServer.core.worlds
         {
             GameServer = gameServer;
             Map = new Wmap(this);
-            ObjectPools = new ObjectPools(this);
 
             Id = id;
             IdName = resource.DisplayName;
@@ -98,7 +93,7 @@ namespace TKR.WorldServer.core.worlds
             IsRealm = false;
 
             if (resource.Music.Count > 0)
-                Music = resource.Music[Random.Next(0, resource.Music.Count)];
+                Music = resource.Music[Random.Shared.Next(0, resource.Music.Count)];
             else
                 Music = "sorc";
 
@@ -114,18 +109,39 @@ namespace TKR.WorldServer.core.worlds
                 player.Client.SendPacket(outgoingMessage);
         }
 
+        public void BroadcastIfVisible(List<OutgoingMessage> outgoingMessages, ref Position worldPosData)
+        {
+            foreach (var outgoingMessage in outgoingMessages)
+                BroadcastIfVisible(outgoingMessage, ref worldPosData);
+        }
+
         public void BroadcastIfVisible(OutgoingMessage outgoingMessage, ref Position worldPosData)
         {
             foreach (var player in Players.Values)
                 if (player.SqDistTo(ref worldPosData) < PlayerUpdate.VISIBILITY_RADIUS_SQR)
+                {
+                    if (outgoingMessage is ServerPlayerShoot)
+                        player.ServerPlayerShoot(outgoingMessage as ServerPlayerShoot);
                     player.Client.SendPacket(outgoingMessage);
+                }
         }
 
         public void BroadcastIfVisible(OutgoingMessage outgoingMessage, Entity host)
         {
             foreach (var player in Players.Values)
                 if (player.SqDistTo(host) < PlayerUpdate.VISIBILITY_RADIUS_SQR)
+                {
+                    if (outgoingMessage is EnemyShootMessage)
+                        player.EnemyShoot(outgoingMessage as EnemyShootMessage);
                     player.Client.SendPacket(outgoingMessage);
+                }
+        }
+
+        public void BroadcastIfVisibleExclude(List<OutgoingMessage> outgoingMessage, Entity broadcaster, Entity exclude)
+        {
+            foreach (var player in Players.Values)
+                if (player.Id != exclude.Id && player.SqDistTo(broadcaster) <= PlayerUpdate.VISIBILITY_RADIUS_SQR)
+                    player.Client.SendPackets(outgoingMessage);
         }
 
         public void BroadcastIfVisibleExclude(OutgoingMessage outgoingMessage, Entity broadcaster, Entity exclude)
@@ -160,63 +176,30 @@ namespace TKR.WorldServer.core.worlds
                 en.Value.OnChatTextReceived(player, text);
         }
 
-        public void AddProjectile(Projectile projectile)
+        public Player CreateNewPlayer(Client client, float x, float y)
         {
-            if (!Projectiles.ContainsKey(projectile.Host.Id))
-                Projectiles.Add(projectile.Host.Id, new Dictionary<int, Projectile>());
-            Projectiles[projectile.Host.Id][projectile.ProjectileId] = projectile;
-        }
-
-        public Projectile GetProjectile(int objectId, int bulletId)
-        {
-            if (Projectiles.TryGetValue(objectId, out var projectiles))
-                if (projectiles.TryGetValue(bulletId, out var ret))
-                    return ret;
-            return null;
-        }
-
-        public void RemoveProjectile(Projectile projectile)
-        {
-            if (Projectiles.ContainsKey(projectile.Host.Id))
-                Projectiles[projectile.Host.Id].Remove(projectile.ProjectileId);
-            ObjectPools.Projectiles.Return(projectile);
-        }
-
-        public virtual int EnterWorld(Entity entity)
-        {
+            var entity = new Player(client);
             entity.Id = GetNextEntityId();
-
-            if (entity is Player)
-            {
-                Players.TryAdd(entity.Id, entity as Player);
-                PlayersCollision.Insert(entity);
-            }
-            else if (entity is Enemy)
-            {
-                Enemies.TryAdd(entity.Id, entity as Enemy);
-                EnemiesCollision.Insert(entity);
-                if (entity.ObjectDesc.Quest)
-                    Quests.TryAdd(entity.Id, entity as Enemy);
-            }
-            else if (entity is Container)
-                Containers.TryAdd(entity.Id, entity as Container);
-            else if (entity is Portal)
-                Portals.TryAdd(entity.Id, entity as Portal);
-            else if (entity is StaticObject)
-            {
-                StaticObjects.TryAdd(entity.Id, entity as StaticObject);
-                if (entity is Decoy)
-                    PlayersCollision.Insert(entity);
-                else
-                    EnemiesCollision.Insert(entity);
-            }
-            else if (entity is Pet)
-            {
-                Pets.TryAdd(entity.Id, entity as Pet);
-                PlayersCollision.Insert(entity);
-            }
             entity.Init(this);
-            return entity.Id;
+            entity.Move(x, y);
+            EntitiesToAdd.Add(entity);
+            return entity;
+        }
+
+        public Entity CreateNewEntity(string idName, float x, float y) => !GameServer.Resources.GameData.IdToObjectType.TryGetValue(idName, out var type) ? null : CreateNewEntity(type, x, y);
+        public Entity CreateNewEntity(ushort objectType, float x, float y)
+        {
+            var entity = Entity.Resolve(GameServer, objectType);
+            if (entity == null)
+            {
+                // unable to identify the entity return null;
+                return null;
+            }
+            entity.Id = GetNextEntityId();
+            entity.Init(this);
+            entity.Move(x, y);
+            EntitiesToAdd.Add(entity);
+            return entity;
         }
 
         public string GetDisplayName() => DisplayName != null && DisplayName.Length > 0 ? DisplayName : IdName;
@@ -240,10 +223,13 @@ namespace TKR.WorldServer.core.worlds
             if (Portals.TryGetValue(id, out var ret5))
                 return ret5;
 
+            if (SellableObjects.TryGetValue(id, out var ret6))
+                return ret6;
+
             return null;
         }
 
-        public int GetNextEntityId() => Interlocked.Increment(ref NextEntityId);
+        public int GetNextEntityId() => NextEntityId++;
 
         public IEnumerable<Player> GetPlayers() => Players.Values;
 
@@ -302,35 +288,82 @@ namespace TKR.WorldServer.core.worlds
 
         public bool IsPlayersMax() => Players.Count >= MaxPlayers;
 
-        public virtual void LeaveWorld(Entity entity)
+        public void EnterWorld(Entity entity)
+        {
+            if (entity.Id == -1)
+                entity.Id = GetNextEntityId();
+            if(entity.World == null)
+                entity.Init(this);
+            EntitiesToAdd.Add(entity);
+        }
+
+        public virtual void LeaveWorld(Entity entity) => entity.Expunge();
+
+        private void AddToWorld(Entity entity)
         {
             if (entity is Player)
             {
-                Players.TryRemove(entity.Id, out Player dummy);
+                Players.TryAdd(entity.Id, entity as Player);
+                PlayersCollision.Insert(entity, entity.X, entity.Y);
+            }
+            else if (entity is SellableObject)
+                SellableObjects.TryAdd(entity.Id, entity as SellableObject);
+            else if (entity is Enemy)
+            {
+                Enemies.TryAdd(entity.Id, entity as Enemy);
+                EnemiesCollision.Insert(entity, entity.X, entity.Y);
+                if (entity.ObjectDesc.Quest)
+                    Quests.TryAdd(entity.Id, entity as Enemy);
+            }
+            else if (entity is Container)
+                Containers.TryAdd(entity.Id, entity as Container);
+            else if (entity is Portal)
+                Portals.TryAdd(entity.Id, entity as Portal);
+            else if (entity is StaticObject)
+            {
+                StaticObjects.TryAdd(entity.Id, entity as StaticObject);
+                if (entity is Decoy)
+                    PlayersCollision.Insert(entity, entity.X, entity.Y);
+                else
+                    EnemiesCollision.Insert(entity, entity.X, entity.Y);
+            }
+            else if (entity is Pet)
+            {
+                Pets.TryAdd(entity.Id, entity as Pet);
+                PlayersCollision.Insert(entity, entity.X, entity.Y);
+            }
+        }
+
+        private void RemoveFromWorld(Entity entity)
+        {
+            if (entity is Player player)
+            {
+                Players.Remove(entity.Id);
                 PlayersCollision.Remove(entity);
 
                 // if in trade, cancel it...
-                if (dummy != null && dummy.tradeTarget != null)
-                    dummy.CancelTrade();
+                if (player != null && player.tradeTarget != null)
+                    player.CancelTrade();
 
-                if (dummy != null && dummy.Pet != null)
-                    LeaveWorld(dummy.Pet);
+                if (player != null && player.Pet != null)
+                    LeaveWorld(player.Pet);
             }
-            else if (entity is Enemy)
+            else if (entity is SellableObject)
+                SellableObjects.Remove(entity.Id);
+            else if (entity.ObjectDesc.Enemy)
             {
-                Enemies.TryRemove(entity.Id, out Enemy dummy);
+                Enemies.Remove(entity.Id);
                 EnemiesCollision.Remove(entity);
                 if (entity.ObjectDesc.Quest)
-                    Quests.TryRemove(entity.Id, out dummy);
+                    Quests.Remove(entity.Id);
             }
             else if (entity is Container)
-                Containers.TryRemove(entity.Id, out Container dummy);
+                Containers.Remove(entity.Id);
             else if (entity is Portal)
-                Portals.TryRemove(entity.Id, out _);
+                Portals.Remove(entity.Id);
             else if (entity is StaticObject)
             {
-                StaticObjects.TryRemove(entity.Id, out StaticObject dummy);
-
+                StaticObjects.Remove(entity.Id);
                 if (entity is Decoy)
                     PlayersCollision.Remove(entity);
                 else
@@ -338,11 +371,9 @@ namespace TKR.WorldServer.core.worlds
             }
             else if (entity is Pet)
             {
-                Pets.TryRemove(entity.Id, out Pet dummy);
+                Pets.Remove(entity.Id);
                 PlayersCollision.Remove(entity);
             }
-
-            entity.Destroy();
         }
 
         public void ForeachPlayer(Action<Player> action)
@@ -370,13 +401,13 @@ namespace TKR.WorldServer.core.worlds
 
         protected void FromWorldMap(Stream dat)
         {
-            Interlocked.Add(ref NextEntityId, Map.Load(dat, NextEntityId));
+            NextEntityId += Map.Load(dat, NextEntityId);
             InitMap();
         }
 
         public bool LoadMapFromData(WorldResource worldResource)
         {
-            var data = GameServer.Resources.GameData.GetWorldData(worldResource.MapJM[Random.Next(0, worldResource.MapJM.Count)]);
+            var data = GameServer.Resources.GameData.GetWorldData(worldResource.MapJM[Random.Shared.Next(0, worldResource.MapJM.Count)]);
             if (data == null)
                 return false;
             FromWorldMap(new MemoryStream(data));
@@ -394,9 +425,7 @@ namespace TKR.WorldServer.core.worlds
 
             EnemiesCollision = new CollisionMap<Entity>(0, w, h);
             PlayersCollision = new CollisionMap<Entity>(1, w, h);
-
-            foreach (var i in Map.InstantiateEntities(GameServer))
-                _ = EnterWorld(i);
+            Map.CreateEntities();
         }
 
         public Entity FindPlayerTarget(Entity host)
@@ -430,18 +459,15 @@ namespace TKR.WorldServer.core.worlds
             try
             {
                 Lifetime += time.ElapsedMsDelta;
-
                 WorldBranch.Update(ref time);
-
                 if (IsPastLifetime(ref time))
                     return true;
-
                 UpdateLogic(ref time);
                 return false;
             }
             catch (Exception e)
             {
-                Console.WriteLine($"World Tick: {e}");
+                Console.WriteLine($"World Tick: {e.Message} \n trace: {e.StackTrace}");
                 return false;
             }
         }
@@ -463,35 +489,64 @@ namespace TKR.WorldServer.core.worlds
         protected virtual void UpdateLogic(ref TickTime time)
         {
             foreach (var player in Players.Values)
+            {
                 player.Tick(ref time);
+                if (player.Dead)
+                    EntitiesToRemove.Add(player);
+            }
+
+            foreach (var sellable in SellableObjects.Values)
+            {
+                sellable.Tick(ref time);
+                if (sellable.Dead)
+                    EntitiesToRemove.Add(sellable);
+            }
 
             foreach (var stat in StaticObjects.Values)
+            {
                 stat.Tick(ref time);
+                if (stat.Dead)
+                    EntitiesToRemove.Add(stat);
+            }
 
-            foreach (var container in Portals.Values)
-                container.Tick(ref time);
+            foreach (var portal in Portals.Values)
+            {
+                portal.Tick(ref time);
+                if (portal.Dead)
+                    EntitiesToRemove.Add(portal);
+            }
 
             foreach (var container in Containers.Values)
+            {
                 container.Tick(ref time);
+                if (container.Dead)
+                    EntitiesToRemove.Add(container);
+            }
 
             foreach (var pet in Pets.Values)
+            {
                 pet.Tick(ref time);
+                if (pet.Dead)
+                    EntitiesToRemove.Add(pet);
+            }
 
             if (EnemiesCollision != null)
             {
-                foreach (var i in EnemiesCollision.GetActiveChunks(PlayersCollision))
-                    i.Tick(ref time);
-
-                //foreach (var i in StaticObjects.Where(x => x.Value != null && x.Value is Decoy))
-                //    i.Value.Tick(time);
+                foreach (var entity in EnemiesCollision.GetActiveChunks(PlayersCollision))
+                {
+                    entity.Tick(ref time);
+                    if (entity.Dead)
+                        EntitiesToRemove.Add(entity);
+                }
             }
             else
             {
-                foreach (var i in Enemies)
-                    i.Value.Tick(ref time);
-
-                //foreach (var i in StaticObjects)
-                //    i.Value.Tick(time);
+                foreach (var entity in Enemies.Values)
+                {
+                    entity.Tick(ref time);
+                    if (entity.Dead)
+                        EntitiesToRemove.Add(entity);
+                }
             }
 
             for (var i = Timers.Count - 1; i >= 0; i--)
@@ -506,14 +561,16 @@ namespace TKR.WorldServer.core.worlds
                     Timers.RemoveAt(i);
                 }
 
-            var projectilesToRemove = new List<Projectile>();
-            foreach (var k in Projectiles.Values)
-                foreach (var projectile in k.Values)
-                    if (!projectile.Tick(ref time))
-                        projectilesToRemove.Add(projectile);
+            foreach (var entity in EntitiesToAdd)
+                AddToWorld(entity);
+            EntitiesToAdd.Clear();
 
-            foreach (var projectile in projectilesToRemove)
-                RemoveProjectile(projectile);
+            foreach (var removed in EntitiesToRemove)
+                RemoveFromWorld(removed);
+            EntitiesToRemove.Clear();
+
+            foreach (var player in Players.Values)
+                player.PlayerUpdate.UpdateState(time.ElapsedMsDelta);
         }
 
         public void FlagForClose()

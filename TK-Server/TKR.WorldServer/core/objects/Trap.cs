@@ -1,9 +1,7 @@
 ﻿using TKR.Shared.resources;
-using TKR.WorldServer.core.miscfile;
-using TKR.WorldServer.core.miscfile.datas;
-using TKR.WorldServer.core.miscfile.datas;
-using TKR.WorldServer.core.miscfile.structures;
-using TKR.WorldServer.core.miscfile.thread;
+using TKR.WorldServer.core.net.datas;
+using TKR.WorldServer.core.structures;
+using TKR.WorldServer.core.worlds;
 using TKR.WorldServer.networking.packets.outgoing;
 using TKR.WorldServer.utils;
 
@@ -76,7 +74,7 @@ namespace TKR.WorldServer.core.objects
 
             this.AOE(radius, false, enemy =>
             {
-                (enemy as Enemy).Damage(player, time, dmg, false, false, new ConditionEffect(effect, duration));
+                (enemy as Enemy).Damage(player, ref time, dmg, false, false, new ConditionEffect(effect, duration));
             });
 
             World.LeaveWorld(this);

@@ -11,13 +11,13 @@ namespace TKR.WorldServer.logic
         .Init("King Slime",
             new State(
                 new ScaleHP2(20),
-                new ConditionalEffect(ConditionEffectIndex.ParalyzeImmune),
+                new ConditionEffectBehavior(ConditionEffectIndex.ParalyzeImmune),
                 new State("idle",
-                    new ConditionalEffect(ConditionEffectIndex.Invulnerable, true),
+                    new ConditionEffectBehavior(ConditionEffectIndex.Invulnerable, true),
                     new PlayerWithinTransition(25, "Prepare")
                     ),
                 new State("Prepare",
-                    new ConditionalEffect(ConditionEffectIndex.Invulnerable),
+                    new ConditionEffectBehavior(ConditionEffectIndex.Invulnerable),
                     new Flash(0xBB0000, 0.5, 3),
                     new TimedTransition(1500, "attack")
                     ),
@@ -91,6 +91,7 @@ namespace TKR.WorldServer.logic
                 LootTemplates.DustLoot()
                 ),
             new Threshold(0.001,
+                TierLoot.TalismanLoot(0.03),
                 new TierLoot(10, ItemType.Armor, 0.12),
                 new TierLoot(11, ItemType.Armor, 0.09),
                 new TierLoot(10, ItemType.Weapon, 0.12),

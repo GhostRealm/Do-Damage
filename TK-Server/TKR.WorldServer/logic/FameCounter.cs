@@ -1,7 +1,7 @@
 ﻿using TKR.Shared;
 using TKR.Shared.database.character;
-using TKR.WorldServer.core.miscfile.thread;
 using TKR.WorldServer.core.objects;
+using TKR.WorldServer.core.worlds;
 
 namespace TKR.WorldServer.logic
 {
@@ -68,7 +68,7 @@ namespace TKR.WorldServer.logic
 
         public void DrinkPot() => Stats.PotionsDrunk++;
 
-        public void Hit(Projectile proj, Enemy enemy) => Stats.ShotsThatDamage++;
+        public void Hit() => Stats.ShotsThatDamage++;
 
         public void Killed(Enemy enemy, bool killer)
         {

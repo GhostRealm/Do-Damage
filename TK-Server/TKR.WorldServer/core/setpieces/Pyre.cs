@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Linq;
 using TKR.Shared.resources;
-using TKR.WorldServer.core.miscfile.structures;
 using TKR.WorldServer.core.objects;
 using TKR.WorldServer.core.objects.containers;
+using TKR.WorldServer.core.structures;
 using TKR.WorldServer.core.worlds;
 using TKR.WorldServer.logic.loot;
 
@@ -56,7 +56,7 @@ namespace TKR.WorldServer.core.setpieces
             world.EnterWorld(lord);
 
             var container = new Container(world.GameServer, 0x0501, null, false);
-            var items = chest.CalculateItems(world.GameServer, world.Random, 5, 8).ToArray();
+            var items = chest.CalculateItems(world.GameServer, Random.Shared, 5, 8).ToArray();
 
             for (var i = 0; i < items.Length; i++)
                 container.Inventory[i] = items[i];

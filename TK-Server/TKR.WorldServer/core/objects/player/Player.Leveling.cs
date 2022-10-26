@@ -1,10 +1,9 @@
 ﻿using System;
-using System.Linq;
-using TKR.WorldServer.core.miscfile.datas;
-using TKR.WorldServer.core.miscfile.stats;
-using TKR.WorldServer.core.miscfile.thread;
-using TKR.WorldServer.core.objects;
-using TKR.WorldServer.core.worlds.logic;
+using TKR.Shared.resources;
+using TKR.WorldServer.core.net.datas;
+using TKR.WorldServer.core.net.stats;
+using TKR.WorldServer.core.worlds;
+using TKR.WorldServer.core.worlds.impl;
 using TKR.WorldServer.networking;
 using TKR.WorldServer.networking.packets.outgoing;
 
@@ -15,7 +14,6 @@ namespace TKR.WorldServer.core.objects
         public Entity Quest { get; private set; }
 
         public static int GetExpGoal(int level) => 50 + (level - 1) * 100;
-
         public static int GetFameGoal(int fame)
         {
             if (fame >= 2000) return 0;
@@ -24,12 +22,6 @@ namespace TKR.WorldServer.core.objects
             if (fame >= 150) return 400;
             if (fame >= 20) return 150;
             return 20;
-        }
-
-        public static int GetTalismanEssenceCap(int stars)
-        {
-            var baseCount = 1000;
-            return baseCount + (stars * baseCount);
         }
 
         public static int GetLevelExp(int level)
@@ -59,14 +51,6 @@ namespace TKR.WorldServer.core.objects
                 }, this);
                 var prevStars = Stars;
                 Stars = GetStars();
-
-                if (Stars != prevStars)
-                {
-                    var cap = Client.Account.EssenceCap;
-                    UpdateEssenceCap();
-                    var newCap = Client.Account.EssenceCap;
-                    SendInfo($"Your 'Talisman Essence' capacity has increased by {newCap - cap}!");
-                }
             }
             else if (newFame != Fame)
             {
@@ -101,12 +85,8 @@ namespace TKR.WorldServer.core.objects
 
             if (exp != 0)
             {
-                if (Name.Contains("Slendergo"))
-                    if(TalismanFameGainBonus > 0.0)
-                        SendInfo($"You have: {TalismanFameGainBonus} Somehow");
-
-                if(TalismanFameGainBonus > 0.0)
-                    Experience += (int)(exp + (exp * TalismanFameGainBonus));
+                if (HasTalismanEffect(TalismanEffectType.KnownAfterDeath))
+                    Experience += exp * 2;
                 else
                     Experience += exp;
             }
@@ -132,7 +112,7 @@ namespace TKR.WorldServer.core.objects
 
         public void HandleQuest(TickTime time)
         {
-            if (Quest != null && Quest.IsRemovedFromWorld)
+            if (Quest != null && Quest.Dead)
                 Quest = null;
 
             if (Quest == null || time.TickCount % 10 == 0)
@@ -175,7 +155,7 @@ namespace TKR.WorldServer.core.objects
                     }
                     var min = statInfo[i].MinIncrease;
                     var max = statInfo[i].MaxIncrease + 1;
-                    Stats.Base[i] += World.Random.Next(min, max);
+                    Stats.Base[i] += Random.Shared.Next(min, max);
                     if (Stats.Base[i] > statInfo[i].MaxValue && !UpgradeEnabled)
                         Stats.Base[i] = statInfo[i].MaxValue;
                 }

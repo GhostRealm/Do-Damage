@@ -1,8 +1,8 @@
 ﻿using TKR.Shared.resources;
 using System;
 using TKR.WorldServer.core.miscfile;
-using TKR.WorldServer.core.miscfile.stats;
-using TKR.WorldServer.core.objects;
+using TKR.WorldServer.core.objects.containers;
+using TKR.WorldServer.core.net.stats;
 
 namespace TKR.WorldServer.core.objects.inventory
 {
@@ -21,6 +21,8 @@ namespace TKR.WorldServer.core.objects.inventory
                 var sti = (int)StatDataType.Inventory0 + i;
                 if (i >= 12)
                     sti = (int)StatDataType.BackPack0 + i - 12;
+                if (i >= 20)
+                    sti = (int)StatDataType.TALISMAN_0_STAT + i - 20;
 
                 _itemTypes[i] = new SV<int>(container as Entity, (StatDataType)sti, items[i]?.ObjectType ?? -1, container is Player && i > 3);
                 _items[i] = items[i];

@@ -1,29 +1,26 @@
 ﻿using System;
 using System.Collections.Generic;
-using TKR.WorldServer.core.miscfile;
-using TKR.WorldServer.core.miscfile.datas;
-using TKR.WorldServer.core.miscfile.stats;
-using TKR.WorldServer.core.miscfile.thread;
-using TKR.WorldServer.core.objects;
-using TKR.WorldServer.networking;
+using TKR.WorldServer.core.net.datas;
+using TKR.WorldServer.core.net.stats;
+using TKR.WorldServer.core.structures;
+using TKR.WorldServer.core.worlds;
+using TKR.WorldServer.logic;
 using TKR.WorldServer.networking.packets.outgoing;
-using TKR.WorldServer.core.miscfile.structures;
 
 namespace TKR.WorldServer.core.objects
 {
     internal class Decoy : StaticObject, IPlayer
     {
-
-        private readonly int duration;
+        private readonly int Duration;
 
         private Vector2 direction;
         private bool exploded = false;
-        private Player player;
+        private Player Player;
 
         public Decoy(Player player, int duration) : base(player.GameServer, 0x0715, duration, true, true, true)
         {
-            this.player = player;
-            this.duration = duration;
+            Player = player;
+            Duration = duration;
 
             direction = new Vector2(player.X - player.PrevX, player.Y - player.PrevY);
             if (direction.LengthSquared() == 0)
@@ -39,7 +36,7 @@ namespace TKR.WorldServer.core.objects
 
         public override void Tick(ref TickTime time)
         {
-            if (HP > duration - 2000)
+            if (HP > Duration - 2000)
                 ValidateAndMove(X + direction.X * 1.0f * time.BehaviourTickTime, Y + direction.Y * 1.0f * time.BehaviourTickTime);
 
             if (HP < 250 && !exploded)
@@ -60,15 +57,14 @@ namespace TKR.WorldServer.core.objects
 
         protected override void ExportStats(IDictionary<StatDataType, object> stats, bool isOtherPlayer)
         {
-            stats[StatDataType.Texture1] = player.Texture1;
-            stats[StatDataType.Texture2] = player.Texture2;
-
+            stats[StatDataType.Texture1] = Player.Texture1;
+            stats[StatDataType.Texture2] = Player.Texture2;
             base.ExportStats(stats, isOtherPlayer);
         }
 
         private Vector2 GetRandDirection()
         {
-            var angle = World == null ? 0 : World.Random.NextDouble() * 2 * Math.PI;
+            var angle = Random.Shared.NextDouble() * 2 * Math.PI;
             return new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle));
         }
     }

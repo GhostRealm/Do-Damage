@@ -1,21 +1,19 @@
-﻿using TKR.Shared.resources;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using TKR.WorldServer.core.miscfile.census;
-using TKR.WorldServer.core.miscfile.datas;
-using TKR.WorldServer.core.miscfile.stats;
-using TKR.WorldServer.core.miscfile.thread;
+using TKR.Shared;
+using TKR.Shared.resources;
+using TKR.WorldServer.core.net.datas;
+using TKR.WorldServer.core.net.stats;
+using TKR.WorldServer.core.objects.connection;
+using TKR.WorldServer.core.objects.containers;
+using TKR.WorldServer.core.objects.vendors;
+using TKR.WorldServer.core.structures;
 using TKR.WorldServer.core.worlds;
+using TKR.WorldServer.core.worlds.census;
 using TKR.WorldServer.logic;
 using TKR.WorldServer.logic.transitions;
 using TKR.WorldServer.utils;
-using TKR.WorldServer.core.objects;
-using TKR.WorldServer.core.objects.connection;
-using TKR.WorldServer.core.objects.vendors;
-using TKR.WorldServer.memory;
-using TKR.WorldServer.core.objects.containers;
-using TKR.WorldServer.core.miscfile.structures;
 
 namespace TKR.WorldServer.core.objects
 {
@@ -29,38 +27,55 @@ namespace TKR.WorldServer.core.objects
         public bool SpawnedByBehavior;
 
         private SV<int> _altTextureIndex;
-        private ObjectDesc _desc;
         private SV<string> _name;
-        private int _originalSize;
         private SV<int> _size;
         private bool _stateEntry;
         private State _stateEntryCommonRoot;
         private Dictionary<object, object> _states;
         private SV<float> _x;
         private SV<float> _y;
-        private Player playerOwner;
         private ConditionEffectManager ConditionEffectManager;
+        public bool Dead { get; private set; }
 
         protected Entity(GameServer coreServerManager, ushort objType)
         {
             GameServer = coreServerManager;
 
-            _name = new SV<string>(this, StatDataType.Name, "");
-            _size = new SV<int>(this, StatDataType.Size, 100);
-            _originalSize = 100;
-            _altTextureIndex = new SV<int>(this, StatDataType.AltTextureIndex, -1);
-            _x = new SV<float>(this, StatDataType.None, 0);
-            _y = new SV<float>(this, StatDataType.None, 0);
-
             ObjectType = objType;
 
             coreServerManager.BehaviorDb.ResolveBehavior(this);
-            coreServerManager.Resources.GameData.ObjectDescs.TryGetValue(ObjectType, out _desc);
-
-            if (_desc != null)
-                _originalSize = Size = _desc.Size;
+            coreServerManager.Resources.GameData.ObjectDescs.TryGetValue(ObjectType, out var desc);
+            ObjectDesc = desc;
 
             ConditionEffectManager = new ConditionEffectManager(this);
+
+            if (ObjectDesc == null)
+                throw new Exception($"ObjectDesc is NUll: {ObjectType.To4Hex()}");
+
+            if (ObjectDesc.Invincible)
+                ApplyPermanentConditionEffect(ConditionEffectIndex.Invincible);
+            if (ObjectDesc.ArmorBreakImmune)
+                ApplyPermanentConditionEffect(ConditionEffectIndex.ArmorBreakImmune);
+            if (ObjectDesc.CurseImmune)
+                ApplyPermanentConditionEffect(ConditionEffectIndex.CurseImmune);
+            if (ObjectDesc.DazedImmune)
+                ApplyPermanentConditionEffect(ConditionEffectIndex.DazedImmune);
+            if (ObjectDesc.ParalyzeImmune)
+                ApplyPermanentConditionEffect(ConditionEffectIndex.ParalyzeImmune);
+            if (ObjectDesc.PetrifyImmune)
+                ApplyPermanentConditionEffect(ConditionEffectIndex.PetrifyImmune);
+            if (ObjectDesc.SlowedImmune)
+                ApplyPermanentConditionEffect(ConditionEffectIndex.SlowedImmune);
+            if (ObjectDesc.StasisImmune)
+                ApplyPermanentConditionEffect(ConditionEffectIndex.StasisImmune);
+            if (ObjectDesc.StunImmune)
+                ApplyPermanentConditionEffect(ConditionEffectIndex.StunImmune);
+
+            _name = new SV<string>(this, StatDataType.Name, ObjectDesc.DisplayName);
+            _size = new SV<int>(this, StatDataType.Size, ObjectDesc.Size);
+            _altTextureIndex = new SV<int>(this, StatDataType.AltTextureIndex, -1);
+            _x = new SV<float>(this, StatDataType.None, 0);
+            _y = new SV<float>(this, StatDataType.None, 0);
         }
 
         public event EventHandler<StatChangedEventArgs> StatChanged;
@@ -71,26 +86,30 @@ namespace TKR.WorldServer.core.objects
 
         public GameServer GameServer { get; private set; }
         public State CurrentState { get; private set; }
-        public int Id { get; internal set; }
-        public bool IsRemovedFromWorld { get; private set; }
+        public int Id { get; internal set; } = -1;
         public string Name { get => _name.GetValue(); set => _name?.SetValue(value); }
-        public ObjectDesc ObjectDesc => _desc;
+        public ObjectDesc ObjectDesc { get; private set; }
         public ushort ObjectType { get; protected set; }
         public World World { get; private set; }
         public CollisionMap<Entity> Parent { get; set; }
-        public float RealX => _x.GetValue();
-        public float RealY => _y.GetValue();
         public int Size { get => _size.GetValue(); set => _size?.SetValue(value); }
 
         public int NextBulletId = 1;
+        public int NextAbilityBulletId = 0x40000000;
 
-        public int GetNextBulletId(int numShots = 1)
+        public int GetNextBulletId(int numShots = 1, bool ability = false)
         {
+            if (ability)
+            {
+                var currentAbilityId = NextAbilityBulletId;
+                NextAbilityBulletId += numShots;
+                return currentAbilityId;
+            }
+
             var currentBulletId = NextBulletId;
-            NextBulletId = (NextBulletId + numShots) % 0xFFFF;
+            NextBulletId += numShots;
             return currentBulletId;
         }
-
 
         public IDictionary<object, object> StateStorage
         {
@@ -121,69 +140,50 @@ namespace TKR.WorldServer.core.objects
             return false;
         }
 
-        public static Entity Resolve(GameServer manager, string name)
+        public static Entity Resolve(GameServer gameServer, string name)
         {
-            if (!manager.Resources.GameData.IdToObjectType.TryGetValue(name, out ushort id))
+            if (!gameServer.Resources.GameData.IdToObjectType.TryGetValue(name, out ushort id))
                 return null;
-
-            return Resolve(manager, id);
+            return Resolve(gameServer, id);
         }
 
-        public static Entity Resolve(GameServer manager, ushort id)
+        public static Entity Resolve(GameServer gameServer, ushort objectType)
         {
-            var node = manager.Resources.GameData.ObjectDescs[id];
-            int? hp;
-            if (node.MaxHP == 0)
-                hp = null;
-            else
-                hp = node.MaxHP;
-            var type = node.Class;
+            var desc = gameServer.Resources.GameData.ObjectDescs[objectType];
+            int? hp = desc.MaxHP == 0 ? null : desc.MaxHP;
+            var type = desc.Class;
+
+            if (desc.Connects)
+                return new ConnectedObject(gameServer, objectType);
+            if (desc.Container)
+                return new Container(gameServer, objectType);
+            if (desc.Enemy)
+                return new Enemy(gameServer, objectType);
+            
             switch (type)
             {
-                case "Projectile":
-                    throw new Exception("Projectile should not instantiated using Entity.Resolve");
-                case "Sign":
-                    return new Sign(manager, id);
-
-                case "Wall":
-                case "DoubleWall":
-                    return new Wall(manager, id, hp);
-
-                case "ConnectedWall":
-                case "CaveWall":
-                    return new ConnectedObject(manager, id);
-
                 case "GameObject":
                 case "CharacterChanger":
                 case "MoneyChanger":
                 case "NameChanger":
-                    return new StaticObject(manager, id, hp, true, false, true);
+                    return new StaticObject(gameServer, objectType, hp, true, false, true);
 
-                case "GuildRegister":
-                case "GuildChronicle":
-                case "GuildBoard":
-                    return new StaticObject(manager, id, null, false, false, false);
-
-                case "Container":
-                    return new Container(manager, id);
-
-                case "Player":
-                    throw new Exception("Player should not instantiated using Entity.Resolve");
                 case "Character":   //Other characters means enemy
-                    return new Enemy(manager, id);
-
-                case "ArenaPortal":
-                case "Portal":
-                    return new Portal(manager, id, null);
+                    return new Enemy(gameServer, objectType);
 
                 case "GuildHallPortal":
-                    return new GuildHallPortal(manager, id, null);
+                case "ArenaPortal":
+                case "Portal":
+                    return new Portal(gameServer, objectType);
 
                 case "ClosedVaultChest":
-                    return new ClosedVaultChest(manager, id);
+                    return new ClosedVaultChest(gameServer, objectType);
 
                 case "Merchant":
-                    return new NexusMerchant(manager, id);
+                    return new NexusMerchant(gameServer, objectType);
+
+                case "GuildMerchant":
+                    return new GuildMerchant(gameServer, objectType);
 
                 case "ClosedVaultChestGold":
                 case "VaultChest":
@@ -191,31 +191,12 @@ namespace TKR.WorldServer.core.objects
                 case "SkillTree":
                 case "Forge":
                 case "StatNPC":
-                    return new SellableMerchant(manager, id);
-
-                case "ClosedGiftChest":
-                case "SpecialClosedVaultChest":
-                    return new StaticObject(manager, id, null, false, false, false);
+                    return new SellableMerchant(gameServer, objectType);
 
                 case "Engine":
-                    return new Engine(manager, id);
-
-                case "GuildMerchant":
-                    return new GuildMerchant(manager, id);
-
-                case "BountyBoard":
-                    return new StaticObject(manager, id, null, false, false, false);
-
-                case "PotionStorage":
-                    return new StaticObject(manager, id, null, false, false, false);
-
-                case "Essence":
-                    return new StaticObject(manager, id, null, false, false, false);
-
-                default:
-                    StaticLogger.Instance.Warn("Not supported type: {0}", type);
-                    return new Entity(manager, id);
+                    return new Engine(gameServer, objectType);
             }
+            return new StaticObject(gameServer, objectType, null, true, false, false);
         }
 
         public void ApplyPermanentConditionEffect(ConditionEffectIndex effect)
@@ -277,16 +258,10 @@ namespace TKR.WorldServer.core.objects
             return new ObjectStats()
             {
                 Id = Id,
-                Position = new Position() { X = RealX, Y = RealY },
+                X = X,
+                Y = Y,
                 Stats = stats.ToArray()
             };
-        }
-
-        public virtual bool HitByProjectile(Projectile projectile, TickTime time)
-        {
-            if (ObjectDesc == null)
-                return true;
-            return ObjectDesc.Enemy || ObjectDesc.Player;
         }
 
         public virtual void Init(World owner) => World = owner;
@@ -295,7 +270,7 @@ namespace TKR.WorldServer.core.objects
 
         public void Move(float x, float y)
         {
-            if (World != null && !(this is Projectile) && !(this is Pet) && (!(this is StaticObject) || (this as StaticObject).Hittestable))
+            if (World != null && !(this is Pet) && (!(this is StaticObject) || (this as StaticObject).Hittestable))
                 (this is Enemy || this is StaticObject && !(this is Decoy) ? World.EnemiesCollision : World.PlayersCollision).Move(this, x, y);
 
             var prevX = X;
@@ -319,23 +294,16 @@ namespace TKR.WorldServer.core.objects
             }
         }
 
-        public void RestoreDefaultSize() => Size = _originalSize;
-
-        public void SetDefaultSize(int size)
-        {
-            _originalSize = size;
-
-            Size = size;
-        }
-
-        public void SetPlayerOwner(Player target) => playerOwner = target;
+        public void SetDefaultSize(int size) => Size = size;
 
         public void SwitchTo(State state)
         {
             var origState = CurrentState;
 
             CurrentState = state;
-            GoDeeeeeeeep();
+            if (CurrentState != null)
+                while (CurrentState.States.Count > 0)
+                    CurrentState = CurrentState.States[0];
 
             _stateEntryCommonRoot = State.CommonParent(origState, CurrentState);
             _stateEntry = true;
@@ -343,17 +311,18 @@ namespace TKR.WorldServer.core.objects
 
         public virtual void Tick(ref TickTime time)
         {
-            if (CurrentState != null)
-            {
-                if (!HasConditionEffect(ConditionEffectIndex.Stasis) && this.AnyPlayerNearby())
-                    TickState(time);
-            }
-
             ConditionEffectManager.Update(ref time);
+
+            if (HasConditionEffect(ConditionEffectIndex.Stasis))
+                return;
+            TickState(time);
         }
 
         public void TickState(TickTime time)
         {
+            if (CurrentState == null)
+                return;
+
             if (_stateEntry)
             {
                 //State entry
@@ -388,22 +357,12 @@ namespace TKR.WorldServer.core.objects
                 try
                 {
                     foreach (var i in state.Behaviors)
-                    {
-                        if (this == null || World == null)
-                            break;
-
                         i.Tick(this, time);
-                    }
                 }
                 catch (Exception e)
                 {
                     StaticLogger.Instance.Error(e);
-                    continue;
                 }
-
-                if (this == null || World == null)
-                    break;
-
                 state = state.Parent;
             }
 
@@ -502,9 +461,6 @@ namespace TKR.WorldServer.core.objects
 
         public void ValidateAndMove(float x, float y)
         {
-            if (this == null || World == null)
-                return;
-
             var pos = new FPoint();
             ResolveNewLocation(x, y, pos);
             Move(pos.X, pos.Y);
@@ -600,18 +556,6 @@ namespace TKR.WorldServer.core.objects
 
             pos.X = fx;
             pos.Y = fy;
-        }
-
-        private void GoDeeeeeeeep()
-        {
-            if (CurrentState == null)
-                return;
-
-            while (CurrentState?.States.Count > 0)
-                if (this == null || CurrentState == null)
-                    break;
-                else
-                    CurrentState = CurrentState.States[0];
         }
 
         private bool RegionUnblocked(float x, float y)
@@ -716,10 +660,7 @@ namespace TKR.WorldServer.core.objects
             }
         }
 
-        public virtual void Destroy()
-        {
-            IsRemovedFromWorld = true;
-        }
+        public void Expunge() => Dead = true;
 
         private class FPoint
         {
@@ -740,23 +681,6 @@ namespace TKR.WorldServer.core.objects
         public float DistTo(float x, float y) => MathF.Sqrt((x - X) * (x - X) + (y - Y) * (y - Y));
 
         public Position PointAt(float angle, float radius) => new Position(X + MathF.Cos(angle) * radius, Y + MathF.Sin(angle) * radius);
-
-        protected int projectileId;
-
-        public Projectile CreateProjectile(ProjectileDesc desc, ushort container, int dmg, long time, Position pos, float angle)
-        {
-            var ret = World.ObjectPools.Projectiles.Rent();
-            ret.Host = this;
-            ret.ProjDesc = desc;
-            ret.ProjectileId = projectileId++;
-            ret.Container = container;
-            ret.Damage = dmg;
-            ret.CreationTime = time;
-            ret.Angle = angle;
-            ret.StartX = pos.X;
-            ret.StartY = pos.Y;
-            return ret;
-        }
 
         protected static float ClampSpeed(float value, float min, float max) => value < min ? min : value > max ? max : value;
         protected float GetSpeedMultiplier(float spd) => HasConditionEffect(ConditionEffectIndex.Slowed) ? spd * 0.5f : HasConditionEffect(ConditionEffectIndex.Speedy) ? spd * 1.5f : spd;

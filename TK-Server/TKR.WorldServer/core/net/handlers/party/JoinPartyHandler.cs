@@ -1,7 +1,7 @@
 ﻿using TKR.Shared;
 using TKR.Shared.database.party;
-using TKR.WorldServer.core.miscfile.thread;
-using TKR.WorldServer.core.worlds.logic;
+using TKR.WorldServer.core.worlds;
+using TKR.WorldServer.core.worlds.impl;
 using TKR.WorldServer.networking;
 
 namespace TKR.WorldServer.core.net.handlers.party
@@ -10,9 +10,9 @@ namespace TKR.WorldServer.core.net.handlers.party
     {
         public override MessageId MessageId => MessageId.JOIN_PARTY;
 
-        public override void Handle(Client client, NReader rdr, ref TickTime time)
+        public override void Handle(Client client, NetworkReader rdr, ref TickTime time)
         {
-            var partyLeader = rdr.ReadUTF();
+            var partyLeader = rdr.ReadUTF16();
             var partyId = rdr.ReadInt32();
 
             if (client == null || client?.Player?.World is TestWorld || client.Player == null || client.Player.World == null)

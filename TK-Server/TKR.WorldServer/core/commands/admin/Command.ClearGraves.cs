@@ -1,7 +1,7 @@
 ﻿using TKR.Shared;
-using TKR.WorldServer.core.miscfile.thread;
 using TKR.WorldServer.core.objects.containers;
 using TKR.WorldServer.core.objects;
+using TKR.WorldServer.core.worlds;
 
 namespace TKR.WorldServer.core.commands
 {
@@ -21,7 +21,7 @@ namespace TKR.WorldServer.core.commands
                     if (entity is Container || entity.ObjectDesc == null)
                         continue;
 
-                    if (entity.ObjectDesc.ObjectId.StartsWith("Gravestone") && entity.DistTo(player) < 15d)
+                    if (entity.ObjectDesc.IdName.StartsWith("Gravestone") && entity.DistTo(player) < 15d)
                     {
                         player.World.LeaveWorld(entity);
                         total++;

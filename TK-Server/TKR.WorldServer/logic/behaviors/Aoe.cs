@@ -1,7 +1,7 @@
-﻿using TKR.WorldServer.core.miscfile.datas;
-using TKR.WorldServer.core.miscfile.structures;
-using TKR.WorldServer.core.miscfile.thread;
+﻿using TKR.WorldServer.core.net.datas;
 using TKR.WorldServer.core.objects;
+using TKR.WorldServer.core.structures;
+using TKR.WorldServer.core.worlds;
 using TKR.WorldServer.networking.packets.outgoing;
 using TKR.WorldServer.utils;
 
@@ -28,14 +28,14 @@ namespace TKR.WorldServer.logic.behaviors
 
         protected override void OnStateEntry(Entity host, TickTime time, ref object state)
         {
-            var pos = new Position { X = host.X, Y = host.Y };
+            var pos = new Position(host.X, host.Y);
             var damage = Random.Next(minDamage, maxDamage);
 
             host.World.AOE(pos, radius, players, enemy =>
             {
                 if (!players)
                 {
-                    var aoe = new Aoe(pos, radius, damage, 0, 0, host.ObjectType, color);
+                    var aoe = new AoeMessage(pos, radius, damage, 0, 0, host.ObjectType, color);
                     host.World.BroadcastIfVisible(aoe, host);
                 }
             });

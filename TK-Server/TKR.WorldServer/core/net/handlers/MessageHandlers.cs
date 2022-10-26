@@ -3,17 +3,17 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using TKR.WorldServer.core.miscfile.thread;
-using TKR.WorldServer.core.worlds.logic;
+using TKR.WorldServer.core.worlds.impl;
 using TKR.WorldServer.networking;
 using TKR.WorldServer.networking.packets;
+using TKR.WorldServer.core.worlds;
 
 namespace TKR.WorldServer.core.net.handlers
 {
     public abstract class IMessageHandler
     {
         public abstract MessageId MessageId { get; }
-        public abstract void Handle(Client client, NReader rdr, ref TickTime time);
+        public abstract void Handle(Client client, NetworkReader rdr, ref TickTime time);
 
         public static bool IsAvailable(Client client) => client.GameServer.WorldManager.Nexus.MarketEnabled;
 

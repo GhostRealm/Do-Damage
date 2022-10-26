@@ -1,13 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using TKR.Shared.resources;
-using TKR.WorldServer.core.miscfile;
-using TKR.WorldServer.core.miscfile.datas;
-using TKR.WorldServer.core.miscfile.datas;
-using TKR.WorldServer.core.miscfile.structures;
-using TKR.WorldServer.core.miscfile.thread;
-using TKR.WorldServer.core.miscfile.world;
+using TKR.WorldServer.core.net.datas;
 using TKR.WorldServer.core.objects;
+using TKR.WorldServer.core.structures;
+using TKR.WorldServer.core.worlds;
 using TKR.WorldServer.networking.packets.outgoing;
 using TKR.WorldServer.utils;
 
@@ -60,7 +57,7 @@ namespace TKR.WorldServer.logic.behaviors
                     host.World.BroadcastIfVisible(new ShowEffect() { EffectType = EffectType.Throw, Color = new ARGB(color), TargetObjectId = host.Id, Pos1 = target, Pos2 = new Position() { X = 222 } }, host);
                     host.World.StartNewTimer(1500, (world, t) =>
                     {
-                        var aoe = new Aoe(target, radius, damage + enemyClasified, 0, 0, host.ObjectType, new ARGB(color));
+                        var aoe = new AoeMessage(target, radius, damage + enemyClasified, 0, 0, host.ObjectType, new ARGB(color));
                         world.BroadcastIfVisible(aoe, host);
 
                         world.AOE(target, radius, true, p =>

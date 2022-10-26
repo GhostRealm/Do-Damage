@@ -2,11 +2,11 @@
 using TKR.Shared.database;
 using System.Collections.Generic;
 using System.Linq;
-using TKR.WorldServer.core.miscfile.thread;
 using TKR.WorldServer.networking;
 using TKR.WorldServer.networking.packets.outgoing;
 using TKR.Shared.database.party;
 using TKR.WorldServer.networking.packets.outgoing.party;
+using TKR.WorldServer.core.worlds;
 
 namespace TKR.WorldServer.core.net.handlers.party
 {
@@ -14,9 +14,9 @@ namespace TKR.WorldServer.core.net.handlers.party
     {
         public override MessageId MessageId => MessageId.PARTY_INVITE;
 
-        public override void Handle(Client client, NReader rdr, ref TickTime time)
+        public override void Handle(Client client, NetworkReader rdr, ref TickTime time)
         {
-            var name = rdr.ReadUTF();
+            var name = rdr.ReadUTF16();
 
 
             var db = client.Account.Database;

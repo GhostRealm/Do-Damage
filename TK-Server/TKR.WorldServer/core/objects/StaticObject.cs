@@ -1,8 +1,7 @@
 ﻿using System.Collections.Generic;
-using TKR.WorldServer.core.miscfile.stats;
-using TKR.WorldServer.core.miscfile.thread;
+using TKR.WorldServer.core.net.stats;
 using TKR.WorldServer.core.objects.player;
-using TKR.WorldServer.networking.packets.outgoing;
+using TKR.WorldServer.core.worlds;
 
 namespace TKR.WorldServer.core.objects
 {
@@ -10,44 +9,21 @@ namespace TKR.WorldServer.core.objects
     {
         private SV<int> _hp;
 
-        public StaticObject(GameServer manager, ushort objType, int? life, bool stat, bool dying, bool hittestable) : base(manager, objType)
+        public StaticObject(GameServer manager, ushort objType, int? life, bool isStatic, bool dying, bool hittestable) : base(manager, objType)
         {
-            _hp = new SV<int>(this, StatDataType.HP, 0, dying);
+            _hp = new SV<int>(this, StatDataType.Health, 0, dying);
 
             if (Vulnerable = life.HasValue)
                 HP = life.Value;
 
             Dying = dying;
-            Static = stat;
             Hittestable = hittestable;
         }
 
         public bool Dying { get; private set; }
         public bool Hittestable { get; private set; }
         public int HP { get => _hp.GetValue(); set => _hp.SetValue(value); }
-        public bool Static { get; private set; }
         public bool Vulnerable { get; private set; }
-
-        public override bool HitByProjectile(Projectile projectile, TickTime time)
-        {
-            if (Vulnerable && projectile.Host is Player)
-            {
-                var dmg = StatsManager.DamageWithDefense(this, projectile.Damage, projectile.ProjDesc.ArmorPiercing, ObjectDesc.Defense);
-
-                HP -= dmg;
-
-                World.BroadcastIfVisibleExclude(new Damage()
-                {
-                    TargetId = Id,
-                    Effects = 0,
-                    DamageAmount = dmg,
-                    Kill = !CheckHP(),
-                    BulletId = projectile.ProjectileId,
-                    ObjectId = projectile.Host.Id
-                }, this, projectile.Host as Player);
-            }
-            return true;
-        }
 
         public override void Tick(ref TickTime time)
         {
@@ -55,13 +31,12 @@ namespace TKR.WorldServer.core.objects
             {
                 if (Dying)
                     HP -= time.ElapsedMsDelta;
-                CheckHP();
+                _ = CheckHP();
             }
-
             base.Tick(ref time);
         }
 
-        protected bool CheckHP()
+        public bool CheckHP()
         {
             if (HP <= 0)
             {
@@ -77,19 +52,17 @@ namespace TKR.WorldServer.core.objects
 
                         foreach (var player in World.PlayersCollision.HitTest(x, y, PlayerUpdate.VISIBILITY_RADIUS))
                             if (player is Player && (player as Player).PlayerUpdate != null)
-                                (player as Player).PlayerUpdate.UpdateTiles = true;
+                                (player as Player).PlayerUpdate.UpdateTiles();
                     }
                 World.LeaveWorld(this);
-
                 return false;
             }
-
             return true;
         }
 
         protected override void ExportStats(IDictionary<StatDataType, object> stats, bool isOtherPlayer)
         {
-            stats[StatDataType.HP] = !Vulnerable ? int.MaxValue : HP;
+            stats[StatDataType.Health] = !Vulnerable ? int.MaxValue : HP;
             base.ExportStats(stats, isOtherPlayer);
         }
     }

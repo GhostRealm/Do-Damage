@@ -2,15 +2,15 @@
 using System;
 using System.Linq;
 using TKR.WorldServer.core.miscfile;
-using TKR.WorldServer.core.miscfile.datas;
-using TKR.WorldServer.core.miscfile.thread;
 using TKR.WorldServer.core.objects.containers;
-using TKR.WorldServer.core.worlds.logic;
+using TKR.WorldServer.core.worlds.impl;
 using TKR.WorldServer.networking;
 using TKR.WorldServer.utils;
 using TKR.WorldServer.core.objects;
 using TKR.WorldServer.networking.packets.outgoing;
 using static TKR.WorldServer.core.objects.Player;
+using TKR.WorldServer.core.worlds;
+using TKR.WorldServer.core.net.datas;
 
 namespace TKR.WorldServer.core.net.handlers
 {
@@ -21,7 +21,7 @@ namespace TKR.WorldServer.core.net.handlers
 
         public override MessageId MessageId => MessageId.INVDROP;
 
-        public override void Handle(Client client, NReader rdr, ref TickTime tickTime)
+        public override void Handle(Client client, NetworkReader rdr, ref TickTime tickTime)
         {
             var slot = ObjectSlot.Read(rdr);
 
@@ -92,7 +92,7 @@ namespace TKR.WorldServer.core.net.handlers
                 }
             }
 
-            var isSoulbound = player.IsAdmin || item.Soulbound || item.Mythical || item.Legendary || item.BagType >= 3 || item.SPlus || item.SNormal || item.Tier >= 7;
+            var isSoulbound = player.IsAdmin || item.Soulbound;
             var container = new Container(player.GameServer, isSoulbound ? soulBag : normBag, 60000, true);
 
             if (isSoulbound) //TODOS LOS ITEMS SE DROPEAN EN SOULBOUND BAG
@@ -101,7 +101,7 @@ namespace TKR.WorldServer.core.net.handlers
             // init container
             container.Inventory[0] = item;
             container.Inventory.Data[0] = data;
-            container.Move(player.X + (float)((player.World.Random.NextDouble() * 2 - 1) * 0.5), player.Y + (float)((player.World.Random.NextDouble() * 2 - 1) * 0.5));
+            container.Move(player.X + (float)((Random.Shared.NextDouble() * 2 - 1) * 0.5), player.Y + (float)((Random.Shared.NextDouble() * 2 - 1) * 0.5));
             container.SetDefaultSize(75);
 
             player.World.EnterWorld(container);

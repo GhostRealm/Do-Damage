@@ -1,7 +1,8 @@
-﻿using TKR.Shared;
-using TKR.WorldServer.core.miscfile.thread;
+﻿using System;
+using TKR.Shared;
 using TKR.WorldServer.core.objects;
 using TKR.WorldServer.core.objects.containers;
+using TKR.WorldServer.core.worlds;
 using TKR.WorldServer.logic.loot;
 
 namespace TKR.WorldServer.core.commands
@@ -15,18 +16,34 @@ namespace TKR.WorldServer.core.commands
 
             protected override bool Process(Player player, TickTime time, string args)
             {
-                foreach(var item in player.GameServer.Resources.GameData.Items)
-                    if (item.Value.Mythical)
+                foreach (var item in player.GameServer.Resources.GameData.Items)
+                    if (/*item.Value.Mythical || item.Value.Legendary || */item.Value.SlotType == 26) // talisman
                     {
-                        if (Loot.BAG_ID_TO_TYPE[item.Value.BagType] != 9)
-                            continue;
-                    
                         var container = new Container(player.GameServer, Loot.BAG_ID_TO_TYPE[item.Value.BagType], 60000, true);
                         container.Inventory[0] = item.Value;
-                        container.Move(player.X + (float)((player.World.Random.NextDouble() * 2 - 1) * 8), player.Y + (float)((player.World.Random.NextDouble() * 2 - 1) * 8));
+                        container.Move(player.X + (float)((Random.Shared.NextDouble() * 2 - 1) * 8), player.Y + (float)((Random.Shared.NextDouble() * 2 - 1) * 8));
                         container.SetDefaultSize(75);
-                        _ = player.World.EnterWorld(container);
-                            System.Console.WriteLine(item.Value.ObjectId);
+                        player.World.EnterWorld(container);
+                    }
+                return true;
+            }
+        }
+
+        internal class CreateLootbagsB : Command
+        {
+            public override RankingType RankRequirement => RankingType.Admin;
+            public override string CommandName => "lootbagsb";
+
+            protected override bool Process(Player player, TickTime time, string args)
+            {
+                foreach (var item in player.GameServer.Resources.GameData.Items)
+                    if (/*item.Value.Mythical || item.Value.Legendary || */item.Value.SlotType == 26) // talisman
+                    {
+                        var container = new Container(player.GameServer, Loot.BOOSTED_BAG_ID_TO_TYPE[item.Value.BagType], 60000, true);
+                        container.Inventory[0] = item.Value;
+                        container.Move(player.X + (float)((Random.Shared.NextDouble() * 2 - 1) * 8), player.Y + (float)((Random.Shared.NextDouble() * 2 - 1) * 8));
+                        container.SetDefaultSize(75);
+                        player.World.EnterWorld(container);
                     }
                 return true;
             }

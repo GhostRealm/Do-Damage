@@ -1,6 +1,6 @@
 ﻿using TKR.Shared;
-using TKR.WorldServer.core.miscfile.thread;
-using TKR.WorldServer.core.worlds.logic;
+using TKR.WorldServer.core.worlds;
+using TKR.WorldServer.core.worlds.impl;
 using TKR.WorldServer.networking;
 
 namespace TKR.WorldServer.core.net.handlers
@@ -9,9 +9,9 @@ namespace TKR.WorldServer.core.net.handlers
     {
         public override MessageId MessageId => MessageId.REQUESTTRADE;
 
-        public override void Handle(Client client, NReader rdr, ref TickTime tickTime)
+        public override void Handle(Client client, NetworkReader rdr, ref TickTime tickTime)
         {
-            var name = rdr.ReadUTF();
+            var name = rdr.ReadUTF16();
 
             if (client.Player == null || client?.Player?.World is TestWorld)
                 return;

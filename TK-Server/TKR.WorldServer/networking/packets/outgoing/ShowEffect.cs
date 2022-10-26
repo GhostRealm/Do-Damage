@@ -1,6 +1,6 @@
 ﻿using TKR.Shared;
-using TKR.WorldServer.core.miscfile.datas;
-using TKR.WorldServer.core.miscfile.structures;
+using TKR.WorldServer.core.net.datas;
+using TKR.WorldServer.core.structures;
 
 namespace TKR.WorldServer.networking.packets.outgoing
 {
@@ -36,7 +36,7 @@ namespace TKR.WorldServer.networking.packets.outgoing
 
         public override MessageId MessageId => MessageId.SHOWEFFECT;
 
-        protected override void Write(NWriter wtr)
+        public override void Write(NetworkWriter wtr)
         {
             wtr.Write((byte)EffectType);
             wtr.Write(TargetObjectId);

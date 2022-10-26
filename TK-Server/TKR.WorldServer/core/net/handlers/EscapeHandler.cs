@@ -1,6 +1,5 @@
 ﻿using TKR.Shared;
 using TKR.Shared.resources;
-using TKR.WorldServer.core.miscfile.thread;
 using TKR.WorldServer.core.worlds;
 using TKR.WorldServer.networking;
 using TKR.WorldServer.networking.packets.outgoing;
@@ -11,7 +10,7 @@ namespace TKR.WorldServer.core.net.handlers
     {
         public override MessageId MessageId => MessageId.ESCAPE;
 
-        public override void Handle(Client client, NReader rdr, ref TickTime tickTime)
+        public override void Handle(Client client, NetworkReader rdr, ref TickTime tickTime)
         {
             if (client.Player == null || client.Player.World == null)
                 return;

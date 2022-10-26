@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using TKR.WorldServer.core;
 using TKR.WorldServer.core.miscfile;
-using TKR.WorldServer.core.miscfile.stats;
-using TKR.WorldServer.core.miscfile.thread;
 using TKR.WorldServer.core.objects.inventory;
+using TKR.WorldServer.core.worlds;
+using TKR.WorldServer.core.net.stats;
 
 namespace TKR.WorldServer.core.objects.containers
 {
@@ -22,8 +22,6 @@ namespace TKR.WorldServer.core.objects.containers
         public RInventory DbLink { get; private set; }
         public Inventory Inventory { get; private set; }
         public int[] SlotTypes { get; private set; }
-
-        public override bool HitByProjectile(Projectile projectile, TickTime time) => false;
 
         public override void Tick(ref TickTime time)
         {
@@ -43,7 +41,7 @@ namespace TKR.WorldServer.core.objects.containers
                 }
 
             if (!hasItem)
-                World.LeaveWorld(this);
+                Expunge();
 
             base.Tick(ref time);
         }
@@ -89,12 +87,6 @@ namespace TKR.WorldServer.core.objects.containers
                 Array.Resize(ref inv, BagSize);
                 Inventory.SetItems(inv);
             }
-        }
-
-        public override void Destroy()
-        {
-            Inventory = null;
-            base.Destroy();
         }
     }
 }

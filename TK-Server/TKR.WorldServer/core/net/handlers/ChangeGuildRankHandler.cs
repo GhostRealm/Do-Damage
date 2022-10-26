@@ -1,8 +1,8 @@
 ﻿using TKR.Shared;
 using System.Linq;
-using TKR.WorldServer.core.miscfile.thread;
-using TKR.WorldServer.core.worlds.logic;
+using TKR.WorldServer.core.worlds.impl;
 using TKR.WorldServer.networking;
+using TKR.WorldServer.core.worlds;
 
 namespace TKR.WorldServer.core.net.handlers
 {
@@ -10,9 +10,9 @@ namespace TKR.WorldServer.core.net.handlers
     {
         public override MessageId MessageId => MessageId.CHANGEGUILDRANK;
 
-        public override void Handle(Client client, NReader rdr, ref TickTime time)
+        public override void Handle(Client client, NetworkReader rdr, ref TickTime time)
         {
-            var name = rdr.ReadUTF();
+            var name = rdr.ReadUTF16();
             var rank = rdr.ReadInt32();
 
             var manager = client.GameServer;

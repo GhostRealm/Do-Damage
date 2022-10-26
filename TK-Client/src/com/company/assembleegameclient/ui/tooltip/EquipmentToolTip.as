@@ -2,7 +2,9 @@ package com.company.assembleegameclient.ui.tooltip
 {
 import com.company.assembleegameclient.constants.InventoryOwnerTypes;
 import com.company.assembleegameclient.misc.UILabel;
+import com.company.assembleegameclient.objects.GameObject;
 import com.company.assembleegameclient.objects.ObjectLibrary;
+import com.company.assembleegameclient.objects.ObjectProperties;
 import com.company.assembleegameclient.objects.Player;
 import com.company.assembleegameclient.parameters.Parameters;
 import com.company.assembleegameclient.ui.LineBreakDesign;
@@ -35,6 +37,7 @@ public class EquipmentToolTip extends ToolTip
       private var tierText_:UILabel;
       private var itemEffectText_:SimpleText;
       private var descText_:SimpleText;
+      private var passiveDescText_:SimpleText;
       private var line1_:LineBreakDesign;
       private var effectsText_:SimpleText;
       private var line2_:LineBreakDesign;
@@ -48,7 +51,6 @@ public class EquipmentToolTip extends ToolTip
       private var playerCanUse:Boolean;
       private var restrictions:Vector.<Restriction>;
       private var effects:Vector.<Effect>;
-      private var itemSlotTypeId:int;
       private var invType:int;
       private var inventoryOwnerType:String;
       private var inventorySlotID:uint;
@@ -62,6 +64,9 @@ public class EquipmentToolTip extends ToolTip
        private var flashtext:SimpleText;
        private var repeat:int = 0;
       private var itemData_:Object = null;
+      private var props_:ObjectProperties = null;
+      private var isMythicalItem:Boolean;
+      private var isLegendaryItem:Boolean;
 
       public function EquipmentToolTip(objectType:int, player:Player, invType:int, inventoryOwnerType:String, inventorySlotID:uint = 1.0, isMarketItem:Boolean = false, itemData:Object = null)
       {
@@ -78,11 +83,16 @@ public class EquipmentToolTip extends ToolTip
          this.isEquippable_ = equipSlotIndex != -1;
          this.effects = new Vector.<Effect>();
          this.invType = invType;
-         this.itemSlotTypeId = int(this.objectXML_.SlotType);
-          if(this.objectXML_.hasOwnProperty("Legendary")){
+
+         this.props_ = ObjectLibrary.propsLibrary_[objectType];
+
+         this.isMythicalItem = props_.isMythicTalisman_ || this.objectXML_.hasOwnProperty("Mythical")
+         this.isLegendaryItem = props_.isLegendaryTalisman_ || this.objectXML_.hasOwnProperty("Legendary");
+
+          if(isLegendaryItem){
               this.backgroundColor = this.playerCanUse || this.player_ == null ? 0x2c2d3d : 6036765;
               this.outlineColor = this.playerCanUse || player == null? TooltipHelper.LEGENDARY_COLOR : 10965039;
-          }else if(this.objectXML_.hasOwnProperty("Mythical") ){
+          }else if(isMythicalItem){
               this.backgroundColor = this.playerCanUse || this.player_ == null ? 0x222226 : 6036765;
               this.outlineColor = this.playerCanUse || player == null? TooltipHelper.MYTHICAL_COLOR : 10965039;
           }
@@ -191,7 +201,40 @@ public class EquipmentToolTip extends ToolTip
       }
 
       private function makeItemEffectsText():void {
-         if(this.objectXML_.hasOwnProperty("Legendary"))
+
+         if(this.props_.talismanEffect_ != null)
+         {
+            this.itemEffectText_ = new SimpleText(13, 0x7550C4, false, MAX_WIDTH);
+            this.itemEffectText_.setBold(true);
+            this.itemEffectText_.wordWrap = true;
+            switch(this.props_.talismanEffect_)
+            {
+              //legendary
+               case "Weak Immunity":
+                  this.itemEffectText_.text = "Weak Immunity -> Immunity to being Weakened";
+                  break;
+               case "Call To Arms":
+                  this.itemEffectText_.text = "Call to Arms -> Regeneration is doubled";
+                  break;
+               case "Party Of One":
+                  this.itemEffectText_.text = "Party of One -> While alone you gain 50% more chance at loot, While not alone lose 50% chance at loot";
+                  break;
+               case "Pocket Change":
+                  this.itemEffectText_.text = "Pocket Change -> You have a 30% increase chance at loot";
+                  break;
+               // mythical
+               case "Stun Immunity":
+                  this.itemEffectText_.text = "Stun Immunity -> Immunity to being Stunned";
+                  break;
+               case "Luck Of The Irish":
+                  this.itemEffectText_.text = "Luck of the Irish -> Gain 20% more chance at loot and an 2% chance to double your drops";
+                  break;
+               case "Known After Death":
+                  this.itemEffectText_.text = "Known After Death -> Experience from killing mobs is doubled";
+                  break;
+            }
+         }
+         else if(isLegendaryItem)
          {
             this.itemEffectText_ = new SimpleText(13, 0xebb011, false, MAX_WIDTH);
             this.itemEffectText_.setBold(true);
@@ -240,7 +283,7 @@ public class EquipmentToolTip extends ToolTip
                this.itemEffectText_.text = "Vampriric -> Upon hitting an enemy, you have a "+ round2(chance,1) +"% chance to “cast” a skull-like ability that deals 300 damage AOE damage and heals for 50hp.";
             }
          }
-         else if(this.objectXML_.hasOwnProperty("Mythical"))
+         else if(isMythicalItem)
          {
             this.itemEffectText_ = new SimpleText(13, 0xcf1433, false, MAX_WIDTH);
             this.itemEffectText_.setBold(true);
@@ -272,7 +315,7 @@ public class EquipmentToolTip extends ToolTip
             }
          }
 
-         if(this.objectXML_.hasOwnProperty("Legendary") || this.objectXML_.hasOwnProperty("Mythical")){
+         if(isLegendaryItem || isMythicalItem || props_.talismanEffect_){
             switch(Parameters.data_.itemDataOutlines)
             {
                case 0:
@@ -287,7 +330,7 @@ public class EquipmentToolTip extends ToolTip
 
       private function addTierText() : void
       {
-         this.tierText_ = TierUtil.getTierTag(this.objectXML_,16);
+         this.tierText_ = TierUtil.getTierTag(props_,16);
          if(this.tierText_)
          {
             this.tierText_.y = this.icon_.height / 2 - this.titleText_.actualHeight_ / 2;
@@ -364,9 +407,9 @@ public class EquipmentToolTip extends ToolTip
               case 1:
                   this.titleText_.filters = [new DropShadowFilter(0, 0, 0, 0.5, 12, 12)];
           }
-          if(this.objectXML_.hasOwnProperty("Legendary")){
+          if(isLegendaryItem){
               this.titleText_.setColor(TooltipHelper.LEGENDARY_COLOR);
-          }else if(this.objectXML_.hasOwnProperty("Mythical")){
+          }else if(isMythicalItem){
               this.titleText_.setColor(TooltipHelper.MYTHICAL_COLOR);
           }
 
@@ -397,9 +440,9 @@ public class EquipmentToolTip extends ToolTip
          if(this.effects.length != 0 || this.comparisonResults.text != "" || this.objectXML_.hasOwnProperty("ExtraTooltipData"))
          {
             this.line1_ = new LineBreakDesign(MAX_WIDTH - 12,0);
-             if(this.objectXML_.hasOwnProperty("Legendary")){
+             if(isLegendaryItem){
                  this.line1_.setWidthColor(MAX_WIDTH-12,0x967bb6);
-             }else if(this.objectXML_.hasOwnProperty("Mythical")){
+             }else if(isMythicalItem){
                  this.line1_.setWidthColor(MAX_WIDTH-12,0xFFFFFF);
              }
             addChild(this.line1_);
@@ -457,36 +500,14 @@ public class EquipmentToolTip extends ToolTip
       {
          if(this.objectXML_.hasOwnProperty("MpEndCost"))
          {
-            if(!this.comparisonResults.processedTags[this.objectXML_.MpEndCost[0].toXMLString()])
-            {
-               /*
-               if(local1)
-               {
-                  this.effects.push(new Effect("MP Cost", this.objectXML_.MpEndCost * 2 + " (" + this.objectXML_.MpEndCost + ")"));
-               }
-               else
-               {
-
-                */
-               this.effects.push(new Effect("MP Cost",this.objectXML_.MpEndCost));
-               //}
+            if(!this.comparisonResults.processedTags[this.objectXML_.MpEndCost[0].toXMLString()]) {
+               this.effects.push(new Effect("MP Cost", this.objectXML_.MpEndCost));
             }
          }
          else if(this.objectXML_.hasOwnProperty("MpCost") && !this.comparisonResults.processedTags[this.objectXML_.MpCost[0].toXMLString()])
          {
-            if(!this.comparisonResults.processedTags[this.objectXML_.MpCost[0].toXMLString()])
-            {
-               /*
-               if(local1)
-               {
-                  this.effects.push(new Effect("MP Cost", this.objectXML_.MpCost * 2 + " (" + this.objectXML_.MpCost + ")"));
-               }
-               else
-               {
-
-                */
-               this.effects.push(new Effect("MP Cost",this.objectXML_.MpCost));
-               //}
+            if(!this.comparisonResults.processedTags[this.objectXML_.MpCost[0].toXMLString()]) {
+               this.effects.push(new Effect("MP Cost", this.objectXML_.MpCost));
             }
          }
       }
@@ -853,12 +874,17 @@ public class EquipmentToolTip extends ToolTip
             customText = this.comparisonResults.processedActivateOnEquipTags[activateXML.toXMLString()];
             if(customText != null)
             {
-               this.effects.push(new Effect(""," " + customText));
+               this.effects.push(new Effect("","" + customText));
             }
             else if(activateXML.toString() == "IncrementStat")
             {
                this.effects.push(new Effect("",this.compareIncrementStat(activateXML)));
             }
+         }
+
+         if(this.props_.talismanEffect_ != null) {
+            this.effects.push(new Effect("Passive", ""));
+            this.effects.push(new Effect("", " - " + this.props_.talismanEffect_));
          }
       }
 
@@ -888,13 +914,17 @@ public class EquipmentToolTip extends ToolTip
          else
          {
             amountString = String(amount);
-            textColor = "#FF0000";
+            textColor = "#ff0000";
          }
          return TooltipHelper.wrapInFontTag(amountString + " " + StatData.statToName(stat),textColor);
       }
 
       private function addEquipmentItemRestrictions() : void
       {
+         if(this.props_.onlyOneTalisman_) {
+            this.restrictions.push(new Restriction("Only one can be equip", 0x7fce6d,true));
+         }
+
          this.restrictions.push(new Restriction("Must be equipped to use",11776947,false));
          if(this.isInventoryFull || this.inventoryOwnerType == InventoryOwnerTypes.CURRENT_PLAYER)
          {
@@ -1057,9 +1087,9 @@ public class EquipmentToolTip extends ToolTip
 
       private function makeLineTwo():void{
          this.line2_ = new LineBreakDesign((MAX_WIDTH - 12), 0);
-          if(this.objectXML_.hasOwnProperty("Legendary")){
+          if(isLegendaryItem){
               this.line2_.setWidthColor(MAX_WIDTH-12,0x967bb6);
-          }else if(this.objectXML_.hasOwnProperty("Mythical")){
+          }else if(isMythicalItem){
               this.line2_.setWidthColor(MAX_WIDTH-12,0xFFFFFF);
           }
          addChild(this.line2_);

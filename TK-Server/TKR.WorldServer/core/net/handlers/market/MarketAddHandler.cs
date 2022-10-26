@@ -4,12 +4,12 @@ using TKR.Shared.resources;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using TKR.WorldServer.core.miscfile.thread;
 using TKR.WorldServer.networking;
 using TKR.WorldServer.networking.packets.outgoing.market;
 using TKR.WorldServer.core.objects;
 using TKR.Shared.database.character.inventory;
 using TKR.WorldServer.utils;
+using TKR.WorldServer.core.worlds;
 
 namespace TKR.WorldServer.core.net.handlers.market
 {
@@ -17,7 +17,7 @@ namespace TKR.WorldServer.core.net.handlers.market
     {
         public override MessageId MessageId => MessageId.MARKET_ADD;
 
-        public override void Handle(Client client, NReader rdr, ref TickTime tickTime)
+        public override void Handle(Client client, NetworkReader rdr, ref TickTime tickTime)
         {
             var slots = new byte[rdr.ReadByte()];
             for (var i = 0; i < slots.Length; i++)

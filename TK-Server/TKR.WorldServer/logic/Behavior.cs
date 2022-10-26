@@ -1,16 +1,15 @@
 ﻿using TKR.Shared;
-using TKR.Shared.resources;
 using NLog;
 using System;
-using TKR.WorldServer.core.miscfile.thread;
 using TKR.WorldServer.core.objects;
-using TKR.WorldServer.logic;
-using TKR.WorldServer.core.miscfile.structures;
+using TKR.WorldServer.core.worlds;
 
 namespace TKR.WorldServer.logic
 {
     public abstract class Behavior : IStateChildren
     {
+        public const float TO_RADIANS = MathF.PI / 180.0f;
+
         protected static readonly Logger Log = LogManager.GetCurrentClassLogger();
 
         [ThreadStatic]

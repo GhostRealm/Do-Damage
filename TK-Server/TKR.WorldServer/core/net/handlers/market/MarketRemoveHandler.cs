@@ -1,12 +1,12 @@
 ﻿using TKR.Shared;
 using TKR.Shared.database;
 using System.Collections.Generic;
-using TKR.WorldServer.core.miscfile.datas;
-using TKR.WorldServer.core.miscfile.thread;
 using TKR.WorldServer.networking;
 using TKR.WorldServer.networking.packets.outgoing.market;
 using TKR.Shared.database.market;
 using TKR.Shared.database.vault;
+using TKR.WorldServer.core.worlds;
+using TKR.WorldServer.core.net.datas;
 
 namespace TKR.WorldServer.core.net.handlers.market
 {
@@ -14,7 +14,7 @@ namespace TKR.WorldServer.core.net.handlers.market
     {
         public override MessageId MessageId => MessageId.MARKET_REMOVE;
 
-        public override void Handle(Client client, NReader rdr, ref TickTime tickTime)
+        public override void Handle(Client client, NetworkReader rdr, ref TickTime tickTime)
         {
             var id = rdr.ReadInt32();
 

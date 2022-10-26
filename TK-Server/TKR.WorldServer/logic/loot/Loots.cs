@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Org.BouncyCastle.Utilities;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -7,11 +8,12 @@ using TKR.Shared.database.character.inventory;
 using TKR.Shared.discord;
 using TKR.Shared.resources;
 using TKR.WorldServer.core;
-using TKR.WorldServer.core.miscfile.thread;
 using TKR.WorldServer.core.objects;
 using TKR.WorldServer.core.objects.containers;
-using TKR.WorldServer.core.worlds.logic;
+using TKR.WorldServer.core.worlds;
+using TKR.WorldServer.core.worlds.impl;
 using TKR.WorldServer.networking.packets.outgoing;
+using TKR.WorldServer.networking.packets.outgoing.party;
 
 namespace TKR.WorldServer.logic.loot
 {
@@ -47,18 +49,26 @@ namespace TKR.WorldServer.logic.loot
     {
         #region Utils
 
-        /*  Brown 0,  Pink 1,   Purple 2, Gold 3,   Cyan 4,   Blue 5,   Orange 6, White 7,  Legenadry 8, Mythical 9 */
-        public static readonly ushort[] BAG_ID_TO_TYPE = new ushort[] { 0x0500, 0x0506, 0x0503, 0x0532, 0x0509, 0x050B, 0x0533, 0x050C, 0x5076, 0xa002 };
-        /*  Brown 0,  Pink 1,   Purple 2, Gold 3,   Cyan 4,   Blue 5,   Orange 6, White 7,  Legenadry 8, Mythical 9 */
-        public static readonly ushort[] BOOSTED_BAG_ID_TO_TYPE = new ushort[] { 0x0534, 0x0535, 0x0536, 0x0537, 0x0538, 0x0539, 0x053b, 0x053a, 0x5077, 0xa003 };
+        /*  
+         *  Brown 0,
+         *  Pink 1,
+         *  Purple 2,
+         *  Gold 3, 
+         *  Cyan 4, 
+         *  Blue 5, 
+         *  Orange 6, 
+         *  White 7,
+         *  Legenadry 8,
+         *  Mythical 9
+         */
 
-        private static readonly int[] AbilityT = new int[] { 4, 5, 11, 12, 13, 15, 16, 18, 19, 20, 21, 22, 23, 25, };
-        private static readonly int[] ArmorT = new int[] { 6, 7, 14, };
-        private static readonly int[] RingT = new int[] { 9 };
-        private static readonly int[] WeaponT = new int[] { 1, 2, 3, 8, 17, 24 };
+        public static readonly ushort[] BAG_ID_TO_TYPE = new ushort[] { 0x0500, 0x0506, 0x0503, 0x0532, 0x0509, 0x050B, 0x0533, 0x050C, 0x5076, 0xa002 };
+        public static readonly ushort[] BOOSTED_BAG_ID_TO_TYPE = new ushort[] { 0x0534, 0x0535, 0x0536, 0x0537, 0x0538, 0x0539, 0x053b, 0x053a, 0x5077, 0xa003 };
 
         public static bool DropsInSoulboundBag(ItemType type, int tier)
         {
+            if (type == ItemType.Talisman)
+                return true;
             if (type == ItemType.Ring)
                 if (tier >= 2)
                     return true;
@@ -114,10 +124,15 @@ namespace TKR.WorldServer.logic.loot
                 default: break;
             }
             allLoot += player.LDBoostTime > 0 ? 0.25 : 0;
-            allLoot += player.TalismanLootBoost;
-            if (player.TalismanLootBoostPerPlayer != 0.0 && player.World.Players.Count != 1)
-                allLoot += player.TalismanLootBoostPerPlayer * (player.World.Players.Count - 1);
-            allLoot += player.TalismanCanOnlyGetWhiteBags ? 0.5 : 0;
+            allLoot += player.HasTalismanEffect(TalismanEffectType.PocketChange) ? 0.3 : 0.0;
+            allLoot += player.HasTalismanEffect(TalismanEffectType.LuckOfTheIrish) ? 0.2 : 0.0;
+            if (player.HasTalismanEffect(TalismanEffectType.PartyOfOne))
+            {
+                var partyOfOneAmount = 0.5;
+                if (player.World.Players.Count != 1)
+                    partyOfOneAmount = -partyOfOneAmount;
+                allLoot += partyOfOneAmount;
+            }
             allLoot += NexusWorld.WeekendLootBoostEvent;
             return allLoot;
         }
@@ -178,7 +193,6 @@ namespace TKR.WorldServer.logic.loot
 
             foreach (var i in possDrops)
             {
-                var chance = enemy.World.Random.NextDouble();
                 if (i.ItemType == ItemType.None)
                 {
                     // we treat item names as soulbound never public loot
@@ -187,16 +201,18 @@ namespace TKR.WorldServer.logic.loot
 
                 if (DropsInSoulboundBag(i.ItemType, i.Tier))
                     continue;
-
+                
+                var chance = Random.Shared.NextDouble();
                 if (i.Threshold <= 0 && chance < i.Probabilty)
                 {
                     var items = GetItems(i.ItemType, i.Tier);
-                    var chosenTieredItem = items[enemy.World.Random.Next(items.Count)];
+                    var chosenTieredItem = items[Random.Shared.Next(items.Count)];
                     pubDrops.Add(chosenTieredItem);
                 }
             }
 
-            ProcessPublicDrops(pubDrops, enemy);
+            if(pubDrops.Count > 0)
+                ProcessPublicDrops(pubDrops, enemy);
 
             var playersAvaliable = enemy.DamageCounter.GetPlayerData();
             if (playersAvaliable == null)
@@ -206,49 +222,13 @@ namespace TKR.WorldServer.logic.loot
             foreach (var tupPlayer in playersAvaliable)
             {
                 var player = tupPlayer.Item1;
-                var playerDamage = tupPlayer.Item2;
-
-                if (player.TalismanCantGetLoot)
-                    continue;
-
                 if (player == null || player.World == null || player.Client == null)
                     continue;
 
+                var playerDamage = tupPlayer.Item2;
                 var percentageOfDamage = Math.Round(100.0 * (playerDamage / (double)enemy.DamageCounter.TotalDamage), 4) / 100;
-                if (percentageOfDamage >= 0.001) // 0.01%
-                {
-                    if (enemy.ObjectDesc.Encounter)
-                    {
-                        var essenceToGive = player.World.Random.Next(350, 500);
-                        if (essenceToGive > 0)
-                            player.GiveEssence(essenceToGive);
-                    }
-                    else if (enemy.ObjectDesc.Quest)
-                    {
-                        if (enemy.ObjectDesc.Level >= 18)
-                        {
-                            var essenceToGive = player.World.Random.Next(100, 250);
-                            if (essenceToGive > 0)
-                                player.GiveEssence(essenceToGive);
-                        }
-                        else if (enemy.ObjectDesc.Level >= 15)
-                        {
-                            var essenceToGive = player.World.Random.Next(75, 100);
-                            if (essenceToGive > 0)
-                                player.GiveEssence(essenceToGive);
-                        }
-                        else if (enemy.ObjectDesc.Level >= 5)
-                        {
-                            var essenceToGive = player.World.Random.Next(1, 50);
-                            if (essenceToGive > 0)
-                                player.GiveEssence(essenceToGive);
-                        }
-                    }
-                }
 
                 var playerLootBoost = GetPlayerLootBoost(player);
-
-                //Console.WriteLine($"Loot Boost: {playerLootBoost}");
 
                 if (enemy.ObjectDesc.Event)
                 {
@@ -261,18 +241,25 @@ namespace TKR.WorldServer.logic.loot
                 var drops = new List<Item>();
                 foreach (var i in possDrops)
                 {
-                    var c = enemy.World.Random.NextDouble();
+                    var c = Random.Shared.NextDouble();
 
                     var probability = i.Probabilty + i.Probabilty * playerLootBoost;
 
                     if (i.Threshold >= 0 && i.Threshold < percentageOfDamage)
                     {
                         Item item = null;
+                        if (i.ItemType == ItemType.Talisman)
+                        {
+                            item = enemy.GameServer.ItemDustWeights.Talismans.GetRandom(Random.Shared);
+                            drops.Add(item);
+                            continue;
+                        }
+
                         if (i.ItemType != ItemType.None)
                         {
                             var items = GetItems(i.ItemType, i.Tier);
                             if (items != null)
-                                item = enemy.World.Random.NextLength(items);
+                                item = Random.Shared.NextLength(items);
                         }
                         else
                         {
@@ -294,12 +281,11 @@ namespace TKR.WorldServer.logic.loot
                             var isEligible = item.Mythical || item.Legendary;
                             if (isEligible)
                             {
-                                c = 0;
-                                var chance = Math.Round(1 / probability, 2);
-                                var roll = Math.Round(c / probability, 2);
+                                var baseChance = Math.Floor(1.0 / i.Probabilty);
+                                var chance = Math.Floor(1.0 / probability);
+                                var roll = Math.Floor(c / probability);
 
-                                if (roll > chance * 0.8)
-                                    player.SendInfo($"You have rolled: {roll}/{chance} for: {item.DisplayId ?? item.ObjectId}");
+                                player.SendInfo($"[{item.DisplayId ?? item.ObjectId}] {roll}/{chance} (Base: {baseChance})");
                             }
                         }
 
@@ -329,11 +315,11 @@ namespace TKR.WorldServer.logic.loot
             var bagType = 0;
             var idx = 0;
             var items = new Item[8];
+
+            bagType = drops.Max(_ => _.BagType);
+
             foreach (var i in drops)
             {
-                if (i.BagType > bagType)
-                    bagType = i.BagType;
-
                 items[idx] = i;
                 idx++;
                 if (idx == 8)
@@ -359,39 +345,24 @@ namespace TKR.WorldServer.logic.loot
             if (owners.Count() == 1 && GetPlayerLootBoost(player) > 1.0)
                 boosted = true;
 
-            if (player.TalismanCanOnlyGetWhiteBags)
-            {
-                var isWhiteBag = false;
-                foreach (var i in loots)
-                {
-                    if (i.BagType >= 7)
-                    {
-                        isWhiteBag = true;
-                        break;
-                    }
-                }
-
-                if (!isWhiteBag)
-                    return;
-            }
+            bagType = loots.Max(_ => _.BagType);
 
             foreach (var i in loots)
             {
-                if (i.BagType > bagType)
-                    bagType = i.BagType;
+                var isMythical = i.Mythical;
+                var isLegendary = i.Legendary;
 
-                var isEligible = i.Mythical || i.Legendary;
+                var isEligible = isMythical || isLegendary;
                 if (player != null && isEligible)
                 {
                     var chat = core.ChatManager;
                     var world = player.World;
-                    var isMythical = i.Mythical;
 
-                    player.Client.SendPacket(new GlobalNotification() { Text = isMythical ? "mythiacal_loot" : "legendary_loot" });
+                    player.Client.SendPacket(new GlobalNotificationMessage(0, isMythical ? "mythical_loot" : "legendary_loot"));
 
                     #region Discord Bot Message
 
-                    if (!player.IsAdmin)
+                    if (!player.IsAdmin && !player.GameServer.Configuration.serverInfo.testing)
                     {
                         var discord = core.Configuration.discordIntegration;
                         var players = world.Players.Count(p => p.Value.Client != null);
@@ -404,20 +375,20 @@ namespace TKR.WorldServer.logic.loot
                                 players,
                                 world.MaxPlayers,
                                 world.InstanceType == WorldResourceInstanceType.Dungeon,
-                                isMythical ? "Mythical" : "Legendary",
+                                isMythical ? "Mythical" : isLegendary ? "Legendary" : "Talisman",
                                 isMythical ? discord.mtBagImage : discord.lgBagImage,
                                 isMythical ? discord.mtImage : discord.lgImage,
                                 player.Name,
                                 player.Client.Rank.Rank,
                                 player.Stars,
                                 i.ObjectId,
-                                player.ObjectDesc.ObjectId,
+                                player.ObjectDesc.IdName,
                                 player.Level,
                                 player.Fame,
                                 player.GetMaxedStats()
                             );
 
-                            if (discord.CanSendLootNotification(player.Stars, player.ObjectDesc.ObjectId.ToLower()) && builder.HasValue)
+                            if (!discord.CanSendLootNotification(player.Stars, player.ObjectDesc.IdName.ToLower()) && builder.HasValue)
 #pragma warning disable
                                 discord.SendWebhook(discord.webhookLootEvent, builder.Value);
 #pragma warning restore
@@ -432,7 +403,6 @@ namespace TKR.WorldServer.logic.loot
 
                     if (player != null)
                     {
-                        //<LootNotifier> [PlayerName] has obtained a <Legendary/Revenge/Mythical> Item [ItemName], with [PercentageOfDamage]% damage dealt!
                         var msg = new StringBuilder($"[{player.Client.Account.Name}] has obtained ");
                         if (i.Legendary)
                             msg.Append("a Legendary");
@@ -453,7 +423,6 @@ namespace TKR.WorldServer.logic.loot
                     DropBag(enemy, owners.Select(x => x.AccountId).ToArray(), bagType, items, boosted);
                     items = new Item[8];
                     idx = 0;
-                    bagType = 0;
                 }
             }
 
@@ -463,13 +432,7 @@ namespace TKR.WorldServer.logic.loot
 
         private static void DropBag(Enemy enemy, int[] owners, int bagType, Item[] items, bool boosted)
         {
-            ushort bag = BAG_ID_TO_TYPE[0];
-            if (bagType > 0)
-                bag = BAG_ID_TO_TYPE[bagType];
-
-            // Boosted bags
-            if (boosted)
-                bag = BOOSTED_BAG_ID_TO_TYPE[bagType];
+            var bag = BAG_ID_TO_TYPE[bagType];
 
             var container = new Container(enemy.GameServer, bag, 1500 * 60, true);
 
@@ -485,8 +448,8 @@ namespace TKR.WorldServer.logic.loot
             }
 
             container.BagOwners = owners;
-            container.Move(enemy.X + (float)((enemy.World.Random.NextDouble() * 2 - 1) * 0.5), enemy.Y + (float)((enemy.World.Random.NextDouble() * 2 - 1) * 0.5));
-            container.SetDefaultSize(bagType >= 6 ? 120 : bagType >= 3 ? 90 : 70);
+            container.Move(enemy.X + (float)((Random.Shared.NextDouble() * 2 - 1) * 0.5), enemy.Y + (float)((Random.Shared.NextDouble() * 2 - 1) * 0.5));
+            container.SetDefaultSize(80);
             enemy.World.EnterWorld(container);
         }
     }

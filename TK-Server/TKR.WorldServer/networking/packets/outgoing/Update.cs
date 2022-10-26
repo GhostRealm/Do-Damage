@@ -1,6 +1,6 @@
 ﻿using TKR.Shared;
 using System.Collections.Generic;
-using TKR.WorldServer.core.miscfile.datas;
+using TKR.WorldServer.core.net.datas;
 
 namespace TKR.WorldServer.networking.packets.outgoing
 {
@@ -25,7 +25,7 @@ namespace TKR.WorldServer.networking.packets.outgoing
         public List<int> Drops { get; set; } = new List<int>();
         public override MessageId MessageId => MessageId.UPDATE;
 
-        protected override void Write(NWriter wtr)
+        public override void Write(NetworkWriter wtr)
         {
             wtr.Write((short)Tiles.Count);
             foreach (var i in Tiles)

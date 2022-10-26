@@ -4,11 +4,12 @@ using System.Linq;
 using TKR.Shared.resources;
 using TKR.Shared.utils;
 using TKR.WorldServer.core.miscfile;
-using TKR.WorldServer.core.miscfile.stats;
 using TKR.WorldServer.core.objects;
 using TKR.WorldServer.core.objects.player;
 using TKR.WorldServer.core.worlds;
-using TKR.WorldServer.core.miscfile.structures;
+using TKR.WorldServer.core.objects.containers;
+using TKR.WorldServer.core.net.stats;
+using TKR.WorldServer.core.structures;
 
 namespace TKR.WorldServer.utils
 {
@@ -212,9 +213,8 @@ namespace TKR.WorldServer.utils
                 case 9:
                 case 10:
                 case 11:
-                    e.InvokeStatChange(
-                        (StatDataType)((int)StatDataType.Inventory0 + slot),
-                        (e as IContainer).Inventory[slot]?.ObjectType ?? -1);
+                    e.InvokeStatChange((StatDataType)((int)StatDataType.Inventory0 + slot), (e as IContainer).Inventory[slot]?.ObjectType ?? -1);
+                    e.InvokeStatChange((StatDataType)((int)StatDataType.InventoryData0 + slot), (e as IContainer).Inventory.Data[slot]?.GetData() ?? "{}");
                     break;
 
                 case 12:
@@ -225,46 +225,28 @@ namespace TKR.WorldServer.utils
                 case 17:
                 case 18:
                 case 19:
-                    e.InvokeStatChange(
-                        (StatDataType)((int)StatDataType.BackPack0 + slot),
-                        (e as IContainer).Inventory[slot]?.ObjectType ?? -1);
-                    break;
-
-                case 122:
-                case 123:
-                case 124:
-                case 125:
-                case 126:
-                case 127:
-                case 128:
-                case 129:
-                case 130:
-                case 131:
-                case 132:
-                case 133:
-                    e.InvokeStatChange((StatDataType)((int)StatDataType.InventoryData0 + slot), (e as IContainer).Inventory.Data[slot]?.GetData() ?? "{}");
-                    break;
-
-                case 134:
-                case 135:
-                case 136:
-                case 137:
-                case 138:
-                case 139:
-                case 140:
-                case 141:
+                    e.InvokeStatChange((StatDataType)((int)StatDataType.BackPack0 + slot), (e as IContainer).Inventory[slot]?.ObjectType ?? -1);
                     e.InvokeStatChange((StatDataType)((int)StatDataType.BackPackData0 + slot), (e as IContainer).Inventory.Data[slot]?.GetData() ?? "{}");
                     break;
 
+                case 20:
+                case 21:
+                case 22:
+                case 23:
+                case 24:
+                case 25:
+                case 26:
+                case 27:
+                    e.InvokeStatChange((StatDataType)((int)StatDataType.TALISMAN_0_STAT + slot), (e as IContainer).Inventory[slot]?.ObjectType ?? -1);
+                    e.InvokeStatChange((StatDataType)((int)StatDataType.TALISMANDATA_0_STAT + slot), (e as IContainer).Inventory.Data[slot]?.GetData() ?? "{}");
+                    break;
 
                 case 254:
-                    e.InvokeStatChange(
-                        StatDataType.HealthStackCount, (e as Player).HealthPots.Count);
+                    e.InvokeStatChange(StatDataType.HealthStackCount, (e as Player).HealthPots.Count);
                     break;
 
                 case 255:
-                    e.InvokeStatChange(
-                        StatDataType.MagicStackCount, (e as Player).MagicPots.Count);
+                    e.InvokeStatChange(StatDataType.MagicStackCount, (e as Player).MagicPots.Count);
                     break;
             }
         }
@@ -334,7 +316,7 @@ namespace TKR.WorldServer.utils
 
             foreach (var i in entity.World.EnemiesCollision.HitTest(entity.X, entity.Y, dist))
             {
-                if (i.ObjectDesc == null || id != null && !i.ObjectDesc.ObjectId.ContainsIgnoreCase(id))
+                if (i.ObjectDesc == null || id != null && !i.ObjectDesc.IdName.ContainsIgnoreCase(id))
                     continue;
 
                 var d = i.DistTo(entity);

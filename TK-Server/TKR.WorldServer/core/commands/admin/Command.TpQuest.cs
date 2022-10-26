@@ -1,6 +1,6 @@
 ﻿using TKR.Shared;
-using TKR.WorldServer.core.miscfile.thread;
 using TKR.WorldServer.core.objects;
+using TKR.WorldServer.core.worlds;
 
 namespace TKR.WorldServer.core.commands
 {
@@ -26,10 +26,10 @@ namespace TKR.WorldServer.core.commands
                 }
                 player.SetNewbiePeriod();
 
-                var x = player.Quest.RealX;
-                var y = player.Quest.RealY;
+                var x = player.Quest.X;
+                var y = player.Quest.Y;
 
-                if (player.Quest.ObjectDesc.ObjectId.Contains("Hermit"))
+                if (player.Quest.ObjectDesc.IdName.Contains("Hermit"))
                     y += 6;
 
                 player.TeleportPosition(time, x, y);

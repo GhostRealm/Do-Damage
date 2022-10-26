@@ -180,20 +180,20 @@
     <Size>80</Size>
     <SlotTypes>0, 0, 0, 0, 0, 0, 0, 0</SlotTypes>
   </Object>
-  <Object type="0xa002" id="Mythical Loot Bag">
-    <DisplayId>Loot Bag</DisplayId>
-    <Class>Container</Class>
-    <Container />
-    <CanPutNormalObjects />
-    <CanPutSoulboundObjects />
-    <Loot />
-    <Texture>
-      <File>lofiObj4</File>
-      <Index>0x96</Index>
-    </Texture>
-    <Size>80</Size>
-    <SlotTypes>0, 0, 0, 0, 0, 0, 0, 0</SlotTypes>
-  </Object>
+	<Object type="0xa002" id="Mythical Loot Bag">
+		<DisplayId>Loot Bag</DisplayId>
+		<Class>Container</Class>
+		<Container />
+		<CanPutNormalObjects />
+		<CanPutSoulboundObjects />
+		<Loot />
+		<Texture>
+			<File>lofiObj4</File>
+			<Index>0x96</Index>
+		</Texture>
+		<Size>80</Size>
+		<SlotTypes>0, 0, 0, 0, 0, 0, 0, 0</SlotTypes>
+	</Object>
   <Object type="0x0534" id="Boosted Brown Loot Bag">
     <DisplayId>Loot Bag</DisplayId>
     <Class>Container</Class>

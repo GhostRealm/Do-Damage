@@ -1,23 +1,23 @@
-﻿using TKR.Shared;
-using TKR.Shared.database;
-using TKR.Shared.isc;
-using TKR.Shared.resources;
+﻿using NLog;
 using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using TKR.Shared;
+using TKR.Shared.database;
+using TKR.Shared.isc;
+using TKR.Shared.resources;
 using TKR.WorldServer.core.commands;
 using TKR.WorldServer.core.connection;
 using TKR.WorldServer.core.miscfile;
 using TKR.WorldServer.core.objects.inventory;
 using TKR.WorldServer.core.objects.vendors;
+using TKR.WorldServer.core.worlds;
+using TKR.WorldServer.logic;
 using TKR.WorldServer.logic.loot;
 using TKR.WorldServer.utils;
-using TKR.WorldServer.logic;
-using NLog;
-using TKR.WorldServer.core.miscfile.datas;
 
 namespace TKR.WorldServer.core
 {
@@ -112,10 +112,6 @@ namespace TKR.WorldServer.core
                 var f2 = File.CreateText("GenerateXMLS/EmbeddedData_GroundsCXML.xml");
                 f2.Write(Resources.GameData.GroundCombinedXML.ToString());
                 f2.Close();
-
-                var f5 = File.CreateText("GenerateXMLS/EmbeddedData_TalismansCXML.xml");
-                f5.Write(Resources.GameData.TalismansCombinedXML.ToString());
-                f5.Close();
             }
 
             ItemDustWeights.Initialize();
@@ -209,9 +205,6 @@ namespace TKR.WorldServer.core
 
             Console.WriteLine("[Dispose] MarketSweeper");
             MarketSweeper.Stop();
-
-            Console.WriteLine("[Dispose] ConnectionManager");
-            ConnectionManager.Dispose();
 
             Console.WriteLine("[Dispose] ChatManager");
             ChatManager.Dispose();

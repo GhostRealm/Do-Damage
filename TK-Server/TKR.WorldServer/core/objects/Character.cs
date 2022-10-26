@@ -1,10 +1,7 @@
-﻿using TKR.Shared.resources;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using TKR.WorldServer.core;
-using TKR.WorldServer.core.miscfile.stats;
-using TKR.WorldServer.core.objects;
-using TKR.WorldServer.core.worlds;
+using TKR.Shared.resources;
+using TKR.WorldServer.core.net.stats;
 
 namespace TKR.WorldServer.core.objects
 {
@@ -20,8 +17,8 @@ namespace TKR.WorldServer.core.objects
 
         protected Character(GameServer manager, ushort objType) : base(manager, objType)
         {
-            _hp = new SV<int>(this, StatDataType.HP, 0);
-            _maximumHP = new SV<int>(this, StatDataType.MaximumHP, 0);
+            _hp = new SV<int>(this, StatDataType.Health, 0);
+            _maximumHP = new SV<int>(this, StatDataType.MaximumHealth, 0);
 
             if (ObjectDesc != null)
             {
@@ -33,8 +30,6 @@ namespace TKR.WorldServer.core.objects
                 else
                     SetDefaultSize(ObjectDesc.MinSize);
 
-                SetConditions();
-
                 HP = ObjectDesc.MaxHP;
                 MaximumHP = HP;
             }
@@ -43,39 +38,9 @@ namespace TKR.WorldServer.core.objects
         protected override void ExportStats(IDictionary<StatDataType, object> stats, bool isOtherPlayer)
         {
             base.ExportStats(stats, isOtherPlayer);
-            stats[StatDataType.HP] = HP;
+            stats[StatDataType.Health] = HP;
             if (!(this is Player))
-                stats[StatDataType.MaximumHP] = MaximumHP;
-        }
-
-        private void SetConditions()
-        {
-            if (ObjectDesc.Invincible)
-                ApplyPermanentConditionEffect(ConditionEffectIndex.Invincible);
-
-            if (ObjectDesc.ArmorBreakImmune)
-                ApplyPermanentConditionEffect(ConditionEffectIndex.ArmorBreakImmune);
-
-            if (ObjectDesc.CurseImmune)
-                ApplyPermanentConditionEffect(ConditionEffectIndex.CurseImmune);
-
-            if (ObjectDesc.DazedImmune)
-                ApplyPermanentConditionEffect(ConditionEffectIndex.DazedImmune);
-
-            if (ObjectDesc.ParalyzeImmune)
-                ApplyPermanentConditionEffect(ConditionEffectIndex.ParalyzeImmune);
-
-            if (ObjectDesc.PetrifyImmune)
-                ApplyPermanentConditionEffect(ConditionEffectIndex.PetrifyImmune);
-
-            if (ObjectDesc.SlowedImmune)
-                ApplyPermanentConditionEffect(ConditionEffectIndex.SlowedImmune);
-
-            if (ObjectDesc.StasisImmune)
-                ApplyPermanentConditionEffect(ConditionEffectIndex.StasisImmune);
-
-            if (ObjectDesc.StunImmune)
-                ApplyPermanentConditionEffect(ConditionEffectIndex.StunImmune);
+                stats[StatDataType.MaximumHealth] = MaximumHP;
         }
     }
 }

@@ -1,8 +1,5 @@
 ﻿using System.Collections.Generic;
-using TKR.WorldServer.core;
-using TKR.WorldServer.core.miscfile.stats;
-using TKR.WorldServer.core.miscfile.thread;
-using TKR.WorldServer.core.objects;
+using TKR.WorldServer.core.net.stats;
 
 namespace TKR.WorldServer.core.objects.connection
 {
@@ -12,8 +9,6 @@ namespace TKR.WorldServer.core.objects.connection
         { }
 
         public ConnectedObjectInfo Connection { get; set; }
-
-        public override bool HitByProjectile(Projectile projectile, TickTime time) => true;
 
         protected override void ExportStats(IDictionary<StatDataType, object> stats, bool isOtherPlayer)
         {

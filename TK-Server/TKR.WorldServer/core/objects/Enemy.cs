@@ -2,15 +2,13 @@
 using System.Collections.Generic;
 using TKR.Shared;
 using TKR.Shared.resources;
-using TKR.WorldServer.core.miscfile;
-using TKR.WorldServer.core.miscfile.datas;
-using TKR.WorldServer.core.miscfile.stats;
-using TKR.WorldServer.core.miscfile.thread;
+using TKR.WorldServer.core.net.datas;
+using TKR.WorldServer.core.net.stats;
+using TKR.WorldServer.core.structures;
 using TKR.WorldServer.core.worlds;
 using TKR.WorldServer.logic;
 using TKR.WorldServer.networking.packets.outgoing;
 using TKR.WorldServer.utils;
-using TKR.WorldServer.core.miscfile.structures;
 
 namespace TKR.WorldServer.core.objects
 {
@@ -19,8 +17,6 @@ namespace TKR.WorldServer.core.objects
         public DamageCounter DamageCounter;
         public bool isPet; // TODO quick hack for backwards compatibility
         public Enemy ParentEntity;
-
-        private readonly bool stat;
 
         private float bleeding = 0;
         private Position? pos;
@@ -42,7 +38,6 @@ namespace TKR.WorldServer.core.objects
         public Enemy(GameServer manager, ushort objType) : base(manager, objType)
         {
             _defense = new SV<int>(this, StatDataType.Defense, ObjectDesc.Defense);
-            stat = ObjectDesc.MaxHP == 0;
             DamageCounter = new DamageCounter(this);
             _glowcolor = new SV<int>(this, StatDataType.GlowEnemy, 0);
         }
@@ -61,11 +56,11 @@ namespace TKR.WorldServer.core.objects
 
         public void ClasifyEnemy()
         {
-            var chance = World.Random.NextDouble();
+            var chance = Random.Shared.NextDouble();
 
             if (chance < 0.2)
             {
-                var type = World.Random.Next(0, 3);
+                var type = Random.Shared.Next(0, 3);
                 switch (type)
                 {
                     case 2:
@@ -105,7 +100,7 @@ namespace TKR.WorldServer.core.objects
                 if (Size <= 0)
                     Size = Size;
                 else
-                    Size = World.Random.Next(Size + 200, Size + 300);
+                    Size = Random.Shared.Next(Size + 200, Size + 300);
 
                 MaximumHP = MaximumHP * 3;
                 HP = MaximumHP;
@@ -119,7 +114,7 @@ namespace TKR.WorldServer.core.objects
                 if (Size <= 0)
                     Size = Size;
                 else
-                    Size = World.Random.Next(Size + 100, Size + 200);
+                    Size = Random.Shared.Next(Size + 100, Size + 200);
 
                 MaximumHP = MaximumHP * 2;
                 HP = MaximumHP;
@@ -133,22 +128,16 @@ namespace TKR.WorldServer.core.objects
                 if (Size <= 0)
                     Size = Size;
                 else
-                    Size = World.Random.Next(Size, Size + 100);
+                    Size = Random.Shared.Next(Size, Size + 100);
                 Defense += 2;
                 GlowEnemy = 0xEAC117;
             }
         }
 
-        public int Damage(Player from, TickTime time, int dmg, bool noDef, bool itsPoison = false, params ConditionEffect[] effs)
+        public int Damage(Player from, ref TickTime time, int dmg, bool noDef, bool itsPoison = false, params ConditionEffect[] effs)
         {
-            if (stat)
-                return 0;
-
             if (!itsPoison && HasConditionEffect(ConditionEffectIndex.Invincible))
                 return 0;
-
-            if (from.TalismanDamageShotsPierceArmour)
-                noDef = true;
 
             if (!HasConditionEffect(ConditionEffectIndex.Paused) && !HasConditionEffect(ConditionEffectIndex.Stasis))
             {
@@ -164,7 +153,7 @@ namespace TKR.WorldServer.core.objects
                     HP -= effDmg;
 
                 ApplyConditionEffect(effs);
-                World.BroadcastIfVisible(new Damage()
+                World.BroadcastIfVisible(new DamageMessage()
                 {
                     TargetId = Id,
                     Effects = 0,
@@ -174,7 +163,7 @@ namespace TKR.WorldServer.core.objects
                     ObjectId = from.Id
                 }, this);
 
-                DamageCounter?.HitBy(from, time, null, effDmg);
+                DamageCounter?.HitBy(from, effDmg);
 
                 if (HP < 0 && World != null)
                     Death(ref time);
@@ -185,13 +174,11 @@ namespace TKR.WorldServer.core.objects
             return 0;
         }
 
-        private bool Dead;
         public void Death(ref TickTime time)
         {
             if (!Dead)
             {
-                Dead = true;
-                DamageCounter.Death(time);
+                DamageCounter.Death();
                 CurrentState?.OnDeath(this, ref time);
                 if (GameServer.BehaviorDb.Definitions.TryGetValue(ObjectType, out var loot))
                     loot.Item2?.Handle(this, time);
@@ -199,68 +186,9 @@ namespace TKR.WorldServer.core.objects
             World.LeaveWorld(this);
         }
 
-        public override bool HitByProjectile(Projectile projectile, TickTime time)
-        {
-            if (stat)
-                return false;
-
-            if (projectile.Host is Player && !HasConditionEffect(ConditionEffectIndex.Paused) && !HasConditionEffect(ConditionEffectIndex.Stasis))
-            {
-                var player = projectile.Host as Player;
-                var Inventory = player.Inventory;
-                var def = Defense;
-
-                var dmg = StatsManager.DamageWithDefense(this, projectile.Damage, projectile.ProjDesc.ArmorPiercing, def);
-                if (!HasConditionEffect(ConditionEffectIndex.Invulnerable))
-                    HP -= dmg;
-
-                if (HasConditionEffect(ConditionEffectIndex.Invincible))
-                    dmg = 0;
-
-                for (var i = 0; i < 4; i++)
-                {
-                    var item = Inventory[i];
-
-                    if (item == null || !item.Legendary && !item.Mythical)
-                        continue;
-
-                    if (item.Demonized)
-                        Demonized(player, i);
-
-                    if (item.Vampiric)
-                        VampireBlast(player, i, time, this, projectile.ProjDesc.MultiHit);
-
-                    if (item.Electrify)
-                        Electrify(player, i, time, this);
-                }
-
-                ApplyConditionEffect(projectile.ProjDesc.Effects);
-
-                World.BroadcastIfVisibleExclude(new Damage()
-                {
-                    TargetId = Id,
-                    Effects = 0,
-                    DamageAmount = dmg,
-                    Kill = HP < 0,
-                    BulletId = projectile.ProjectileId,
-                    ObjectId = projectile.Host.Id
-                }, this, projectile.Host as Player);
-
-                DamageCounter.HitBy(projectile.Host as Player, time, projectile, dmg);
-
-                if (HP < 0 && World != null)
-                    Death(ref time);
-
-                return true;
-            }
-
-            return false;
-        }
-
         public override void Init(World owner)
         {
             base.Init(owner);
-
             if (ObjectDesc.Quest || ObjectDesc.Hero || ObjectDesc.Encounter)
                 ClasifyEnemy();
         }
@@ -273,7 +201,7 @@ namespace TKR.WorldServer.core.objects
             if (HP == 0 && !Dead)
                 Death(ref time);
 
-            if (!stat && HasConditionEffect(ConditionEffectIndex.Bleeding))
+            if (HasConditionEffect(ConditionEffectIndex.Bleeding))
             {
                 if (bleeding > 1)
                 {
@@ -287,13 +215,13 @@ namespace TKR.WorldServer.core.objects
             base.Tick(ref time);
         }
 
-        private void Demonized(Player player, int slot)
+        public void Demonized(Player player, int slot)
         {
             if (player == null || player.World == null || player.Client == null)
                 return;
-            if (World.Random.NextDouble() < 0.3 && player.ApplyEffectCooldown(slot))
+            if (Random.Shared.NextDouble() < 0.3 && player.ApplyEffectCooldown(slot))
             {
-                player.setCooldownTime(4, slot);
+                player.SetCooldownTime(4, slot);
 
                 ApplyConditionEffect(ConditionEffectIndex.Curse, 5000);
 
@@ -314,14 +242,14 @@ namespace TKR.WorldServer.core.objects
             }
         }
 
-        private void VampireBlast(Player player, int slot, TickTime time, Entity firstHit, bool multi)
+        public void VampireBlast(Player player, int slot, ref TickTime time, Entity firstHit, bool multi)
         {
             if (player == null || player.World == null || player.Client == null)
                 return;
             var chance = 0.03;
             chance -= player.Inventory[0].NumProjectiles / 3 / 100;
             chance = multi ? chance / 1.5 : chance;
-            if (World.Random.NextDouble() < chance)
+            if (Random.Shared.NextDouble() < chance)
             {
 
                 Position procPos = new Position() { X = firstHit.X, Y = firstHit.Y };
@@ -358,10 +286,11 @@ namespace TKR.WorldServer.core.objects
                 var totalDmg = 300;
                 var enemies = new List<Enemy>();
 
+                var t = time;
                 World.AOE(procPos, 3, false, enemy =>
                 {
                     enemies.Add(enemy as Enemy);
-                    totalDmg += (enemy as Enemy).Damage(player, time, totalDmg, false);
+                    totalDmg += (enemy as Enemy).Damage(player, ref t, totalDmg, false);
                 });
 
                 if (!player.HasConditionEffect(ConditionEffectIndex.Sick))
@@ -371,7 +300,7 @@ namespace TKR.WorldServer.core.objects
                 {
                     for (var i = 0; i < 5; i++)
                     {
-                        var a = player.World.Random.NextLength(enemies);
+                        var a = Random.Shared.NextLength(enemies);
 
                         World.BroadcastIfVisible(new ShowEffect()
                         {
@@ -410,11 +339,11 @@ namespace TKR.WorldServer.core.objects
             player.HP = newHp;
         }
 
-        private void Electrify(Player player, int slot, TickTime time, Entity firstHit)
+        public void Electrify(Player player, int slot, ref TickTime time, Entity firstHit)
         {
             if (player == null || player.World == null || player.Client == null)
                 return;
-            if (World.Random.NextDouble() < 0.03)
+            if (Random.Shared.NextDouble() < 0.03)
             {
                 var current = firstHit;
                 var targets = new Entity[5];
@@ -427,7 +356,6 @@ namespace TKR.WorldServer.core.objects
                     {
                         if (!(e is Enemy) || e.HasConditionEffect(ConditionEffectIndex.Invincible) || e.HasConditionEffect(ConditionEffectIndex.Stasis) || Array.IndexOf(targets, e) != -1)
                             return false;
-
                         return true;
                     });
 
@@ -444,7 +372,7 @@ namespace TKR.WorldServer.core.objects
 
                     var damage = 1000;
 
-                    (targets[i] as Enemy).Damage(player, time, damage, false);
+                    (targets[i] as Enemy).Damage(player, ref time, damage, false);
                     targets[i].ApplyConditionEffect(ConditionEffectIndex.Slowed, 3000);
 
                     var prev = i == 0 ? player : targets[i - 1];

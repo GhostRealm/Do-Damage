@@ -1,10 +1,10 @@
 ﻿using TKR.Shared;
 using System;
 using System.Collections.Generic;
-using TKR.WorldServer.core.miscfile.datas;
-using TKR.WorldServer.core.miscfile.thread;
 using TKR.WorldServer.networking;
 using TKR.WorldServer.networking.packets.outgoing;
+using TKR.WorldServer.core.worlds;
+using TKR.WorldServer.core.net.datas;
 
 namespace TKR.WorldServer.core.net.handlers
 {
@@ -16,7 +16,7 @@ namespace TKR.WorldServer.core.net.handlers
         private readonly ushort[] _WindWeaponsList = { 0x5011, 0x500e };
         public override MessageId MessageId => MessageId.FORGEFUSION;
 
-        public override void Handle(Client client, NReader rdr, ref TickTime time)
+        public override void Handle(Client client, NetworkReader rdr, ref TickTime time)
         {
             var myInventory = new ForgeItem[rdr.ReadInt16()];
             var rnd = new Random();
@@ -486,7 +486,7 @@ namespace TKR.WorldServer.core.net.handlers
             if (itemValue == 0xa420)
             {
                 client.Player.GameServer.ChatManager.AnnounceForger($"[{client.Player.Name}] has forged both Claws of Cerberus into [{miscItem.DisplayName}]!");
-                client.Player.Client.SendPacket(new GlobalNotification() { Text = "eternalloot" });
+                client.Player.Client.SendPacket(new GlobalNotificationMessage(0, "eternalloot"));
             }
         }
     }

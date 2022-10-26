@@ -34,7 +34,6 @@ namespace TKR.Shared.database.account
         public int ColorChat { get => GetValue<int>("colorchat"); set => SetValue("colorchat", value); }
         public int ColorNameChat { get => GetValue<int>("colornamechat"); set => SetValue("colornamechat", value); }
         public int Credits { get => GetValue<int>("credits"); set => SetValue("credits", value); }
-        public int EnemiesKilled { get => GetValue<int>("enemyKilled"); set => SetValue("enemyKilled", value); }
         public int Fame { get => GetValue<int>("fame"); set => SetValue("fame", value); }
         public bool FirstDeath { get => GetValue<bool>("firstDeath"); set => SetValue("firstDeath", value); }
         public ushort[] Gifts { get => GetValue<ushort[]>("gifts") ?? new ushort[0]; set => SetValue("gifts", value); }
@@ -76,8 +75,6 @@ namespace TKR.Shared.database.account
         public int SPSSpeedCount { get => GetValue<int>("sps_speedCount"); set => SetValue("sps_speedCount", value); }
         public int SPSVitalityCount { get => GetValue<int>("sps_vitalityCount"); set => SetValue("sps_vitalityCount", value); }
         public int SPSWisdomCount { get => GetValue<int>("sps_wisdomCount"); set => SetValue("sps_wisdomCount", value); }
-        public int Essence { get => GetValue<int>("essence"); set => SetValue("essence", value); }
-        public int EssenceCap { get => GetValue<int>("essenceCap"); set => SetValue("essenceCap", value); }
 
         internal string LockToken { get; set; }
 

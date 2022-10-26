@@ -62,7 +62,6 @@ public class ObjectLibrary
          "MarketNPC":MarketNPC,
          "BountyBoard": BountyBoard,
          "PotionStorage": PotionStorage,
-         "Essence":Essence,
          "Engine":Engine
       };
 
@@ -189,11 +188,6 @@ public class ObjectLibrary
        {
            var textureData:TextureData = typeToTextureData_[objectType];
            var texture:BitmapData = Boolean(textureData)?textureData.getTexture():null;
-           var objectXML:XML = xmlLibrary_[objectType];
-          if(objectXML == null)
-          {
-             return null;
-          }
            if(texture == null)
            {
                texture = AssetLibrary.getImageFromSet("lofiObj3",255);
@@ -203,6 +197,7 @@ public class ObjectLibrary
            {
                return TextureRedrawer.redraw(texture,size,includeBottom,0,useCaching,scaleValue);
            }
+           var objectXML:XML = xmlLibrary_[objectType];
            var tex1:int = Boolean(objectXML.hasOwnProperty("Tex1"))?int(int(objectXML.Tex1)):int(0);
            var tex2:int = Boolean(objectXML.hasOwnProperty("Tex2"))?int(int(objectXML.Tex2)):int(0);
            texture = TextureRedrawer.resize(texture,mask,size,includeBottom,tex1,tex2);
@@ -250,24 +245,61 @@ public class ObjectLibrary
 
       public static function getMatchingSlotIndex(objectType:int, player:Player) : int
       {
-         var objectXML:XML = null;
-         var slotType:int = 0;
-         var i:uint = 0;
          if(objectType != ItemConstants.NO_ITEM)
          {
-            objectXML = xmlLibrary_[objectType];
-            if(objectXML == null)
-            {
+            var objectXML:XML = xmlLibrary_[objectType];
+            if(objectXML == null) {
                return -1;
             }
-            slotType = int(objectXML.SlotType);
-            for(i = 0; i < GeneralConstants.NUM_EQUIPMENT_SLOTS; i++)
-            {
-               if(player.slotTypes_[i] == slotType)
-               {
-                  return i;
-               }
-            }
+
+             var i:uint = 0;
+             var slotType:int = int(objectXML.SlotType);
+             for(i = 0; i < GeneralConstants.NUM_EQUIPMENT_SLOTS; i++)
+             {
+                 if(player.slotTypes_[i] == slotType)
+                 {
+                     return i;
+                 }
+             }
+
+             var props:ObjectProperties = ObjectLibrary.propsLibrary_[objectType];
+
+             var offset:int = GeneralConstants.NUM_EQUIPMENT_SLOTS + GeneralConstants.NUM_INVENTORY_SLOTS + GeneralConstants.NUM_BACKPACK_SLOTS;
+             if (props.onlyOneTalisman_) {
+                 for (i = offset; i < offset + GeneralConstants.NUM_TALISMAN_SLOTS; i++) {
+                     if (player.equipment_[i] == objectType) {
+                         return -1;
+                     }
+                 }
+             }
+
+             if(props.isCommonTalisman_)
+             {
+                 for(i = offset; i < offset + 4; i++)
+                 {
+                     if(player.equipment_[i] == -1 && player.slotTypes_[i] == slotType) {
+                         return i;
+                     }
+                 }
+             }
+             else if(props.isLegendaryTalisman_)
+             {
+                 for(i = offset + 4; i < offset + 6; i++)
+                 {
+                     if(player.equipment_[i] == -1 && player.slotTypes_[i] == slotType) {
+                         return i;
+                     }
+                 }
+             }
+             else if(props.isMythicTalisman_)
+             {
+                 for(i = offset + 6; i < offset + 8; i++)
+                 {
+                     if(player.equipment_[i] == -1 && player.slotTypes_[i] == slotType) {
+                         return i;
+                     }
+                 }
+             }
          }
          return -1;
       }
@@ -301,51 +333,10 @@ public class ObjectLibrary
       public static function isSoulbound(objectType:int) : Boolean
       {
          var objectXML:XML = xmlLibrary_[objectType];
-         if(objectXML == null)
-         {
+         if(objectXML == null) {
             return false;
          }
-         var slotType:int = objectXML.SlotType;
-         var tier:* = objectXML.Tier;
-         return objectXML != null && (objectXML.hasOwnProperty("Soulbound")
-                 || (objectXML.hasOwnProperty("Tier") && isType(slotType) && tier < 4)
-                 || (objectXML.hasOwnProperty("Tier") && isTypeWeapon(slotType) && tier < 11)
-                 || (objectXML.hasOwnProperty("Tier") && isTypeArmor(slotType) && tier < 11));
-      }
-
-      public static function isTypeArmor(slotType:int) : int
-      {
-         return int( slotType == ItemConstants.LEATHER_TYPE
-                  || slotType == ItemConstants.ROBE_TYPE
-                  || slotType == ItemConstants.PLATE_TYPE);
-      }
-
-      public static function isTypeWeapon(slotType:int) : int
-      {
-         return int(slotType == ItemConstants.BOW_TYPE
-                 || slotType == ItemConstants.DAGGER_TYPE
-                  || slotType == ItemConstants.KATANA_TYPE
-                  || slotType == ItemConstants.STAFF_TYPE
-                  || slotType == ItemConstants.SWORD_TYPE
-                  || slotType == ItemConstants.WAND_TYPE)
-      }
-
-      public static function isType(slotType:int) : int
-      {
-         return int(slotType == ItemConstants.RING_TYPE
-                 || slotType == ItemConstants.SHURIKEN_TYPE
-                 || slotType == ItemConstants.CLOAK_TYPE
-                 || slotType == ItemConstants.HELM_TYPE
-                 || slotType == ItemConstants.ORB_TYPE
-                 || slotType == ItemConstants.POISON_TYPE
-                 || slotType == ItemConstants.PRISM_TYPE
-                 || slotType == ItemConstants.TRAP_TYPE
-                 || slotType == ItemConstants.QUIVER_TYPE
-                 || slotType == ItemConstants.SCEPTER_TYPE
-                 || slotType == ItemConstants.SEAL_TYPE
-                 || slotType == ItemConstants.SHIELD_TYPE
-                 || slotType == ItemConstants.SPELL_TYPE
-                 || slotType == ItemConstants.SKULL_TYPE)
+         return objectXML.hasOwnProperty("Soulbound");
       }
 
       public static function usableBy(objectType:int) : Vector.<String>
@@ -359,7 +350,7 @@ public class ObjectLibrary
             return null;
          }
          var slotType:int = objectXML.SlotType;
-         if(slotType == ItemConstants.POTION_TYPE || slotType == ItemConstants.RING_TYPE)
+         if(slotType == ItemConstants.POTION_TYPE || slotType == ItemConstants.RING_TYPE || slotType == ItemConstants.TALISMAN_TYPE)
          {
             return null;
          }

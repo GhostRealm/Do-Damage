@@ -6,28 +6,31 @@ using TKR.Shared.database.character.inventory;
 using TKR.Shared.logger;
 using TKR.Shared.resources;
 using TKR.WorldServer.core.miscfile;
-using TKR.WorldServer.core.miscfile.datas;
-using TKR.WorldServer.core.miscfile.stats;
-using TKR.WorldServer.core.miscfile.thread;
 using TKR.WorldServer.core.objects;
 using TKR.WorldServer.core.objects.containers;
 using TKR.WorldServer.core.objects.inventory;
-using TKR.WorldServer.core.worlds.logic;
+using TKR.WorldServer.core.worlds.impl;
 using TKR.WorldServer.networking;
 using TKR.WorldServer.networking.packets.outgoing;
 using TKR.WorldServer.utils;
-using TKR.WorldServer.core.miscfile.structures;
+using static TKR.WorldServer.core.commands.Command;
+using System.Reflection.Metadata;
+using TKR.WorldServer.core.worlds;
+using TKR.WorldServer.core.net.stats;
+using TKR.WorldServer.core.structures;
+using TKR.WorldServer.core.net.datas;
+using TKR.WorldServer.logic;
 
 namespace TKR.WorldServer.core.net.handlers
 {
     public class InvSwapHandler : IMessageHandler
     {
-        private const ushort soulBag = 0x0503;
+        private const ushort SOULBOUND_LOOT_BAG_TYPE = 0x0503;
         private static readonly string[] StackableItems = new string[] { "Magic Dust", "Glowing Shard", "Frozen Coin" }; //stackable items
 
         public override MessageId MessageId => MessageId.INVSWAP;
 
-        public override void Handle(Client client, NReader rdr, ref TickTime tickTime)
+        public override void Handle(Client client, NetworkReader rdr, ref TickTime tickTime)
         {
             var time = rdr.ReadInt32();
             var position = Position.Read(rdr);
@@ -39,6 +42,9 @@ namespace TKR.WorldServer.core.net.handlers
 
         private void Handle(Player player, Entity from, Entity to, int slotFrom, int slotTo)
         {
+            if (player == null || player.Client == null || player.World == null)
+                return;
+
             if (player.IsInMarket && player.World is NexusWorld)
             {
                 from.ForceUpdate(slotFrom);
@@ -47,9 +53,6 @@ namespace TKR.WorldServer.core.net.handlers
                 player.Client.SendPacket(new InvResult() { Result = 1 });
                 return;
             }
-
-            if (player == null || player.Client == null || player.World == null)
-                return;
 
             if (!ValidateEntities(player, from, to) || player.tradeTarget != null)
             {
@@ -90,7 +93,15 @@ namespace TKR.WorldServer.core.net.handlers
             // not stacking operation, continue on with normal swap
 
             // validate slot types
-            if (!ValidateSlotSwap(player, conFrom, conTo, slotFrom, slotTo))
+            if (!ValidateSlotSwap(conFrom, conTo, slotFrom, slotTo))
+            {
+                from.ForceUpdate(slotFrom);
+                to.ForceUpdate(slotTo);
+                player.Client.SendPacket(new InvResult() { Result = 1 });
+                return;
+            }
+
+            if (player.IsAdmin && (from as Container ?? to as Container) != null && Array.IndexOf((from as Container ?? to as Container).BagOwners, player.AccountId) == -1)
             {
                 from.ForceUpdate(slotFrom);
                 to.ForceUpdate(slotTo);
@@ -104,9 +115,24 @@ namespace TKR.WorldServer.core.net.handlers
             var conToTrans = conTo.Inventory.CreateTransaction();
             var itemFrom = conFromTrans[slotFrom];
             var itemTo = conToTrans[slotTo];
-
             conToTrans[slotTo] = itemFrom;
             conFromTrans[slotFrom] = itemTo;
+
+            if (!ValidateItemSwap(player, conFrom, itemTo, slotTo))
+            {
+                from.ForceUpdate(slotFrom);
+                to.ForceUpdate(slotTo);
+                player.Client.SendPacket(new InvResult() { Result = 1 });
+                return;
+            }
+
+            if (!ValidateItemSwap(player, conTo, itemFrom, slotFrom))
+            {
+                from.ForceUpdate(slotFrom);
+                to.ForceUpdate(slotTo);
+                player.Client.SendPacket(new InvResult() { Result = 1 });
+                return;
+            }
 
             var conDataFromTrans = conFrom.Inventory.CreateDataTransaction();
             var conDataToTrans = conTo.Inventory.CreateDataTransaction();
@@ -154,562 +180,6 @@ namespace TKR.WorldServer.core.net.handlers
                     Log.Warn($"Failed to Revert Data Changes. {player.Name} has an extra data [ {dataFrom.GetData()} or {dataTo.GetData()} ]");
             }
 
-            #region Check
-
-            if (!(to is Player) || !(from is Player))
-            {
-                if (!(to is Player))
-                {
-                    var container = to as Container;
-
-                    switch (container.ObjectDesc.ObjectType) /* Case UP => No Boosted, Case Below => Boosted */
-                    {
-                        #region No Soulbound Bags
-
-                        /* Realm Chest */
-                        case 0x0501:
-                            if (CheckNoSoulboundBag(itemFrom) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-                        /* Brown Bag */
-                        case 0x0500:
-                            if (CheckNoSoulboundBag(itemFrom) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        case 0x0534:
-                            if (CheckNoSoulboundBag(itemFrom) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        /* Pink Bag */
-                        case 0x0506:
-                            if (CheckNoSoulboundBag(itemFrom) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        case 0x0535:
-                            if (CheckNoSoulboundBag(itemFrom) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        #endregion No Soulbound Bags
-
-                        /* Purple Bag */
-                        case 0x0503:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        case 0x0536:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        /* Gold Bag */
-                        case 0x0532:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        case 0x0537:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        /* Cyan Bag */
-                        case 0x0509:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        case 0x0538:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        /* Blue Bag */
-                        case 0x050b:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        case 0x0539:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        /* Orange Bag */
-                        case 0x0533:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        case 0x053b:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        /* White Bag */
-                        case 0x50c:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        case 0x53a:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        /* Legendary Bag */
-                        case 0x5076:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        case 0x5077:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        /* Mythical Bag */
-                        case 0xa002:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        case 0xa003:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-                    }
-                }
-                else
-                {
-                    var container = from as Container;
-
-                    switch (container.ObjectDesc.ObjectType) /* Case UP => No Boosted, Case Below => Boosted */
-                    {
-                        #region No Soulbound Bags
-
-                        /* Realm Chest */
-                        case 0x0501:
-                            if (CheckNoSoulboundBag(itemTo) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-                        /* Brown Bag */
-                        case 0x0500:
-                            if (CheckNoSoulboundBag(itemTo) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        case 0x0534:
-                            if (CheckNoSoulboundBag(itemTo) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        /* Pink Bag */
-                        case 0x0506:
-                            if (CheckNoSoulboundBag(itemTo) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        case 0x0535:
-                            if (CheckNoSoulboundBag(itemTo) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        #endregion No Soulbound Bags
-
-                        /* Purple Bag */
-                        case 0x0503:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        case 0x0536:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        /* Gold Bag */
-                        case 0x0532:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        case 0x0537:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        /* Cyan Bag */
-                        case 0x0509:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        case 0x0538:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        /* Blue Bag */
-                        case 0x050b:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        case 0x0539:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        /* Orange Bag */
-                        case 0x0533:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        case 0x053b:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        /* White Bag */
-                        case 0x50c:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        case 0x53a:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        /* Legendary Bag */
-                        case 0x5076:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        case 0x5077:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        /* Mythical Bag */
-                        case 0xa002:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-
-                        case 0xa003:
-                            if (CheckSoulboundBag(container, player) == false)
-                            {
-                                HandleUnavailableInventoryAction(player, soulBag, container.World.Random, conTo, slotTo);
-                                from.ForceUpdate(slotFrom);
-                                to.ForceUpdate(slotTo);
-
-                                player.Client.SendPacket(new InvResult() { Result = 1 });
-                                return;
-                            }
-                            break;
-                    }
-                }
-            }
-
-            #endregion Check
-
-
-            // swap items
             if (Inventory.Execute(conFromTrans, conToTrans))
             {
                 var db = player.GameServer.Database;
@@ -738,20 +208,6 @@ namespace TKR.WorldServer.core.net.handlers
             player.Client.SendPacket(new InvResult() { Result = 1 });
         }
 
-        private bool CheckNoSoulboundBag(Item item)
-        {
-            if (item != null && (item.Legendary || item.Mythical || item.SPlus || item.SNormal && item.Tier >= 7 || item.BagType >= 3))
-                return false;
-            return true;
-        }
-
-        private bool CheckSoulboundBag(Container container, Player player)
-        {
-            foreach (var owner in container.BagOwners)
-                if (owner != player.AccountId)
-                    return false;
-            return true;
-        }
 
         private bool ValidateStackable(ItemData itemA, ItemData itemB, int slotA, int slotB) =>
             itemA != null && itemB != null
@@ -776,44 +232,75 @@ namespace TKR.WorldServer.core.net.handlers
             return false;
         }
 
+        private bool ValidateItemSwap(Player player, IContainer container, Item item, int slot)
+        {
+            if(container == player)
+            {
+                if(slot > 20)
+                    if(item != null)
+                    {
+                        var count = -1;
+                        for (var i = 20; i < 28; i++)
+                            if (player.Inventory[i] != null && player.Inventory[i].ObjectType == item.ObjectType)
+                                count++;
+                        if (count > 1)
+                            return false;
+                        //for (var i = 20; i < 28; i++)
+                        //    if (player.Inventory[i] != null && player.Inventory[i].ObjectType == item.ObjectType && item.TalismanItemDesc.OnlyOne)
+                        //        return false;
+                    }
+            }
+            return container == player || item == null || !item.Soulbound && !player.IsAdmin || IsSoleContainerOwner(player, container);
+        }
+
+        private bool IsSoleContainerOwner(Player player, IContainer con)
+        {
+            int[] owners = null;
+            var container = con as Container;
+            if (container != null)
+                owners = container.BagOwners;
+            return owners != null && owners.Length == 1 && owners.Contains(player.AccountId);
+        }
+
         private bool ValidateEntities(Player player, Entity from, Entity to)
         {
             // returns false if bad input
-
-            if (from == null || to == null) return false;
-            if (from as IContainer == null || to as IContainer == null) return false;
-            if (from is Player && from != player || to is Player && to != player) return false;
-            if (from is Container &&
-                (from as Container).BagOwners.Length > 0 &&
-                !(from as Container).BagOwners.Contains(player.AccountId))
+            if (from == null || to == null) 
                 return false;
-            if (to is Container &&
-                (to as Container).BagOwners.Length > 0 &&
-                !(to as Container).BagOwners.Contains(player.AccountId))
+
+            if (from as IContainer == null || to as IContainer == null)
+                return false;
+
+            if (from is Player && from != player || to is Player && to != player)
+                return false;
+
+            if (from is Container && (from as Container).BagOwners.Length > 0 && !(from as Container).BagOwners.Contains(player.AccountId))
+                return false;
+
+            if (to is Container && (to as Container).BagOwners.Length > 0 && !(to as Container).BagOwners.Contains(player.AccountId))
                 return false;
 
             if (from is GiftChest && to != player || to is GiftChest && from != player)
                 return false;
 
-            if (from is SpecialChest && to != player ||
-                to is SpecialChest && from != player)
+            if (from is SpecialChest && to != player || to is SpecialChest && from != player)
                 return false;
 
             var aPos = new Vector2(from.X, from.Y);
             var bPos = new Vector2(to.X, to.Y);
-
-            if (Vector2.DistanceSquared(aPos, bPos) > 1) return false;
-
+            if (Vector2.DistanceSquared(aPos, bPos) > 1) 
+                return false;
             return true;
         }
 
-        private bool ValidateSlotSwap(Player player, IContainer conA, IContainer conB, int slotA, int slotB)
-            => (slotA < 12 && slotB < 12 || player.HasBackpack) &&
+        // todo add in talisman count checks
+        private bool ValidateSlotSwap(IContainer conA, IContainer conB, int slotA, int slotB)
+            => slotA < 28 && slotB < 28 &&
                 conB.AuditItem(conA.Inventory[slotA], slotB) && conA.AuditItem(conB.Inventory[slotB], slotA);
 
-        public static void HandleUnavailableInventoryAction(Player player, ushort objectId, Random random, IContainer container, int slotId)
+        public static void HandleUnavailableInventoryAction(Player player, Item item, int slotId, Random random, IContainer container)
         {
-            var bag = new Container(player.GameServer, objectId, 60000, true)
+            var bag = new Container(player.GameServer, SOULBOUND_LOOT_BAG_TYPE, 60000, true)
             {
                 BagOwners = new[] { player.AccountId }
             };
@@ -821,10 +308,6 @@ namespace TKR.WorldServer.core.net.handlers
             bag.Inventory.Data[0] = container.Inventory.Data[slotId];
             bag.Move(player.X + (float)((random.NextDouble() * 2 - 1) * 0.5), player.Y + (float)((random.NextDouble() * 2 - 1) * 0.5));
             bag.SetDefaultSize(75);
-
-            container.Inventory[slotId] = null;
-            container.Inventory.Data[slotId] = null;
-
             player.World.EnterWorld(bag);
         }
     }

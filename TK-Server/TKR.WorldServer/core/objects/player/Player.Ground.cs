@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using TKR.Shared.resources;
-using TKR.WorldServer.core.miscfile.structures;
-using TKR.WorldServer.core.miscfile.thread;
+using TKR.WorldServer.core.structures;
+using TKR.WorldServer.core.worlds;
 using TKR.WorldServer.networking;
 using TKR.WorldServer.networking.packets.outgoing;
 
@@ -50,11 +50,11 @@ namespace TKR.WorldServer.core.objects
 
                 if (HP <= 0)
                 {
-                    Death(tileDesc.ObjectId, tile: tile);
+                    Death(tileDesc.ObjectId, tile.Spawned);
                     return;
                 }
 
-                World.BroadcastIfVisibleExclude(new Damage()
+                World.BroadcastIfVisibleExclude(new DamageMessage()
                 {
                     TargetId = Id,
                     DamageAmount = dmg,
@@ -90,11 +90,11 @@ namespace TKR.WorldServer.core.objects
 
                     if (HP <= 0)
                     {
-                        Death(tileDesc.ObjectId, tile: tile);
+                        Death(tileDesc.ObjectId, tile.Spawned);
                         return;
                     }
 
-                    World.BroadcastIfVisibleExclude(new Damage()
+                    World.BroadcastIfVisibleExclude(new DamageMessage()
                     {
                         TargetId = Id,
                         DamageAmount = dmg,

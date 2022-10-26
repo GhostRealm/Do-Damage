@@ -1,12 +1,7 @@
-﻿using TKR.Shared;
+﻿using System.Collections.Generic;
+using TKR.Shared;
 using TKR.Shared.resources;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using TKR.WorldServer.core;
-using TKR.WorldServer.core.miscfile.stats;
-using TKR.WorldServer.core.miscfile.thread;
+using TKR.WorldServer.core.net.stats;
 using TKR.WorldServer.core.worlds;
 using TKR.WorldServer.utils;
 
@@ -18,23 +13,25 @@ namespace TKR.WorldServer.core.objects
 
         private SV<bool> _usable;
         public readonly PortalDesc PortalDescr;
+        public bool GuildHallPortal;
 
-        public Portal(GameServer manager, ushort objType, int? life) : base(manager, ValidatePortal(manager, objType), life, false, true, false)
+        public Portal(GameServer manager, ushort objType) : base(manager, ValidatePortal(manager, objType), null, false, true, false)
         {
             _usable = new SV<bool>(this, StatDataType.PortalUsable, true);
 
             PortalDescr = manager.Resources.GameData.Portals[ObjectType];
             Locked = PortalDescr.Locked;
+            
+            GuildHallPortal = PortalDescr.IdName == "Guild Hall Portal";
         }
 
         public bool Locked { get; private set; }
         public bool Usable { get => _usable.GetValue(); set => _usable.SetValue(value); }
 
-        public override bool HitByProjectile(Projectile projectile, TickTime time) => false;
-
         protected override void ExportStats(IDictionary<StatDataType, object> stats, bool isOtherPlayer)
         {
-            stats[StatDataType.PortalUsable] = Usable ? 1 : 0;
+            if(!GuildHallPortal)
+                stats[StatDataType.PortalUsable] = Usable ? 1 : 0;
 
             base.ExportStats(stats, isOtherPlayer);
         }

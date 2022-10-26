@@ -1,6 +1,5 @@
-﻿using TKR.WorldServer.core.miscfile.thread;
-using TKR.WorldServer.core.objects;
-using TKR.WorldServer.logic;
+﻿using TKR.WorldServer.core.objects;
+using TKR.WorldServer.core.worlds;
 
 namespace TKR.WorldServer.logic.behaviors
 {
@@ -10,7 +9,7 @@ namespace TKR.WorldServer.logic.behaviors
 
         public override void OnDeath(Entity host, ref TickTime time)
         {
-            if (host.ObjectDesc.ObjectId == "The Baron")
+            if (host.ObjectDesc.IdName == "The Baron")
             {
                 foreach (var player in host.World.Players)
                 {

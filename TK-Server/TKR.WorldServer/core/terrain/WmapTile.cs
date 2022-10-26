@@ -2,11 +2,9 @@
 using System.Collections.Generic;
 using TKR.Shared;
 using TKR.Shared.resources;
-using TKR.WorldServer.core.miscfile.datas;
-using TKR.WorldServer.core.miscfile.stats;
-using TKR.WorldServer.core.miscfile.datas;
+using TKR.WorldServer.core.net.datas;
+using TKR.WorldServer.core.net.stats;
 using TKR.WorldServer.core.objects.connection;
-using TKR.WorldServer.core.miscfile.structures;
 
 namespace TKR.WorldServer.core.terrain
 {
@@ -77,8 +75,8 @@ namespace TKR.WorldServer.core.terrain
                     {
                         case "hp":
                             var hp = Utils.GetInt(kv[1]);
-                            stats.Add(new KeyValuePair<StatDataType, object>(StatDataType.HP, hp));
-                            stats.Add(new KeyValuePair<StatDataType, object>(StatDataType.MaximumHP, hp));
+                            stats.Add(new KeyValuePair<StatDataType, object>(StatDataType.Health, hp));
+                            stats.Add(new KeyValuePair<StatDataType, object>(StatDataType.MaximumHealth, hp));
                             break;
 
                         case "name":
@@ -134,11 +132,8 @@ namespace TKR.WorldServer.core.terrain
                 Stats = new ObjectStats()
                 {
                     Id = ObjId,
-                    Position = new Position()
-                    {
-                        X = x + 0.5f,
-                        Y = y + 0.5f
-                    },
+                    X = x + 0.5f,
+                    Y = y + 0.5f,
                     Stats = stats.ToArray()
                 }
             };

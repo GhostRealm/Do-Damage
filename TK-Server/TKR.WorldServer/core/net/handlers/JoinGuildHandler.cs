@@ -1,8 +1,8 @@
 ﻿using System;
 using TKR.Shared;
 using TKR.Shared.database.guild;
-using TKR.WorldServer.core.miscfile.thread;
-using TKR.WorldServer.core.worlds.logic;
+using TKR.WorldServer.core.worlds;
+using TKR.WorldServer.core.worlds.impl;
 using TKR.WorldServer.networking;
 
 namespace TKR.WorldServer.core.net.handlers
@@ -11,9 +11,9 @@ namespace TKR.WorldServer.core.net.handlers
     {
         public override MessageId MessageId => MessageId.JOINGUILD;
 
-        public override void Handle(Client client, NReader rdr, ref TickTime tickTime)
+        public override void Handle(Client client, NetworkReader rdr, ref TickTime tickTime)
         {
-            var guildName = rdr.ReadUTF();
+            var guildName = rdr.ReadUTF16();
             if (client.Player == null || client?.Player?.World is TestWorld)
                 return;
 

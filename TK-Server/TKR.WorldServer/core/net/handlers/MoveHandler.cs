@@ -1,11 +1,11 @@
 ﻿using TKR.Shared;
 using System;
 using System.Collections.Generic;
-using TKR.WorldServer.core.miscfile.datas;
-using TKR.WorldServer.core.miscfile.thread;
 using TKR.WorldServer.networking;
 using TKR.WorldServer.utils;
 using TKR.WorldServer.core.objects;
+using TKR.WorldServer.core.worlds;
+using TKR.WorldServer.core.net.datas;
 
 namespace TKR.WorldServer.core.net.handlers
 {
@@ -13,7 +13,7 @@ namespace TKR.WorldServer.core.net.handlers
     {
         public override MessageId MessageId => MessageId.MOVE;
 
-        public override void Handle(Client client, NReader rdr, ref TickTime tickTime)
+        public override void Handle(Client client, NetworkReader rdr, ref TickTime tickTime)
         {
             var tickId = rdr.ReadInt32();
             var time = rdr.ReadInt32();
@@ -25,6 +25,7 @@ namespace TKR.WorldServer.core.net.handlers
 
             var player = client.Player;
 
+            player.HandleProjectileDetection(time, newX, newY, ref moveRecords);
             if (newX != -1 && newX != player.X || newY != -1 && newY != player.Y)
             {
                 if (!player.World.Map.Contains(newX, newY))
@@ -89,7 +90,7 @@ namespace TKR.WorldServer.core.net.handlers
                 //}
 
                 player.Move(newX, newY);
-                player.PlayerUpdate.UpdateTiles = true;
+                player.PlayerUpdate.UpdateTiles();
             }
 
             player.MoveReceived(tickTime, time, tickId);

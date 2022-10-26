@@ -1,7 +1,7 @@
 ﻿using TKR.Shared;
 using TKR.Shared.database.guild;
-using TKR.WorldServer.core.miscfile.thread;
-using TKR.WorldServer.core.worlds.logic;
+using TKR.WorldServer.core.worlds;
+using TKR.WorldServer.core.worlds.impl;
 using TKR.WorldServer.networking;
 using TKR.WorldServer.networking.packets.outgoing;
 
@@ -11,9 +11,9 @@ namespace TKR.WorldServer.core.net.handlers
     {
         public override MessageId MessageId => MessageId.CREATEGUILD;
 
-        public override void Handle(Client client, NReader rdr, ref TickTime time)
+        public override void Handle(Client client, NetworkReader rdr, ref TickTime time)
         {
-            var name = rdr.ReadUTF();
+            var name = rdr.ReadUTF16();
 
             if (client.Player == null || client?.Player?.World is TestWorld)
                 return;
@@ -65,16 +65,7 @@ namespace TKR.WorldServer.core.net.handlers
             SendSuccess(client);
         }
 
-        private void SendError(Client client, string message = null) => client.SendPacket(new GuildResult()
-        {
-            Success = false,
-            ErrorText = "Guild Creation Error: " + message
-        });
-
-        private void SendSuccess(Client client) => client.SendPacket(new GuildResult()
-        {
-            Success = true,
-            ErrorText = "Success!"
-        });
+        private void SendError(Client client, string message = null) => client.SendPacket(new GuildResultMessage(false, "Guild Creation Error: " + message));
+        private void SendSuccess(Client client) => client.SendPacket(new GuildResultMessage(true, "Success!"));
     }
 }

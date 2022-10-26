@@ -1,6 +1,6 @@
 ﻿using System.Collections.Concurrent;
-using TKR.WorldServer.core.miscfile.thread;
-using TKR.WorldServer.core.worlds.logic;
+using TKR.WorldServer.core.worlds;
+using TKR.WorldServer.core.worlds.impl;
 using TKR.WorldServer.networking;
 using TKR.WorldServer.networking.packets.outgoing;
 
@@ -8,7 +8,7 @@ namespace TKR.WorldServer.core.objects
 {
     public partial class Player
     {
-        public const int DcThresold = 12000;
+        public const int DcThresold = 120000000;
 
         public int LastClientTime = -1;
         public long LastServerTime = -1;
@@ -36,6 +36,7 @@ namespace TKR.WorldServer.core.objects
         public void AwaitMove(int tickId) => _move.Enqueue(tickId);
 
         public long C2STime(int clientTime) => clientTime + TimeMap;
+        public long S2CTime(int serverTime) => serverTime - TimeMap;
 
         public int GotoAckCount() => _gotoAckTimeout.Count;
 

@@ -1,5 +1,5 @@
 ﻿using TKR.Shared;
-using TKR.WorldServer.core.miscfile.datas;
+using TKR.WorldServer.core.net.datas;
 
 namespace TKR.WorldServer.networking.packets.outgoing
 {
@@ -12,10 +12,10 @@ namespace TKR.WorldServer.networking.packets.outgoing
 
         public override MessageId MessageId => MessageId.NOTIFICATION;
 
-        protected override void Write(NWriter wtr)
+        public override void Write(NetworkWriter wtr)
         {
             wtr.Write(ObjectId);
-            wtr.WriteUTF(Message);
+            wtr.WriteUTF16(Message);
             Color.Write(wtr);
             wtr.Write(PlayerId);
         }

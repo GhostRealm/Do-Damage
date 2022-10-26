@@ -2,10 +2,10 @@
 using TKR.Shared.database;
 using System;
 using System.Collections.Generic;
-using TKR.WorldServer.core.miscfile.datas;
-using TKR.WorldServer.core.miscfile.thread;
 using TKR.WorldServer.networking;
 using TKR.WorldServer.networking.packets.outgoing;
+using TKR.WorldServer.core.worlds;
+using TKR.WorldServer.core.net.datas;
 
 namespace TKR.WorldServer.core.net.handlers
 {
@@ -13,7 +13,7 @@ namespace TKR.WorldServer.core.net.handlers
     {
         public override MessageId MessageId => MessageId.ENGINE_FUEL_ACTION;
 
-        public override void Handle(Client client, NReader rdr, ref TickTime time)
+        public override void Handle(Client client, NetworkReader rdr, ref TickTime time)
         {
             var myInventory = new FuelEngine[rdr.ReadInt16()];
             for (int i = 0; i < myInventory.Length; i++)
