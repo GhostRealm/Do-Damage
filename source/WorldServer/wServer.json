@@ -7,7 +7,7 @@
     },
     "serverInfo": {
         "type": "World",
-        "name": "Netherlands",
+        "name": "Localhost",
         "address": "127.0.0.1",
         "port": 2050,
         "coordinates": {
@@ -19,7 +19,7 @@
     "serverSettings": {
         "logFolder": "./logs",
         "resourceFolder": "./resources",
-        "version": "3.0.0",
+        "version": "1.0.0",
         "maxConnections": 300,
         "maxPlayers": 300,
         "maxRealms": 2,

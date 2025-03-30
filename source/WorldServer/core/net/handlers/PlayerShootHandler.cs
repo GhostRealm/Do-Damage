@@ -1,5 +1,6 @@
 ﻿using NLog;
 using Shared;
+using Shared.resources;
 using System;
 using WorldServer.core.structures;
 using WorldServer.core.worlds;
@@ -22,7 +23,7 @@ namespace WorldServer.core.net.handlers
             var angle = rdr.ReadSingle();
 
             var player = client.Player;
-            if (!player.GameServer.Resources.GameData.Items.TryGetValue((ushort)containerType, out _))
+            if (!player.GameServer.Resources.GameData.Items.TryGetValue((ushort)containerType, out var item))
             {
                 client.Disconnect("Attempting to shoot a invalid item", true);
                 return;
@@ -49,7 +50,22 @@ namespace WorldServer.core.net.handlers
                 return;
             }
 
-            // todo rate of fire checks
+            if (!player.IsValidShootTime(time, item.RateOfFire))
+            {
+#if DEBUG
+                Log.Warn($"Invalid shoot time: Time: {time} Rof: {item.RateOfFire}");
+#endif
+                return;
+            }
+
+            if (!player.IsValidNumShots(time, item))
+            {
+#if DEBUG
+                Log.Warn($"Invalid number of shots: Real NumProjectiles: {item.NumProjectiles}");
+#endif
+                //client.Disconnect("Invalid numver of shots detected", true);
+                return;
+            }
 
             if (player.Inventory[slot] == null || player.Inventory[slot].ObjectType != containerType)
             {
