@@ -34,7 +34,7 @@ namespace WorldServer.logic
                     ),
                 new State("Second Phase",
                     new Grenade(3.5, 150, 11, null, 1000, ConditionEffectIndex.Confused, 1000),
-                    new Shoot(25, 4, null, 2, 0, 15, coolDown: 250),
+                    new Shoot(25, 4, null, 1, 0, 15, coolDown: 250),
                     new HpLessTransition(0.33, "Third Phase Start")
                     ),
                 new State("Third Phase Start",
@@ -44,7 +44,7 @@ namespace WorldServer.logic
                     ),
                 new State("Third Phase",
                     new Shoot(30, 3, shootAngle: 15, projectileIndex: 0, coolDown: 1500),
-                    new Shoot(25, 4, null, 2, 0, 15, coolDown: 500),
+                    new Shoot(25, 4, null, 1, 0, 15, coolDown: 500),
 
                     /* 0-90-180-360 */
                     new Grenade(1.5, 75, 6, _upAngle, 1500, ConditionEffectIndex.Petrify, 1000),
@@ -62,10 +62,6 @@ namespace WorldServer.logic
             new Threshold(0.01,
                 new ItemLoot("Potion of Speed", 1),
                 new ItemLoot("Potion of Speed", 1),
-                new ItemLoot("Hebikira", 0.001),
-                new ItemLoot("Snake Queen's Hide", 0.00125),
-                new ItemLoot("Star of Stheno", 0.00125),
-                new ItemLoot("Spirit of Snakes", 0.00125),
                 new ItemLoot("Snake Pit Key", 0.1),
                 new ItemLoot("Wand of the Bulwark", 0.00125),
                 new ItemLoot("Snake Skin Armor", 0.1),

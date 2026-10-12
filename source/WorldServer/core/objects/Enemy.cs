@@ -53,7 +53,9 @@ namespace WorldServer.core.objects
 
         public override void Tick(ref TickTime time)
         {
-            if (Health == 0 && !Dead)
+            // objects without MaxHitPoints (anchors, spawners, traps) start at 0 HP; they end
+            // through their behaviour instead of dying on their first tick
+            if (Health == 0 && MaxHealth > 0 && !Dead)
                 Death(ref time);
 
             if (HasConditionEffect(ConditionEffectIndex.Bleeding))
@@ -197,6 +199,7 @@ namespace WorldServer.core.objects
             {
                 DamageCounter.Death();
                 CurrentState?.OnDeath(this, ref time);
+                OnDeath?.Invoke(this, new BehaviorEventArgs(this, time));
                 if (GameServer.BehaviorDb.Definitions.TryGetValue(ObjectType, out var loot))
                     loot.Item2?.Handle(this, time);
             }

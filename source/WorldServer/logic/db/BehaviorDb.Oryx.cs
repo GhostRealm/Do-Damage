@@ -11,6 +11,7 @@ namespace WorldServer.logic
             .Init("Oryx the Mad God 2",
                 new State(
                     new ScaleHP2(30),
+                    new DropPortalOnDeath("Lost Halls Portal", 0.1, timeout: 120),
                     new State("Attack",
                         new Wander(.05),
                         new Shoot(25, projectileIndex: 0, count: 8, shootAngle: 45, coolDown: 1500, coolDownOffset: 1500),
@@ -33,14 +34,14 @@ namespace WorldServer.logic
                         new Follow(.1, 15, 3),
                         new Taunt("Can't... keep... henchmen... alive... anymore! ARGHHH!!!"),
                         new ConditionEffectBehavior(ConditionEffectIndex.Invulnerable),
-                        new Shoot(25, 30, fixedAngle: 0, projectileIndex: 7, coolDown: 4000, coolDownOffset: 4000),
-                        new Shoot(25, 30, fixedAngle: 30, projectileIndex: 8, coolDown: 4000, coolDownOffset: 4000),
+                        new Shoot(25, 30, fixedAngle: 0, projectileIndex: 13, coolDown: 4000, coolDownOffset: 4000),
+                        new Shoot(25, 30, fixedAngle: 30, projectileIndex: 14, coolDown: 4000, coolDownOffset: 4000),
                         new TimedTransition(10000, "rage")
                     ),
                     new State("rage",
                         new Follow(.1, 15, 3),
-                        new Shoot(25, 30, projectileIndex: 7, coolDown: 90000001, coolDownOffset: 8000),
-                        new Shoot(25, 30, projectileIndex: 8, coolDown: 90000001, coolDownOffset: 8500),
+                        new Shoot(25, 30, projectileIndex: 13, coolDown: 90000001, coolDownOffset: 8000),
+                        new Shoot(25, 30, projectileIndex: 14, coolDown: 90000001, coolDownOffset: 8500),
                         new Shoot(25, projectileIndex: 0, count: 8, shootAngle: 45, coolDown: 1500, coolDownOffset: 1500),
                         new Shoot(25, projectileIndex: 1, count: 3, shootAngle: 10, coolDown: 1000, coolDownOffset: 1000),
                         new Shoot(25, projectileIndex: 2, count: 3, shootAngle: 10, predictive: 0.2, coolDown: 1000,
@@ -64,9 +65,6 @@ namespace WorldServer.logic
                     new ItemLoot("Potion of Attack", 0.3),
                     new ItemLoot("Potion of Defense", 0.3),
                     new ItemLoot("Potion of Wisdom", 0.3)
-                ),
-                new Threshold(0.20,
-                    new ItemLoot("Oryx's Arena Key", 0.01)
                 ),
                 new Threshold(0.1,
                     new TierLoot(10, ItemType.Weapon, 0.07),
@@ -204,9 +202,6 @@ namespace WorldServer.logic
                         new Flash(0xfFF0000, 0.5, 9000001)
                         )
                     ),
-                new Threshold(0.20,
-                    new ItemLoot("Oryx's Arena Key", 0.005)
-                ),
                 new Threshold(0.05,
                     new ItemLoot("Potion of Attack", 0.3),
                     new ItemLoot("Potion of Defense", 0.3)
@@ -427,5 +422,13 @@ namespace WorldServer.logic
                     new Wander(.5))
                     )
                     );
+
+        // Wine Cellar puddles: anyone standing in one is sickened and slowed
+        private _ WineCellarGoo = () => Behav()
+            .Init("Purple Goo",
+                new State(
+                    new Shoot(1, count: 1, projectileIndex: 0, fixedAngle: 0, coolDown: 800)
+                    )
+                );
     }
 }

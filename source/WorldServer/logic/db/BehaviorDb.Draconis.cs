@@ -144,7 +144,7 @@ namespace WorldServer.logic
                     new ItemLoot("Large Blue Dragon Scale Cloth", 0.4),
                     new ItemLoot("Small Blue Dragon Scale Cloth", 0.4),
                     new ItemLoot("Water Dragon Silk Robe", 0.004),
-                    new ItemLoot("Zaarvox's Heart", 0.02),
+                    new ItemLoot("WarriorST2", 0.02),
                     new ItemLoot("Potion of Wisdom", 1)
                 )
             )
@@ -173,7 +173,7 @@ namespace WorldServer.logic
                         new HpLessTransition(0.75, "9"),
                         new Shoot(0, 4, 45, 1, 90, coolDown: 2000),
                         new Shoot(0, 4, 15, 2, 90, coolDown: 2000),
-                        new Shoot(0, 6, 30, 4, 315, coolDown: 2500),
+                        new Shoot(0, 6, 30, 6, 315, coolDown: 2500),
                         new Shoot(0, 6, 25, 3, 0, coolDown: 4500, coolDownOffset: 1500),
                         new Shoot(0, 6, 15, 5, 315, coolDown: 4500, coolDownOffset: 1500),
                         new Shoot(0, 6, 25, 3, 90, coolDown: 4500, coolDownOffset: 3000),
@@ -202,7 +202,7 @@ namespace WorldServer.logic
                         new Flash(0xFFFFFF, 0.2, 12),
                         new Shoot(0, 4, 45, 1, 90, coolDown: 2000),
                         new Shoot(0, 4, 15, 2, 90, coolDown: 2000),
-                        new Shoot(0, 6, 30, 4, 315, coolDown: 2500),
+                        new Shoot(0, 6, 30, 6, 315, coolDown: 2500),
                         new Shoot(24, 1, projectileIndex: 0, coolDown: 1000),
                         new Shoot(0, 6, 25, 3, 0, coolDown: 4500, coolDownOffset: 1500),
                         new Shoot(0, 6, 15, 5, 315, coolDown: 4500, coolDownOffset: 1500),
@@ -236,7 +236,7 @@ namespace WorldServer.logic
                         new Wander(0.6),
                         new Shoot(0, 4, 45, 1, 90, coolDown: 2000),
                         new Shoot(0, 4, 15, 2, 90, coolDown: 2000),
-                        new Shoot(0, 6, 30, 4, 315, coolDown: 2500),
+                        new Shoot(0, 6, 30, 6, 315, coolDown: 2500),
                         new Shoot(24, 1, projectileIndex: 0, coolDown: 1000),
                         new Shoot(0, 6, 15, 5, 315, coolDown: 4500, coolDownOffset: 1500),
                         new Shoot(0, 6, 15, 5, 270, coolDown: 4500, coolDownOffset: 3000),
@@ -326,7 +326,7 @@ namespace WorldServer.logic
                     new ItemLoot("Large Red Dragon Scale Cloth", 0.4),
                     new ItemLoot("Small Red Dragon Scale Cloth", 0.4),
                     new ItemLoot("Fire Dragon Battle Armor", 0.004),
-                    new ItemLoot("Indomptable", 0.02),
+                    new ItemLoot("WarriorST0", 0.02),
                     new ItemLoot("Potion of Attack", 1),
                     new ItemLoot("Potion of Defense", 1)
                 )
@@ -590,7 +590,7 @@ namespace WorldServer.logic
                 new Threshold(0.01,
                     new ItemLoot("Large Midnight Dragon Scale Cloth", 0.4),
                     new ItemLoot("Small Midnight Dragon Scale Cloth", 0.4),
-                    new ItemLoot("Amulet of Drakefyre", 0.02),
+                    new ItemLoot("WarriorST3", 0.02),
                     new ItemLoot("Potion of Vitality", 1)
                 )
             )

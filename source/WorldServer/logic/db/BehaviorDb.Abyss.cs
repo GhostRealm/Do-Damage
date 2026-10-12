@@ -201,7 +201,7 @@ namespace WorldServer.logic
                                  new Shoot(12, projectileIndex: 2, count: 2, shootAngle: 72, predictive: 0.5, coolDown: 550)
 
                                 ),
-                            new Shoot(radius: 0, count: 3, shootAngle: 60, projectileIndex: 1, fixedAngle: 0, coolDown: 1200),
+                            new Shoot(radius: 0, count: 3, shootAngle: 60, projectileIndex: 0, fixedAngle: 0, coolDown: 1200),
                             new Shoot(radius: 8, count: 1, angleOffset: 0.6, predictive: 0.15, coolDown: 900),
                             new TimedTransition(time: 12000, targetState: "Size_matters")
                             ),
@@ -279,6 +279,26 @@ namespace WorldServer.logic
                     new ItemLoot("Demon Blade", 0.007),
                     new ItemLoot(item: "Potion of Vitality", probability: 1),
                     new ItemLoot(item: "Potion of Defense", probability: 1)
+                )
+            );
+
+        private _ AbyssIdol = () => Behav()
+        .Init("Abyss Idol",
+            new State(
+                new ScaleHP2(20),
+                new State("Idle",
+                    new PlayerWithinTransition(10, "Attack")
+                    ),
+                new State("Attack",
+                    new Shoot(4, count: 8, shootAngle: 45, projectileIndex: 0, coolDown: 1500),
+                    new Shoot(12, count: 1, projectileIndex: 2, predictive: 0.4, coolDown: 3000),
+                    new Shoot(0, count: 6, shootAngle: 60, projectileIndex: 3, fixedAngle: 0, coolDown: 2000),
+                    new Shoot(0, count: 6, shootAngle: 60, projectileIndex: 3, fixedAngle: 30, coolDown: 2000, coolDownOffset: 1000),
+                    new NoPlayerWithinTransition(14, "Idle")
+                    )
+                ),
+            new Threshold(0.01,
+                new ItemLoot("Potion of Vitality", 0.5)
                 )
             );
     }
