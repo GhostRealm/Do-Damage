@@ -26,6 +26,12 @@ For testing changes without touching the live servers or your own client, `tools
 
 The account server address is compiled into `LocalhostSetup.as`, so the script copies the sources to `build/src` and sets it there. The package is a self-contained Windows app (AIR captive runtime) signed with a self-signed certificate in `build/`.
 
+The Rust rewrite of the client (`client-rs/`, see its AGENTS.md) does everything the AIR client does and also runs in a browser. Its package is built the same way:
+
+```
+python tools\build_client_rs.py --account http://188.141.12.3:8080 --package   # dist\betterSkillys-rs-windows.zip
+```
+
 ## Letting other people play
 
 - **World server address:** `source/WorldServer/wServer.json` sets `serverInfo.address` to the public IP (188.141.12.3). The account server sends 127.0.0.1 instead to clients on this PC.
@@ -114,6 +120,8 @@ In `PlayerShootHandler.cs`, the merge keeps HaloCelsius's rate-of-fire and proje
   - Dungeon Keys (Store 11): the regular key of each of the 43 dungeons that has a world, one stall each, 10 to 500 fame. Elder and Doomed Keys (Store 12): 20 keys and incantations. Enchanted Keys (Store 4): 18 keys that also turn into a Mystery ST Crate, at twice the key plus 250. Guild, test and reusable keys aren't sold.
   - Stat Potions (Store 1): the eight stat potions, 150 fame (Life and Mana 300). Consumables (Store 2): health and magic potions, tinctures, effusions and drake eggs. Specials (Store 3): XP Boosters, the Loot Drop Potion, Backpack, Vault Chest and Char Slot Unlockers, mystery dyes. Small cloths, clothing dyes and accessory dyes (Stores 7 to 9) rotate through their stalls as the town's large cloths do.
   - Merchant fixes: a stall whose shop had every item out on other stalls was dropped for good (`NexusWorld.SendOutMerchant`); it now waits and tries again. A shop item missing from the game data is removed at start-up instead of becoming a merchant with an invalid item.
+- **Nexus fountains:** the four fountains in the nexus's water basins were the frozen winter kind, which give off nothing. They are now the White Fountain, with its spray, and standing within 3.5 tiles of one gives the Healing condition (`NexusWorld.HealByFountains`, renewed every half second). The map change and the healing take effect when the world server restarts.
+- **Quest damage dealers** (`QUEST_DAMAGE_SUBSCRIBE` 89, `QUEST_DAMAGE` 90): a client that asks gets its quest's top three damage dealers and its own damage, as the server counts them (`DamageCounter`), whenever they change (`Player.SendQuestDamage`, checked twice a second). The Rust client shows them under the boss bar. The AIR client never asks, so nothing changes for it; a server without this ignores the request.
 - **Boosters:** the XP Boosters and the Loot Drop Potion mark their effect with `<XpBoost/>` or `<LDBoosted/>` and a `<Timer>`, which nothing read, so using one did nothing. `Player.Activate` now starts the boost from them (`<Timer>-1</Timer>`: until level 20). Using an XP Booster while one runs gives it back instead of eating it, and starting one says so. `/boosts` lists an active XP Booster (it only counted ones with a positive time, so one lasting until level 20 never showed) and the time left. Loot tier boosts (`<LTBoosted/>`, the Loot Tier Potion and half of the Lucky Clover) still aren't implemented, so the Loot Tier Potion isn't sold.
 - **Dungeons** (world server):
   - Map files are looked up without regard to case (`XmlData.WorldDataCache`). Cave of a Thousand Treasures and the Avatar, Skull Shrine and Grand Sphinx setpieces didn't load before.

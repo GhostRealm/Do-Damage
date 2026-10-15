@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>betterSkillys-rs</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #07080a; overflow: hidden; font: 14px sans-serif; color: #a9b0be; }
+    canvas { display: block; width: 100vw; height: 100vh; outline: none; }
+    #status { position: fixed; inset: 0; display: grid; place-items: center; }
+  </style>
+</head>
+<body>
+  <div id="status">Loading…</div>
+  <script type="module">
+    // The client draws its own sign-in screen. A page may set window.bskLogin = {email, password}
+    // before init() to sign in straight away (see client-rs/app/src/login.rs).
+    import init from "./betterskillys.js";
+    const status = document.getElementById("status");
+    init().then(() => status.remove(), (err) => { status.textContent = "Failed to start: " + err; });
+  </script>
+</body>
+</html>

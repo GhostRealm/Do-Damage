@@ -1,0 +1,1225 @@
+//! The screens outside the game (the AIR client's `TitleView`/`AccountScreen`,
+//! `CharacterSelectionAndNewsScreen`, `NewCharacterScreen`): sign in or register, then pick,
+//! make or delete a character and choose a server. They're drawn over the title art in the
+//! shared theme, scaled to the window and laid out from its shape each frame. Also the small
+//! menu Escape opens in the game.
+
+use crate::hud::Ui;
+use crate::redraw::Dye;
+use crate::theme::{self, color, Kind};
+use bsk_data::{ObjectClass, ObjectDesc, TextureRef};
+use bsk_net::account::{CharList, CharSummary, FameSummary, Legend};
+use bsk_render::{AtlasRect, Quad, Tint};
+use winit::keyboard::KeyCode;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Screen {
+    Login,
+    Register,
+    /// Waiting on the account server.
+    Busy,
+    Chars,
+    NewChar,
+    /// A class's page: its skins, then Create.
+    Class(u16),
+    Legends,
+    /// The account's dead characters (`Graveyard`).
+    Graveyard,
+    /// Account settings: change the password.
+    Account,
+    /// How a dead character's fame was counted.
+    Death,
+}
+
+/// The text fields, by index.
+pub const EMAIL: usize = 0;
+pub const PASSWORD: usize = 1;
+pub const NAME: usize = 2;
+pub const CONFIRM: usize = 3;
+pub const NEW_PASSWORD: usize = 4;
+pub const NEW_CONFIRM: usize = 5;
+
+/// The legends' time spans: (id for the server, label).
+pub const TIMESPANS: [(&str, &str); 3] = [("week", "This week"), ("month", "This month"), ("all", "All time")];
+
+/// What a confirmation dialog is asking about.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Confirm {
+    Delete(i32),
+    BuySlot,
+    BuySkin(u16),
+}
+
+/// What can be clicked.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Target {
+    Field(usize),
+    SignIn,
+    ToRegister,
+    Register,
+    ToLogin,
+    Remember,
+    Char(i32),
+    Delete(i32),
+    ConfirmYes,
+    ConfirmNo,
+    NewChar,
+    Class(u16),
+    Skin(u16),
+    Create,
+    BuySlot,
+    ToLegends,
+    ToGraveyard,
+    /// A grave: that dead character's fame summary.
+    Grave(i32),
+    ToAccount,
+    Timespan(usize),
+    SavePassword,
+    Back,
+    ServerPrev,
+    ServerNext,
+    Logout,
+}
+
+/// What the player asked for.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Action {
+    SignIn,
+    Register,
+    Play(i32),
+    /// Make a character of this class, with this skin (0 for none).
+    Create(u16, u16),
+    Delete(i32),
+    Logout,
+    BuySlot,
+    BuySkin(u16),
+    ChangePassword,
+    /// Ask for the legends of this time span.
+    Legends(&'static str),
+    /// Show how a dead character's fame was counted.
+    ViewDeath(i32),
+}
+
+pub struct Front {
+    pub screen: Screen,
+    /// Email, password, name, confirm password, new password, confirm new password.
+    pub fields: [String; 6],
+    focus: usize,
+    pub remember: bool,
+    /// A line under the form or list: (text, is it an error).
+    pub message: Option<(String, bool)>,
+    /// What the Busy screen says.
+    pub busy: String,
+    pub list: Option<CharList>,
+    /// Which of the list's servers to play on.
+    pub server: usize,
+    /// What a confirmation dialog is open for.
+    confirm: Option<Confirm>,
+    /// The skin picked on a class's page (0: the class's own look).
+    pub skin: u16,
+    /// The legends shown, and which time span.
+    pub legends: Option<Vec<Legend>>,
+    pub timespan: usize,
+    /// The last death's fame summary.
+    pub death: Option<FameSummary>,
+    /// The summary was opened from the graveyard (Continue goes back there).
+    pub death_from_graveyard: bool,
+    /// Clickable areas from the last frame.
+    targets: Vec<(Target, [f32; 4])>,
+    /// Where the account server is, shown small on the login screen.
+    pub endpoint_label: String,
+    /// A button was clicked since this was last cleared (for its sound).
+    pub clicked: bool,
+}
+
+impl Default for Front {
+    fn default() -> Self {
+        Front {
+            screen: Screen::Login,
+            fields: Default::default(),
+            focus: EMAIL,
+            remember: true,
+            message: None,
+            busy: String::new(),
+            list: None,
+            server: 0,
+            confirm: None,
+            skin: 0,
+            legends: None,
+            timespan: 0,
+            death: None,
+            death_from_graveyard: false,
+            clicked: false,
+            targets: Vec::new(),
+            endpoint_label: String::new(),
+        }
+    }
+}
+
+/// The screens' scale: their design is about 1000×720.
+pub fn scale(w: f32, h: f32) -> f32 {
+    (h / 720.0).min(w / 1000.0).clamp(0.5, 3.0)
+}
+
+fn inside(r: [f32; 4], (x, y): (f64, f64)) -> bool {
+    let (x, y) = (x as f32, y as f32);
+    x >= r[0] && y >= r[1] && x < r[0] + r[2] && y < r[1] + r[3]
+}
+
+/// The classes a new character can be (`ObjectLibrary.playerChars_`), in type order.
+pub fn player_classes(data: &bsk_data::GameData) -> Vec<&ObjectDesc> {
+    let mut classes: Vec<_> = data.objects.values().filter(|d| d.player && d.class == ObjectClass::Player).collect();
+    classes.sort_by_key(|d| d.object_type);
+    classes
+}
+
+/// `<UnlockLevel level="5" type="0x0307">`: whether the account may play the class, and the
+/// first requirement it lacks.
+fn unlock(desc: &ObjectDesc, list: &CharList) -> Option<(u16, i32)> {
+    desc.xml
+        .children_named("UnlockLevel")
+        .map(|u| (bsk_data::xml::as3_int(u.attr("type").unwrap_or("0")) as u16, u.attr_int("level", 0)))
+        .find(|(t, level)| list.class_stats.get(t).is_none_or(|s| s.0 < *level))
+}
+
+/// A skin a class can wear, as the new-character page shows it.
+pub struct SkinInfo<'a> {
+    pub desc: &'a ObjectDesc,
+    pub owned: bool,
+    /// The class level it needs, when the account hasn't reached it.
+    pub needs_level: Option<i32>,
+    /// Only given out (`<UnlockSpecial>`), never sold.
+    pub special: bool,
+    pub cost: i32,
+}
+
+/// The skins of `class` that can be chosen (not `<NoSkinSelect>`), in type order.
+pub fn class_skins<'a>(data: &'a bsk_data::GameData, class: u16, list: &CharList) -> Vec<SkinInfo<'a>> {
+    let best = list.class_stats.get(&class).map_or(0, |s| s.0);
+    let mut skins: Vec<SkinInfo> = data
+        .objects
+        .values()
+        .filter(|d| d.xml.has("Skin") && !d.xml.has("NoSkinSelect"))
+        .filter(|d| bsk_data::xml::as3_int(d.xml.text_of("PlayerClassType").unwrap_or("0")) as u16 == class)
+        .map(|d| {
+            let level = d.xml.int("UnlockLevel", 0);
+            SkinInfo {
+                desc: d,
+                owned: list.owned_skins.contains(&d.object_type),
+                needs_level: (level > best).then_some(level),
+                special: d.xml.has("UnlockSpecial"),
+                // SkinDesc: 300 gold unless the skin says.
+                cost: d.xml.int("Cost", 300),
+            }
+        })
+        .collect();
+    skins.sort_by_key(|k| k.desc.object_type);
+    skins
+}
+
+/// A tier colour for an item's slot edge: white tiers, gold for the top ones, purple for
+/// untiered, orange for sets.
+pub fn tier_edge(data: &bsk_data::GameData, item: i32) -> Option<u32> {
+    let d = data.objects.get(&(item as u16))?;
+    let xml = &d.xml;
+    if ["Admin", "Ethereal", "Ascended", "Legendary"].iter().any(|t| xml.has(t)) {
+        return Some(0xFFC800);
+    }
+    if xml.has("Consumable") || xml.has("Treasure") {
+        return None;
+    }
+    if let Some(t) = xml.text_of("Tier") {
+        let tier: i32 = t.trim().parse().unwrap_or(0);
+        return Some(match tier {
+            0..=5 => 0x8A93A6,
+            6..=9 => 0xC9D2E3,
+            10..=11 => 0x7FB2FF,
+            _ => 0xFFC800,
+        });
+    }
+    if xml.attr("setType").is_some() {
+        return Some(0xFF9900);
+    }
+    xml.has("SlotType").then_some(0xB070FF)
+}
+
+impl Front {
+    fn field_is_secret(i: usize) -> bool {
+        matches!(i, PASSWORD | CONFIRM | NEW_PASSWORD | NEW_CONFIRM)
+    }
+
+    fn fields_on_screen(&self) -> &'static [usize] {
+        match self.screen {
+            Screen::Login => &[EMAIL, PASSWORD],
+            Screen::Register => &[NAME, EMAIL, PASSWORD, CONFIRM],
+            Screen::Account => &[PASSWORD, NEW_PASSWORD, NEW_CONFIRM],
+            _ => &[],
+        }
+    }
+
+    /// Show a screen, focusing its first field.
+    pub fn show(&mut self, screen: Screen) {
+        self.screen = screen;
+        self.confirm = None;
+        if screen == Screen::Account {
+            for f in [PASSWORD, NEW_PASSWORD, NEW_CONFIRM] {
+                self.fields[f].clear();
+            }
+        }
+        if let Some(&first) = self.fields_on_screen().first() {
+            // Signing in with an email already typed: start at the password.
+            self.focus = if screen == Screen::Login && !self.fields[EMAIL].is_empty() { PASSWORD } else { first };
+        }
+    }
+
+    /// A key pressed (with the text it types, if any).
+    pub fn key(&mut self, code: KeyCode, text: Option<&str>) -> Option<Action> {
+        if self.confirm.is_some() {
+            match code {
+                KeyCode::Escape => self.confirm = None,
+                KeyCode::Enter | KeyCode::NumpadEnter => return self.confirmed(),
+                _ => {}
+            }
+            return None;
+        }
+        let fields = self.fields_on_screen();
+        match code {
+            KeyCode::Tab if !fields.is_empty() => {
+                let i = fields.iter().position(|&f| f == self.focus).unwrap_or(0);
+                self.focus = fields[(i + 1) % fields.len()];
+            }
+            KeyCode::Enter | KeyCode::NumpadEnter => match self.screen {
+                Screen::Login => return Some(Action::SignIn),
+                Screen::Register => return Some(Action::Register),
+                Screen::Account => return Some(Action::ChangePassword),
+                Screen::Death if self.death_from_graveyard => self.show(Screen::Graveyard),
+                Screen::Death => self.show(Screen::Chars),
+                _ => {}
+            },
+            KeyCode::Escape => match self.screen {
+                Screen::Register => self.show(Screen::Login),
+                Screen::Death if self.death_from_graveyard => self.show(Screen::Graveyard),
+                Screen::NewChar | Screen::Legends | Screen::Graveyard | Screen::Account | Screen::Death => self.show(Screen::Chars),
+                Screen::Class(_) => self.show(Screen::NewChar),
+                _ => {}
+            },
+            KeyCode::Backspace if fields.contains(&self.focus) => {
+                self.fields[self.focus].pop();
+            }
+            _ => {
+                if let (Some(t), true) = (text, fields.contains(&self.focus)) {
+                    let field = &mut self.fields[self.focus];
+                    field.extend(t.chars().filter(|c| !c.is_control()));
+                    while field.chars().count() > 128 {
+                        field.pop();
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// A left click.
+    pub fn click(&mut self, pos: (f64, f64)) -> Option<Action> {
+        let target = self.targets.iter().rev().find(|(_, r)| inside(*r, pos)).map(|(t, _)| *t)?;
+        self.clicked |= !matches!(target, Target::Field(_));
+        let servers = self.list.as_ref().map_or(0, |l| l.servers.len());
+        match target {
+            Target::Field(i) => self.focus = i,
+            Target::SignIn => return Some(Action::SignIn),
+            Target::Register => return Some(Action::Register),
+            Target::ToRegister => {
+                self.message = None;
+                self.show(Screen::Register);
+            }
+            Target::ToLogin => {
+                self.message = None;
+                self.show(Screen::Login);
+            }
+            Target::Back => match self.screen {
+                Screen::Class(_) => self.show(Screen::NewChar),
+                Screen::Death if self.death_from_graveyard => self.show(Screen::Graveyard),
+                _ => self.show(Screen::Chars),
+            },
+            Target::ToGraveyard => self.show(Screen::Graveyard),
+            Target::Grave(id) => return Some(Action::ViewDeath(id)),
+            Target::Remember => self.remember = !self.remember,
+            Target::Char(id) => return Some(Action::Play(id)),
+            Target::Delete(id) => self.confirm = Some(Confirm::Delete(id)),
+            Target::ConfirmYes => return self.confirmed(),
+            Target::ConfirmNo => self.confirm = None,
+            Target::NewChar => self.show(Screen::NewChar),
+            Target::Class(t) => {
+                self.skin = 0;
+                self.show(Screen::Class(t));
+            }
+            Target::Skin(t) => {
+                let owned = self.list.as_ref().is_some_and(|l| l.owned_skins.contains(&t));
+                if t == 0 || owned {
+                    self.skin = t;
+                } else {
+                    self.confirm = Some(Confirm::BuySkin(t));
+                }
+            }
+            Target::Create => {
+                if let Screen::Class(class) = self.screen {
+                    return Some(Action::Create(class, self.skin));
+                }
+            }
+            Target::BuySlot => self.confirm = Some(Confirm::BuySlot),
+            Target::ToLegends => {
+                self.show(Screen::Legends);
+                return Some(Action::Legends(TIMESPANS[self.timespan].0));
+            }
+            Target::ToAccount => {
+                self.message = None;
+                self.show(Screen::Account);
+            }
+            Target::Timespan(i) => {
+                self.timespan = i;
+                self.legends = None;
+                return Some(Action::Legends(TIMESPANS[i].0));
+            }
+            Target::SavePassword => return Some(Action::ChangePassword),
+            Target::ServerPrev if servers > 0 => self.server = (self.server + servers - 1) % servers,
+            Target::ServerNext if servers > 0 => self.server = (self.server + 1) % servers,
+            Target::ServerPrev | Target::ServerNext => {}
+            Target::Logout => return Some(Action::Logout),
+        }
+        None
+    }
+
+    /// The confirmation's answer: yes.
+    fn confirmed(&mut self) -> Option<Action> {
+        match self.confirm.take()? {
+            Confirm::Delete(id) => Some(Action::Delete(id)),
+            Confirm::BuySlot => Some(Action::BuySlot),
+            Confirm::BuySkin(t) => Some(Action::BuySkin(t)),
+        }
+    }
+
+    /// Draw the current screen. `title` is the background art and its size.
+    pub fn draw(&mut self, ui: &mut Ui, w: f32, h: f32, title: Option<(AtlasRect, u32, u32)>, mouse: (f64, f64), now: i32) {
+        self.targets.clear();
+        let s = scale(w, h);
+        draw_backdrop(ui, w, h, title, self.screen, now);
+        match self.screen {
+            Screen::Login => self.draw_login(ui, w, h, s, mouse, now),
+            Screen::Register => self.draw_register(ui, w, h, s, mouse, now),
+            Screen::Busy => {
+                let (cx, cy) = (w / 2.0, h * 0.74);
+                spinner(ui, cx, cy, 18.0 * s, now, s);
+                let size = (18.0 * s).round();
+                let tw = ui.measure(&self.busy, size, true);
+                ui.label(&self.busy, cx - tw / 2.0, cy + 30.0 * s, size, true, color::TEXT);
+            }
+            Screen::Chars => self.draw_chars(ui, w, h, s, mouse),
+            Screen::NewChar => self.draw_new_char(ui, w, h, s, mouse),
+            Screen::Class(class) => self.draw_class(ui, w, h, s, class, mouse),
+            Screen::Legends => self.draw_legends(ui, w, h, s, mouse),
+            Screen::Graveyard => self.draw_graveyard(ui, w, h, s, mouse),
+            Screen::Account => self.draw_account(ui, w, h, s, mouse, now),
+            Screen::Death => self.draw_death(ui, w, h, s, mouse),
+        }
+        if self.confirm.is_some() {
+            self.draw_confirm(ui, w, h, s, mouse);
+        }
+    }
+
+    fn button(&mut self, ui: &mut Ui, target: Target, r: [f32; 4], label: &str, kind: Kind, s: f32, mouse: (f64, f64)) {
+        ui.button(r, label, kind, inside(r, mouse), s);
+        self.targets.push((target, r));
+    }
+
+    /// A text link: `lead` in grey, then `label` in gold.
+    fn link(&mut self, ui: &mut Ui, target: Target, cx: f32, y: f32, lead: &str, label: &str, size: f32, mouse: (f64, f64)) {
+        let lw = ui.measure(lead, size, false);
+        let tw = ui.measure(label, size, true);
+        let x = cx - (lw + tw) / 2.0;
+        let r = [x + lw, y, tw, size * 1.3];
+        ui.label(lead, x, y, size, false, color::TEXT_DIM);
+        ui.label(label, x + lw, y, size, true, if inside(r, mouse) { color::ACCENT_HI } else { color::ACCENT });
+        self.targets.push((target, r));
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn field(&mut self, ui: &mut Ui, i: usize, label: &str, placeholder: &str, x: f32, y: f32, width: f32, s: f32, now: i32) -> f32 {
+        let size = (13.0 * s).round().max(9.0);
+        ui.label(label, x, y, size, true, color::TEXT_DIM);
+        let r = [x, y + 20.0 * s, width, 38.0 * s];
+        let focused = self.focus == i;
+        ui.field_box(r, focused, s);
+        let value = &self.fields[i];
+        let fsize = (16.0 * s).round().max(10.0);
+        let ty = r[1] + (r[3] - fsize * 1.22) / 2.0;
+        if value.is_empty() && !focused {
+            ui.label(placeholder, r[0] + 12.0 * s, ty, fsize, false, color::TEXT_MUTED);
+        } else {
+            let mut shown = if Self::field_is_secret(i) { "•".repeat(value.chars().count()) } else { value.clone() };
+            if focused && (now / 530) % 2 == 0 {
+                shown.push('|');
+            }
+            // Long text scrolls: show its end.
+            let mut start = 0;
+            while start < shown.len() && ui.measure(&shown[start..], fsize, false) > width - 24.0 * s {
+                start += shown[start..].chars().next().map_or(1, |c| c.len_utf8());
+            }
+            ui.label(&shown[start..], r[0] + 12.0 * s, ty, fsize, false, color::TEXT);
+        }
+        self.targets.push((Target::Field(i), r));
+        y + 72.0 * s
+    }
+
+    fn message_line(&self, ui: &mut Ui, cx: f32, y: f32, max_w: f32, s: f32) {
+        if let Some((text, error)) = &self.message {
+            let size = (14.0 * s).round().max(9.0);
+            let tw = ui.measure(text, size, true).min(max_w);
+            let c = if *error { color::DANGER } else { color::GOOD };
+            theme::fill(ui.renderer, [cx - tw / 2.0 - 12.0 * s, y - 4.0 * s, tw + 24.0 * s, size * 1.25 + 8.0 * s], 6.0 * s, c, 0.16);
+            ui.label(text, cx - tw / 2.0, y, size, true, theme::shade(c, 0.35));
+        }
+    }
+
+    /// Where the sign-in and register cards go: right of the art's middle on wide windows,
+    /// below the logo on tall ones.
+    fn card_rect(w: f32, h: f32, bw: f32, bh: f32) -> [f32; 4] {
+        if w >= 1.3 * h {
+            let x = (w * 0.79 - bw / 2.0).min(w - bw - 24.0);
+            [x, ((h - bh) / 2.0).max(16.0), bw, bh]
+        } else {
+            [(w - bw) / 2.0, (h - bh - 28.0).max(h * 0.45).min(h - bh - 8.0), bw, bh]
+        }
+    }
+
+    fn draw_login(&mut self, ui: &mut Ui, w: f32, h: f32, s: f32, mouse: (f64, f64), now: i32) {
+        let r = Self::card_rect(w, h, 380.0 * s, 420.0 * s);
+        let [x, y, bw, bh] = r;
+        theme::panel(ui.renderer, r, s);
+        let pad = 28.0 * s;
+        ui.label("Welcome back", x + pad, y + 24.0 * s, (26.0 * s).round(), true, color::TEXT);
+        ui.label("Sign in to continue your adventure", x + pad, y + 60.0 * s, (14.0 * s).round(), false, color::TEXT_DIM);
+        let mut fy = y + 96.0 * s;
+        fy = self.field(ui, EMAIL, "Email", "you@example.com", x + pad, fy, bw - 2.0 * pad, s, now);
+        fy = self.field(ui, PASSWORD, "Password", "Your password", x + pad, fy, bw - 2.0 * pad, s, now);
+        // Remember me, as a switch.
+        let size = (14.0 * s).round().max(9.0);
+        let sw = [x + pad, fy + 2.0 * s, 36.0 * s, 20.0 * s];
+        theme::fill(ui.renderer, sw, sw[3] / 2.0, if self.remember { color::ACCENT } else { 0x3A4050 }, 1.0);
+        let knob_x = if self.remember { sw[0] + sw[2] - sw[3] } else { sw[0] };
+        theme::fill(ui.renderer, [knob_x + 2.0 * s, sw[1] + 2.0 * s, sw[3] - 4.0 * s, sw[3] - 4.0 * s], sw[3], 0xFFFFFF, 1.0);
+        ui.label("Remember me", sw[0] + sw[2] + 10.0 * s, sw[1] + 1.0 * s, size, false, color::TEXT_DIM);
+        self.targets.push((Target::Remember, [sw[0], sw[1], 160.0 * s, sw[3]]));
+        self.button(ui, Target::SignIn, [x + pad, fy + 40.0 * s, bw - 2.0 * pad, 44.0 * s], "Sign in", Kind::Primary, s, mouse);
+        theme::fill(ui.renderer, [x + pad, y + bh - 54.0 * s, bw - 2.0 * pad, s.max(1.0)], 0.0, color::BORDER, 1.0);
+        self.link(ui, Target::ToRegister, x + bw / 2.0, y + bh - 40.0 * s, "New here?  ", "Create an account", size, mouse);
+        self.message_line(ui, x + bw / 2.0, y + bh + 16.0 * s, bw, s);
+        let small = (12.0 * s).round().max(9.0);
+        ui.label(&self.endpoint_label, 12.0 * s, h - small * 1.7, small, false, color::TEXT_MUTED);
+    }
+
+    fn draw_register(&mut self, ui: &mut Ui, w: f32, h: f32, s: f32, mouse: (f64, f64), now: i32) {
+        let r = Self::card_rect(w, h, 380.0 * s, 520.0 * s);
+        let [x, y, bw, bh] = r;
+        theme::panel(ui.renderer, r, s);
+        let pad = 28.0 * s;
+        ui.label("Create your account", x + pad, y + 24.0 * s, (24.0 * s).round(), true, color::TEXT);
+        let mut fy = y + 66.0 * s;
+        for (i, label, hint) in [
+            (NAME, "Name", "Up to 10 letters"),
+            (EMAIL, "Email", "you@example.com"),
+            (PASSWORD, "Password", "Choose a password"),
+            (CONFIRM, "Confirm password", "Type it again"),
+        ] {
+            fy = self.field(ui, i, label, hint, x + pad, fy, bw - 2.0 * pad, s, now);
+        }
+        self.button(ui, Target::Register, [x + pad, fy + 4.0 * s, bw - 2.0 * pad, 44.0 * s], "Create account", Kind::Primary, s, mouse);
+        let size = (14.0 * s).round().max(9.0);
+        self.link(ui, Target::ToLogin, x + bw / 2.0, y + bh - 36.0 * s, "Have an account?  ", "Sign in", size, mouse);
+        self.message_line(ui, x + bw / 2.0, y + bh + 16.0 * s, bw, s);
+    }
+
+    fn draw_chars(&mut self, ui: &mut Ui, w: f32, h: f32, s: f32, mouse: (f64, f64)) {
+        let Some(list) = self.list.clone() else { return };
+        // The top bar: who, their fame and gold, and Log out.
+        let bar = [0.0, 0.0, w, 68.0 * s];
+        theme::rounded(ui.renderer, bar, 0.0, (color::PANEL_TOP, 0.92), (color::PANEL_BOTTOM, 0.92));
+        theme::fill(ui.renderer, [0.0, bar[3] - s.max(1.0), w, s.max(1.0)], 0.0, color::BORDER, 1.0);
+        let pad = 24.0 * s;
+        ui.label(&list.name, pad, 12.0 * s, (24.0 * s).round(), true, color::TEXT);
+        let size = (14.0 * s).round();
+        let mut x = pad;
+        for (label, value, c) in [("Fame", list.fame, color::ACCENT), ("Gold", list.credits, 0xFFE27A)] {
+            ui.label(label, x, 42.0 * s, size, false, color::TEXT_DIM);
+            x += ui.measure(label, size, false) + 6.0 * s;
+            let v = value.to_string();
+            ui.label(&v, x, 42.0 * s, size, true, c);
+            x += ui.measure(&v, size, true) + 18.0 * s;
+        }
+        let bw = 110.0 * s;
+        self.button(ui, Target::Logout, [w - pad - bw, 16.0 * s, bw, 36.0 * s], "Log out", Kind::Secondary, s, mouse);
+        self.button(ui, Target::ToAccount, [w - pad - 2.0 * bw - 10.0 * s, 16.0 * s, bw, 36.0 * s], "Account", Kind::Secondary, s, mouse);
+        self.button(ui, Target::ToLegends, [w - pad - 3.0 * bw - 20.0 * s, 16.0 * s, bw, 36.0 * s], "Legends", Kind::Secondary, s, mouse);
+        self.button(ui, Target::ToGraveyard, [w - pad - 4.0 * bw - 30.0 * s, 16.0 * s, bw, 36.0 * s], "Graveyard", Kind::Secondary, s, mouse);
+
+        // Characters, then a card for a new one while there's room, else one to buy a slot.
+        let (cw, ch, gap) = (440.0 * s, 96.0 * s, 14.0 * s);
+        let room = (list.chars.len() as i32) < list.max_num_chars;
+        let count = list.chars.len() + 1;
+        let cols = (((w - 2.0 * pad + gap) / (cw + gap)).floor() as usize).clamp(1, 3).min(count.max(1));
+        let rows = count.div_ceil(cols);
+        let total_w = cols as f32 * (cw + gap) - gap;
+        let x0 = (w - total_w) / 2.0;
+        let y0 = (bar[3] + 70.0 * s).max((h - rows as f32 * (ch + gap)) / 2.0);
+        let title = "Choose your character";
+        let ts = (24.0 * s).round();
+        let tw = ui.measure(title, ts, true);
+        ui.label(title, (w - tw) / 2.0, y0 - 46.0 * s, ts, true, color::TEXT);
+        let cell = |i: usize| [x0 + (i % cols) as f32 * (cw + gap), y0 + (i / cols) as f32 * (ch + gap), cw, ch];
+        for (i, c) in list.chars.iter().enumerate() {
+            self.char_card(ui, c, cell(i), s, mouse);
+        }
+        if !room {
+            let r = cell(list.chars.len());
+            let over = inside(r, mouse) && self.confirm.is_none();
+            let edge = if over { color::ACCENT } else { color::BORDER };
+            theme::frame(ui.renderer, r, 10.0 * s, s.max(1.0), (edge, 0.9), ((0x1A1D24, 0.6), (0x14161B, 0.6)));
+            let (price, fame) = (list.next_slot_price, list.next_slot_currency == 1);
+            let label = "Buy another character slot";
+            let size = (17.0 * s).round();
+            let lw = ui.measure(label, size, true);
+            ui.label(label, r[0] + (r[2] - lw) / 2.0, r[1] + r[3] / 2.0 - size * 1.25, size, true, if over { color::ACCENT_HI } else { color::TEXT });
+            let cost = format!("{price} {}", if fame { "fame" } else { "gold" });
+            let cs = (15.0 * s).round();
+            let cw = ui.measure(&cost, cs, true);
+            let afford = if fame { list.fame >= price } else { list.credits >= price };
+            ui.label(&cost, r[0] + (r[2] - cw) / 2.0, r[1] + r[3] / 2.0 + 4.0 * s, cs, true, if afford { color::ACCENT } else { color::DANGER });
+            self.targets.push((Target::BuySlot, r));
+        }
+        if room {
+            let r = cell(list.chars.len());
+            let over = inside(r, mouse) && self.confirm.is_none();
+            let edge = if over { color::ACCENT } else { color::BORDER };
+            theme::frame(ui.renderer, r, 10.0 * s, s.max(1.0), (edge, 0.9), ((0x1A1D24, 0.6), (0x14161B, 0.6)));
+            let plus = (34.0 * s).round();
+            let label = "New character";
+            let size = (18.0 * s).round();
+            let lw = ui.measure(label, size, true);
+            let pw = ui.measure("+", plus, true);
+            let total = pw + 12.0 * s + lw;
+            let cx = r[0] + (r[2] - total) / 2.0;
+            let c = if over { color::ACCENT_HI } else { color::TEXT_DIM };
+            ui.label("+", cx, r[1] + (r[3] - plus * 1.22) / 2.0, plus, true, c);
+            ui.label(label, cx + pw + 12.0 * s, r[1] + (r[3] - size * 1.22) / 2.0, size, true, c);
+            self.targets.push((Target::NewChar, r));
+        }
+        let bottom = y0 + rows as f32 * (ch + gap);
+        // The server: arrows to switch when there's a choice.
+        if let Some(server) = list.servers.get(self.server.min(list.servers.len().saturating_sub(1))) {
+            let size = (15.0 * s).round();
+            let label = format!("Server: {}", server.name);
+            let lw = ui.measure(&label, size, true);
+            let pill_w = lw + if list.servers.len() > 1 { 90.0 * s } else { 36.0 * s };
+            let pill = [(w - pill_w) / 2.0, bottom + 10.0 * s, pill_w, 34.0 * s];
+            theme::frame(ui.renderer, pill, pill[3] / 2.0, s.max(1.0), (color::BORDER, 1.0), ((color::PANEL_TOP, 0.9), (color::PANEL_BOTTOM, 0.9)));
+            ui.label(&label, pill[0] + (pill[2] - lw) / 2.0, pill[1] + (pill[3] - size * 1.22) / 2.0, size, true, color::TEXT);
+            if list.servers.len() > 1 {
+                for (t, arrow, ax) in [(Target::ServerPrev, "‹", pill[0] + 10.0 * s), (Target::ServerNext, "›", pill[0] + pill[2] - 26.0 * s)] {
+                    let r = [ax - 6.0 * s, pill[1], 28.0 * s, pill[3]];
+                    let big = (22.0 * s).round();
+                    ui.label(arrow, ax, pill[1] + (pill[3] - big * 1.22) / 2.0, big, true, if inside(r, mouse) { color::ACCENT_HI } else { color::ACCENT });
+                    self.targets.push((t, r));
+                }
+            }
+        }
+        self.message_line(ui, w / 2.0, bottom + 60.0 * s, w * 0.8, s);
+        let hint = "Click a character to play";
+        let hs = (13.0 * s).round();
+        let hw = ui.measure(hint, hs, false);
+        ui.label(hint, (w - hw) / 2.0, h - hs * 2.2, hs, false, color::TEXT_MUTED);
+    }
+
+    fn char_card(&mut self, ui: &mut Ui, c: &CharSummary, r: [f32; 4], s: f32, mouse: (f64, f64)) {
+        let over = inside(r, mouse) && self.confirm.is_none();
+        let r = if over { [r[0], r[1] - 2.0 * s, r[2], r[3]] } else { r };
+        theme::shadow(ui.renderer, r, 10.0 * s, if over { 16.0 * s } else { 9.0 * s }, if over { 0.55 } else { 0.4 });
+        let edge = if over { color::ACCENT } else { color::BORDER_HI };
+        theme::frame(ui.renderer, r, 10.0 * s, s.max(1.0), (edge, 1.0), ((color::PANEL_TOP, 0.95), (color::PANEL_BOTTOM, 0.97)));
+        self.targets.push((Target::Char(c.id), r));
+        // The portrait in a dark well.
+        let well = [r[0] + 12.0 * s, r[1] + 12.0 * s, r[3] - 24.0 * s, r[3] - 24.0 * s];
+        theme::rounded(ui.renderer, well, 8.0 * s, (0x0E1015, 0.9), (0x1A1E26, 0.9));
+        let class = ui.data.objects.get(&c.object_type);
+        let skin = (c.skin != 0).then(|| ui.data.objects.get(&(c.skin as u16))).flatten();
+        if let Some(d) = skin.or(class) {
+            portrait(ui, d, c.tex1, c.tex2, well[0] + well[2] / 2.0, well[1] + well[3] / 2.0, s * 0.95);
+        }
+        let tx = well[0] + well[2] + 14.0 * s;
+        let name = class.map_or("Unknown", |d| d.display_id.as_str());
+        ui.label(name, tx, r[1] + 16.0 * s, (20.0 * s).round(), true, color::TEXT);
+        let size = (14.0 * s).round();
+        let mut x = tx;
+        for (label, value, col) in [("Level", c.level, color::TEXT), ("Fame", c.fame, color::ACCENT)] {
+            ui.label(label, x, r[1] + 50.0 * s, size, false, color::TEXT_DIM);
+            x += ui.measure(label, size, false) + 5.0 * s;
+            let v = value.to_string();
+            ui.label(&v, x, r[1] + 50.0 * s, size, true, col);
+            x += ui.measure(&v, size, true) + 14.0 * s;
+        }
+        // What it wears, edged by tier.
+        let side = 38.0 * s;
+        for (k, &item) in c.equipment.iter().take(4).enumerate() {
+            let sx = r[0] + r[2] - 14.0 * s - (4 - k) as f32 * (side + 6.0 * s) + 6.0 * s;
+            let sr = [sx, r[1] + r[3] - side - 12.0 * s, side, side];
+            let edge = if item > 0 { tier_edge(ui.data, item) } else { None };
+            ui.slot_box(sr, edge, false, s);
+            if item > 0 {
+                ui.item_icon(item, 80, sr[0] + side / 2.0, sr[1] + side / 2.0, s * 0.8);
+            }
+        }
+        // Delete, top right, only under the mouse.
+        let d = [r[0] + r[2] - 30.0 * s, r[1] + 6.0 * s, 24.0 * s, 24.0 * s];
+        if over || inside(d, mouse) {
+            let over_d = inside(d, mouse);
+            theme::fill(ui.renderer, d, 12.0 * s, if over_d { color::DANGER } else { 0x3A4050 }, 0.95);
+            let size = (13.0 * s).round();
+            let xw = ui.measure("✕", size, true);
+            ui.label("✕", d[0] + (d[2] - xw) / 2.0, d[1] + (d[3] - size * 1.22) / 2.0, size, true, 0xFFFFFF);
+            self.targets.push((Target::Delete(c.id), d));
+        }
+    }
+
+    fn draw_new_char(&mut self, ui: &mut Ui, w: f32, h: f32, s: f32, mouse: (f64, f64)) {
+        let Some(list) = self.list.clone() else { return };
+        let classes = player_classes(ui.data);
+        let pad = 24.0 * s;
+        let title = "Choose a class";
+        let ts = (26.0 * s).round();
+        let tw = ui.measure(title, ts, true);
+        ui.label(title, (w - tw) / 2.0, pad, ts, true, color::TEXT);
+        // Tiles shrink until every class fits between the title and the Back button.
+        let top = pad + 56.0 * s;
+        let room = h - top - 70.0 * s;
+        let mut k = s;
+        let (mut cols, mut rows);
+        loop {
+            let (tw, th, gap) = (128.0 * k, 156.0 * k, 12.0 * k);
+            cols = (((w - 2.0 * pad + gap) / (tw + gap)).floor() as usize).clamp(1, 12);
+            rows = classes.len().div_ceil(cols);
+            if rows as f32 * (th + gap) <= room || k <= s * 0.45 {
+                break;
+            }
+            k *= 0.93;
+        }
+        let (tw_, th_, gap) = (128.0 * k, 156.0 * k, 12.0 * k);
+        let x0 = (w - (cols as f32 * (tw_ + gap) - gap)) / 2.0;
+        let y0 = top.max(top + (room - rows as f32 * (th_ + gap)) / 2.0);
+        for (i, d) in classes.iter().enumerate() {
+            let r = [x0 + (i % cols) as f32 * (tw_ + gap), y0 + (i / cols) as f32 * (th_ + gap), tw_, th_];
+            let need = unlock(d, &list);
+            let over = inside(r, mouse) && need.is_none();
+            let r = if over { [r[0], r[1] - 3.0 * k, r[2], r[3]] } else { r };
+            theme::shadow(ui.renderer, r, 10.0 * k, if over { 14.0 * k } else { 8.0 * k }, 0.45);
+            let edge = if over { color::ACCENT } else { color::BORDER_HI };
+            theme::frame(ui.renderer, r, 10.0 * k, k.max(1.0), (edge, 1.0), ((color::PANEL_TOP, 0.95), (color::PANEL_BOTTOM, 0.97)));
+            let well = [r[0] + 14.0 * k, r[1] + 12.0 * k, r[2] - 28.0 * k, r[2] - 28.0 * k];
+            theme::rounded(ui.renderer, well, 8.0 * k, (0x0E1015, 0.85), (0x1A1E26, 0.85));
+            portrait(ui, d, 0, 0, well[0] + well[2] / 2.0, well[1] + well[3] / 2.0, k * 1.15);
+            if need.is_some() {
+                theme::fill(ui.renderer, r, 10.0 * k, 0x000000, 0.45);
+            }
+            // The name, then one line under it: the skins, or what unlocks the class.
+            let size = (15.0 * k).round().max(9.0);
+            let ny = well[1] + well[3] + 6.0 * k;
+            let nw = ui.measure(&d.display_id, size, true);
+            ui.label(&d.display_id, r[0] + (tw_ - nw) / 2.0, ny, size, true, if need.is_none() { color::TEXT } else { color::TEXT_DIM });
+            let small = (11.0 * k).round().max(8.0);
+            let ly = ny + size * 1.3;
+            match need {
+                None => {
+                    self.targets.push((Target::Class(d.object_type), r));
+                    let n = class_skins(ui.data, d.object_type, &list).len();
+                    if n > 0 {
+                        let t = format!("{} skin{}", n, if n == 1 { "" } else { "s" });
+                        let tw = ui.measure(&t, small, false);
+                        ui.label(&t, r[0] + (tw_ - tw) / 2.0, ly, small, false, color::TEXT_MUTED);
+                    }
+                }
+                Some((t, level)) => {
+                    let req = ui.data.objects.get(&t).map_or("?", |c| c.display_id.as_str());
+                    let text = format!("Level {level} {req}");
+                    let lw = ui.measure(&text, small, true).min(tw_ - 8.0 * k);
+                    ui.label(&text, r[0] + (tw_ - lw) / 2.0, ly, small, true, 0xFFB070);
+                }
+            }
+        }
+        self.button(ui, Target::Back, [(w - 140.0 * s) / 2.0, h - 58.0 * s, 140.0 * s, 40.0 * s], "Back", Kind::Secondary, s, mouse);
+        self.message_line(ui, w / 2.0, h - 92.0 * s, w * 0.8, s);
+    }
+
+    fn draw_confirm(&mut self, ui: &mut Ui, w: f32, h: f32, s: f32, mouse: (f64, f64)) {
+        let Some(confirm) = self.confirm else { return };
+        let list = self.list.clone().unwrap_or_default();
+        let (title, detail, yes, kind) = match confirm {
+            Confirm::Delete(id) => {
+                let what = list
+                    .chars
+                    .iter()
+                    .find(|c| c.id == id)
+                    .map(|c| format!("{} (level {})", ui.data.objects.get(&c.object_type).map_or("character", |d| d.display_id.as_str()), c.level))
+                    .unwrap_or_else(|| "this character".into());
+                (format!("Delete {what}?"), "Its items and fame are gone for good.".to_owned(), "Delete", Kind::Danger)
+            }
+            Confirm::BuySlot => {
+                let cur = if list.next_slot_currency == 1 { "fame" } else { "gold" };
+                (format!("Buy a character slot for {} {cur}?", list.next_slot_price), "You'll have room for one more character.".to_owned(), "Buy", Kind::Primary)
+            }
+            Confirm::BuySkin(t) => {
+                let skin = ui.data.objects.get(&t);
+                let name = skin.map_or("this skin", |d| d.display_id.as_str());
+                let cost = skin.map_or(300, |d| d.xml.int("Cost", 300));
+                (format!("Buy {name} for {cost} gold?"), format!("You have {} gold.", list.credits), "Buy", Kind::Primary)
+            }
+        };
+        // Only the dialog's buttons answer while it's up.
+        self.targets.clear();
+        ui.rect(0.0, 0.0, w, h, 0x000000, 0.55);
+        let tsize = (20.0 * s).round();
+        let width = (ui.measure(&title, tsize, true) + 52.0 * s).max(440.0 * s).min(w - 32.0);
+        let r = [(w - width) / 2.0, (h - 170.0 * s) / 2.0, width, 170.0 * s];
+        theme::panel(ui.renderer, r, s);
+        ui.label(&title, r[0] + 26.0 * s, r[1] + 24.0 * s, tsize, true, color::TEXT);
+        ui.label(&detail, r[0] + 26.0 * s, r[1] + 58.0 * s, (14.0 * s).round(), false, color::TEXT_DIM);
+        let by = r[1] + r[3] - 62.0 * s;
+        self.button(ui, Target::ConfirmNo, [r[0] + r[2] - 290.0 * s, by, 128.0 * s, 40.0 * s], "Cancel", Kind::Secondary, s, mouse);
+        self.button(ui, Target::ConfirmYes, [r[0] + r[2] - 152.0 * s, by, 128.0 * s, 40.0 * s], yes, kind, s, mouse);
+    }
+
+    /// A class's page: its look in each skin, pick one (or buy it), then Create.
+    fn draw_class(&mut self, ui: &mut Ui, w: f32, h: f32, s: f32, class: u16, mouse: (f64, f64)) {
+        let Some(list) = self.list.clone() else { return };
+        let Some(desc) = ui.data.objects.get(&class) else { return };
+        let skins = class_skins(ui.data, class, &list);
+        let pad = 24.0 * s;
+        // The class, large, in the chosen skin.
+        let left = [pad.max(w * 0.06), 90.0 * s, 300.0 * s, h - 180.0 * s];
+        theme::panel(ui.renderer, left, s);
+        let ts = (28.0 * s).round();
+        ui.label(&desc.display_id, left[0] + 22.0 * s, left[1] + 18.0 * s, ts, true, color::TEXT);
+        let shown = if self.skin != 0 { ui.data.objects.get(&self.skin).unwrap_or(desc) } else { desc };
+        let well = [left[0] + 22.0 * s, left[1] + 64.0 * s, left[2] - 44.0 * s, left[2] - 44.0 * s];
+        theme::rounded(ui.renderer, well, 10.0 * s, (0x0E1015, 0.9), (0x1C2029, 0.9));
+        portrait(ui, shown, 0, 0, well[0] + well[2] / 2.0, well[1] + well[3] / 2.0, s * 3.0);
+        let skin_name = if self.skin != 0 { shown.display_id.clone() } else { "Classic".to_owned() };
+        let ss = (16.0 * s).round();
+        let sw = ui.measure(&skin_name, ss, true);
+        ui.label(&skin_name, well[0] + (well[2] - sw) / 2.0, well[1] + well[3] + 10.0 * s, ss, true, color::ACCENT);
+        if let Some(d) = desc.xml.text_of("Description") {
+            let size = (13.0 * s).round();
+            let mut y = well[1] + well[3] + 40.0 * s;
+            let mut line = String::new();
+            for word in d.split_whitespace() {
+                let next = if line.is_empty() { word.to_owned() } else { format!("{line} {word}") };
+                if ui.measure(&next, size, false) > left[2] - 44.0 * s && !line.is_empty() {
+                    ui.label(&line, left[0] + 22.0 * s, y, size, false, color::TEXT_DIM);
+                    y += size * 1.3;
+                    line = word.to_owned();
+                } else {
+                    line = next;
+                }
+            }
+            ui.label(&line, left[0] + 22.0 * s, y, size, false, color::TEXT_DIM);
+        }
+        self.button(ui, Target::Create, [left[0] + 22.0 * s, left[1] + left[3] - 62.0 * s, left[2] - 44.0 * s, 44.0 * s], "Create character", Kind::Primary, s, mouse);
+
+        // The skins: the class's own look, then each skin.
+        let x0 = left[0] + left[2] + 24.0 * s;
+        let ts2 = (20.0 * s).round();
+        ui.label("Skins", x0, left[1] + 4.0 * s, ts2, true, color::TEXT);
+        let gold = format!("{} gold", list.credits);
+        let gs = (14.0 * s).round();
+        let skins_w = ui.measure("Skins", ts2, true);
+        ui.label(&gold, x0 + skins_w + 16.0 * s, left[1] + 9.0 * s, gs, true, 0xFFE27A);
+        let (tw_, th_, gap) = (104.0 * s, 128.0 * s, 10.0 * s);
+        let cols = (((w - x0 - pad + gap) / (tw_ + gap)).floor() as usize).max(1);
+        let mut entries: Vec<(u16, &ObjectDesc, bool, Option<String>)> = vec![(0, desc, true, None)];
+        for k in &skins {
+            let note = if k.owned {
+                None
+            } else if let Some(level) = k.needs_level {
+                Some(format!("Level {level}"))
+            } else if k.special {
+                Some("Special".to_owned())
+            } else {
+                Some(format!("{} gold", k.cost))
+            };
+            entries.push((k.desc.object_type, k.desc, k.owned, note));
+        }
+        let max_rows = (((left[3] - 40.0 * s) / (th_ + gap)).floor() as usize).max(1);
+        for (i, (t, d, owned, note)) in entries.iter().take(cols * max_rows).enumerate() {
+            let r = [x0 + (i % cols) as f32 * (tw_ + gap), left[1] + 40.0 * s + (i / cols) as f32 * (th_ + gap), tw_, th_];
+            let selected = self.skin == *t;
+            let buyable = !owned && note.as_deref().is_some_and(|n| n.ends_with("gold"));
+            let usable = *owned || *t == 0;
+            let over = inside(r, mouse) && (usable || buyable) && self.confirm.is_none();
+            let edge = if selected { color::ACCENT } else if over { color::ACCENT_HI } else { color::BORDER };
+            theme::frame(ui.renderer, r, 8.0 * s, s.max(1.0), (edge, 1.0), ((color::PANEL_TOP, 0.95), (color::PANEL_BOTTOM, 0.97)));
+            portrait(ui, d, 0, 0, r[0] + r[2] / 2.0, r[1] + 46.0 * s, s * 1.3);
+            let name = if *t == 0 { "Classic" } else { d.display_id.as_str() };
+            let size = (12.0 * s).round().max(8.0);
+            let mut label = name.to_owned();
+            while ui.measure(&label, size, true) > r[2] - 8.0 * s && label.len() > 3 {
+                label.pop();
+            }
+            let nw = ui.measure(&label, size, true);
+            ui.label(&label, r[0] + (r[2] - nw) / 2.0, r[1] + 88.0 * s, size, true, if usable { color::TEXT } else { color::TEXT_DIM });
+            if let Some(n) = note {
+                let small = (11.0 * s).round().max(8.0);
+                let w2 = ui.measure(n, small, true);
+                let c = if buyable { if list.credits >= 300 { color::ACCENT } else { color::DANGER } } else { 0xFFB070 };
+                ui.label(n, r[0] + (r[2] - w2) / 2.0, r[1] + 106.0 * s, small, true, c);
+            }
+            if usable || buyable {
+                self.targets.push((Target::Skin(*t), r));
+            }
+        }
+        self.button(ui, Target::Back, [x0, h - 70.0 * s, 120.0 * s, 40.0 * s], "Back", Kind::Secondary, s, mouse);
+        self.message_line(ui, w / 2.0, h - 26.0 * s, w * 0.8, s);
+    }
+
+    /// The legends: the most famous characters this week, month or ever.
+    fn draw_legends(&mut self, ui: &mut Ui, w: f32, h: f32, s: f32, mouse: (f64, f64)) {
+        let pad = 24.0 * s;
+        let ts = (26.0 * s).round();
+        let tw = ui.measure("Legends", ts, true);
+        ui.label("Legends", (w - tw) / 2.0, pad, ts, true, color::TEXT);
+        // The time spans, as pills.
+        let pw = 120.0 * s;
+        let x0 = (w - 3.0 * pw - 20.0 * s) / 2.0;
+        for (i, (_, label)) in TIMESPANS.iter().enumerate() {
+            let r = [x0 + i as f32 * (pw + 10.0 * s), pad + 46.0 * s, pw, 30.0 * s];
+            let on = i == self.timespan;
+            let over = inside(r, mouse);
+            theme::fill(ui.renderer, r, r[3] / 2.0, if on { color::ACCENT } else if over { 0x3A4050 } else { 0x262A33 }, 0.95);
+            let size = (14.0 * s).round();
+            let lw = ui.measure(label, size, true);
+            ui.label(label, r[0] + (r[2] - lw) / 2.0, r[1] + (r[3] - size * 1.22) / 2.0, size, true, if on { color::ACCENT_TEXT } else { color::TEXT_DIM });
+            self.targets.push((Target::Timespan(i), r));
+        }
+        let list_r = [(w - 760.0 * s).max(16.0) / 2.0, pad + 92.0 * s, (760.0 * s).min(w - 32.0), h - pad * 2.0 - 160.0 * s];
+        theme::panel(ui.renderer, list_r, s);
+        match &self.legends {
+            None => spinner(ui, list_r[0] + list_r[2] / 2.0, list_r[1] + list_r[3] / 2.0, 16.0 * s, ui_time(), s),
+            Some(rows) if rows.is_empty() => {
+                let t = "No legends yet. Be the first!";
+                let size = (16.0 * s).round();
+                let tw = ui.measure(t, size, true);
+                ui.label(t, list_r[0] + (list_r[2] - tw) / 2.0, list_r[1] + list_r[3] / 2.0, size, true, color::TEXT_DIM);
+            }
+            Some(rows) => {
+                let rows = rows.clone();
+                let row_h = 50.0 * s;
+                let fit = ((list_r[3] - 16.0 * s) / row_h).floor().max(1.0) as usize;
+                for (i, l) in rows.iter().take(fit).enumerate() {
+                    let y = list_r[1] + 8.0 * s + i as f32 * row_h;
+                    let r = [list_r[0] + 8.0 * s, y, list_r[2] - 16.0 * s, row_h - 4.0 * s];
+                    if i % 2 == 0 {
+                        theme::fill(ui.renderer, r, 6.0 * s, 0xFFFFFF, 0.03);
+                    }
+                    let rank = format!("{}", i + 1);
+                    let rs = (18.0 * s).round();
+                    let rc = match i {
+                        0 => 0xFFD24A,
+                        1 => 0xD8DDE6,
+                        2 => 0xE0975A,
+                        _ => color::TEXT_MUTED,
+                    };
+                    ui.label(&rank, r[0] + 12.0 * s, r[1] + (r[3] - rs * 1.22) / 2.0, rs, true, rc);
+                    let class = ui.data.objects.get(&l.object_type);
+                    let skin = (l.skin != 0).then(|| ui.data.objects.get(&(l.skin as u16))).flatten();
+                    if let Some(d) = skin.or(class) {
+                        portrait(ui, d, l.tex1, l.tex2, r[0] + 70.0 * s, r[1] + r[3] / 2.0, s * 0.8);
+                    }
+                    let ns = (16.0 * s).round();
+                    ui.label(&l.name, r[0] + 100.0 * s, r[1] + 4.0 * s, ns, true, color::TEXT);
+                    ui.label(class.map_or("", |d| d.display_id.as_str()), r[0] + 100.0 * s, r[1] + 24.0 * s, (12.0 * s).round(), false, color::TEXT_DIM);
+                    for (k, &item) in l.equipment.iter().take(4).enumerate() {
+                        let side = 32.0 * s;
+                        let sr = [r[0] + r[2] - 270.0 * s + k as f32 * (side + 4.0 * s), r[1] + (r[3] - side) / 2.0, side, side];
+                        ui.slot_box(sr, if item > 0 { tier_edge(ui.data, item) } else { None }, false, s);
+                        if item > 0 {
+                            ui.item_icon(item, 80, sr[0] + side / 2.0, sr[1] + side / 2.0, s * 0.7);
+                        }
+                    }
+                    let fame = format!("{}", l.total_fame);
+                    let fs = (18.0 * s).round();
+                    let fw = ui.measure(&fame, fs, true);
+                    ui.label(&fame, r[0] + r[2] - fw - 14.0 * s, r[1] + (r[3] - fs * 1.22) / 2.0, fs, true, color::ACCENT);
+                }
+            }
+        }
+        self.button(ui, Target::Back, [(w - 140.0 * s) / 2.0, h - 66.0 * s, 140.0 * s, 40.0 * s], "Back", Kind::Secondary, s, mouse);
+    }
+
+    /// `Graveyard`: the account's dead characters, newest first; each opens its fame summary.
+    fn draw_graveyard(&mut self, ui: &mut Ui, w: f32, h: f32, s: f32, mouse: (f64, f64)) {
+        let pad = 24.0 * s;
+        let ts = (26.0 * s).round();
+        let tw = ui.measure("Graveyard", ts, true);
+        ui.label("Graveyard", (w - tw) / 2.0, pad, ts, true, color::TEXT);
+        let graves: Vec<_> = self.list.as_ref().map_or_else(Vec::new, |l| l.news.iter().filter(|n| n.death_char_id().is_some()).cloned().collect());
+        let list_r = [(w - 640.0 * s).max(16.0) / 2.0, pad + 56.0 * s, (640.0 * s).min(w - 32.0), h - pad * 2.0 - 124.0 * s];
+        theme::panel(ui.renderer, list_r, s);
+        if graves.is_empty() {
+            let t = "No one has fallen yet.";
+            let size = (16.0 * s).round();
+            let tw = ui.measure(t, size, true);
+            ui.label(t, list_r[0] + (list_r[2] - tw) / 2.0, list_r[1] + list_r[3] / 2.0, size, true, color::TEXT_DIM);
+        }
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64);
+        let row_h = 58.0 * s;
+        let fit = ((list_r[3] - 16.0 * s) / row_h).floor().max(1.0) as usize;
+        for (i, g) in graves.iter().take(fit).enumerate() {
+            let r = [list_r[0] + 8.0 * s, list_r[1] + 8.0 * s + i as f32 * row_h, list_r[2] - 16.0 * s, row_h - 6.0 * s];
+            let over = inside(r, mouse);
+            theme::fill(ui.renderer, r, 6.0 * s, 0xFFFFFF, if over { 0.08 } else if i % 2 == 0 { 0.03 } else { 0.0 });
+            // A tombstone.
+            let (gx, gy) = (r[0] + 14.0 * s, r[1] + 9.0 * s);
+            theme::fill(ui.renderer, [gx, gy, 26.0 * s, 32.0 * s], 11.0 * s, 0x6C7484, 1.0);
+            theme::fill(ui.renderer, [gx + 11.0 * s, gy + 7.0 * s, 4.0 * s, 16.0 * s], 1.0, 0x3A4150, 1.0);
+            theme::fill(ui.renderer, [gx + 6.0 * s, gy + 12.0 * s, 14.0 * s, 4.0 * s], 1.0, 0x3A4150, 1.0);
+            ui.label(&g.title, r[0] + 56.0 * s, r[1] + 7.0 * s, (16.0 * s).round(), true, color::TEXT);
+            ui.label(&g.tagline, r[0] + 56.0 * s, r[1] + 29.0 * s, (13.0 * s).round(), false, color::ACCENT);
+            let days = (now - g.date).max(0) / 86_400;
+            let when = match days {
+                0 => "today".to_owned(),
+                1 => "yesterday".to_owned(),
+                d => format!("{d} days ago"),
+            };
+            let ws = (12.0 * s).round();
+            let ww = ui.measure(&when, ws, false);
+            ui.label(&when, r[0] + r[2] - ww - 14.0 * s, r[1] + (r[3] - ws * 1.22) / 2.0, ws, false, color::TEXT_MUTED);
+            if let Some(id) = g.death_char_id() {
+                self.targets.push((Target::Grave(id), r));
+            }
+        }
+        self.button(ui, Target::Back, [(w - 140.0 * s) / 2.0, h - 66.0 * s, 140.0 * s, 40.0 * s], "Back", Kind::Secondary, s, mouse);
+    }
+
+    /// Account settings: change the password.
+    fn draw_account(&mut self, ui: &mut Ui, w: f32, h: f32, s: f32, mouse: (f64, f64), now: i32) {
+        let r = [(w - 380.0 * s) / 2.0, ((h - 420.0 * s) / 2.0).max(16.0), 380.0 * s, 420.0 * s];
+        let [x, y, bw, bh] = r;
+        theme::panel(ui.renderer, r, s);
+        let pad = 28.0 * s;
+        ui.label("Account", x + pad, y + 24.0 * s, (24.0 * s).round(), true, color::TEXT);
+        let email = self.fields[EMAIL].clone();
+        ui.label(&email, x + pad, y + 58.0 * s, (14.0 * s).round(), false, color::TEXT_DIM);
+        let mut fy = y + 90.0 * s;
+        fy = self.field(ui, PASSWORD, "Current password", "Your password", x + pad, fy, bw - 2.0 * pad, s, now);
+        fy = self.field(ui, NEW_PASSWORD, "New password", "At least 6 characters", x + pad, fy, bw - 2.0 * pad, s, now);
+        fy = self.field(ui, NEW_CONFIRM, "Confirm new password", "Type it again", x + pad, fy, bw - 2.0 * pad, s, now);
+        let half = (bw - 2.0 * pad - 10.0 * s) / 2.0;
+        self.button(ui, Target::Back, [x + pad, fy + 4.0 * s, half, 42.0 * s], "Back", Kind::Secondary, s, mouse);
+        self.button(ui, Target::SavePassword, [x + pad + half + 10.0 * s, fy + 4.0 * s, half, 42.0 * s], "Change password", Kind::Primary, s, mouse);
+        self.message_line(ui, x + bw / 2.0, y + bh + 16.0 * s, bw, s);
+    }
+
+    /// `FameView`: the dead character, how their fame was counted, and some of what they did.
+    fn draw_death(&mut self, ui: &mut Ui, w: f32, h: f32, s: f32, mouse: (f64, f64)) {
+        let Some(sum) = self.death.clone() else {
+            self.show(Screen::Chars);
+            return;
+        };
+        let r = [(w - 520.0 * s) / 2.0, 30.0 * s, 520.0 * s, h - 60.0 * s];
+        theme::panel(ui.renderer, r, s);
+        let class = ui.data.objects.get(&sum.object_type);
+        let pad = 28.0 * s;
+        let head = if self.death_from_graveyard { "In memory" } else { "You died" };
+        ui.label(head, r[0] + pad, r[1] + 20.0 * s, (30.0 * s).round(), true, color::DANGER);
+        let who = format!("{}, level {}, killed by {}", class.map_or("Your character", |d| d.display_id.as_str()), sum.level, if sum.killed_by.is_empty() { "something" } else { &sum.killed_by });
+        ui.label(&who, r[0] + pad, r[1] + 62.0 * s, (15.0 * s).round(), false, color::TEXT_DIM);
+        if let Some(d) = class {
+            portrait(ui, d, 0, 0, r[0] + r[2] - 70.0 * s, r[1] + 50.0 * s, s * 1.6);
+        }
+        // The fame: base, the bonuses, the total.
+        let mut y = r[1] + 100.0 * s;
+        let size = (15.0 * s).round();
+        let row = |ui: &mut Ui, label: &str, value: String, c: u32, bold: bool, y: &mut f32| {
+            ui.label(label, r[0] + pad, *y, size, bold, color::TEXT_DIM);
+            let vw = ui.measure(&value, size, true);
+            ui.label(&value, r[0] + r[2] - pad - vw, *y, size, true, c);
+            *y += size * 1.45;
+        };
+        row(ui, "Base fame", sum.base_fame.to_string(), color::TEXT, false, &mut y);
+        let room = ((r[1] + r[3] - 230.0 * s - y) / (size * 1.45)).floor().max(0.0) as usize;
+        for (desc, fame) in sum.bonuses.iter().take(room.min(12)) {
+            row(ui, desc, format!("+{fame}"), color::GOOD, false, &mut y);
+        }
+        theme::fill(ui.renderer, [r[0] + pad, y + 2.0 * s, r[2] - 2.0 * pad, s.max(1.0)], 0.0, color::BORDER, 1.0);
+        y += 10.0 * s;
+        let big = (20.0 * s).round();
+        ui.label("Total fame", r[0] + pad, y, big, true, color::TEXT);
+        let total = sum.total_fame.to_string();
+        let tw = ui.measure(&total, big, true);
+        ui.label(&total, r[0] + r[2] - pad - tw, y, big, true, color::ACCENT);
+        y += big * 1.8;
+        // A few of the stats.
+        let stat = |k: &str| sum.stats.iter().find(|(n, _)| n == k).map_or(0, |(_, v)| *v);
+        let shots = stat("Shots");
+        let accuracy = if shots > 0 { format!("{}%", stat("ShotsThatDamage") * 100 / shots) } else { "-".into() };
+        let stats = [
+            ("Monsters killed", stat("MonsterKills").to_string()),
+            ("Gods killed", stat("GodKills").to_string()),
+            ("Accuracy", accuracy),
+            ("Quests completed", stat("QuestsCompleted").to_string()),
+            ("Tiles uncovered", stat("TilesUncovered").to_string()),
+            ("Minutes played", stat("MinutesActive").to_string()),
+        ];
+        let small = (13.0 * s).round();
+        let colw = (r[2] - 2.0 * pad) / 2.0;
+        for (i, (label, value)) in stats.iter().enumerate() {
+            let x = r[0] + pad + (i % 2) as f32 * colw;
+            let yy = y + (i / 2) as f32 * small * 1.6;
+            if yy + small > r[1] + r[3] - 70.0 * s {
+                break;
+            }
+            ui.label(label, x, yy, small, false, color::TEXT_MUTED);
+            let vw = ui.measure(value, small, true);
+            ui.label(value, x + colw - vw - 16.0 * s, yy, small, true, color::TEXT);
+        }
+        self.button(ui, Target::Back, [r[0] + (r[2] - 180.0 * s) / 2.0, r[1] + r[3] - 60.0 * s, 180.0 * s, 42.0 * s], "Continue", Kind::Primary, s, mouse);
+    }
+}
+
+/// The title art covering the window, slowly drifting, with a vignette; darker behind lists.
+fn draw_backdrop(ui: &mut Ui, w: f32, h: f32, title: Option<(AtlasRect, u32, u32)>, screen: Screen, now: i32) {
+    ui.rect(0.0, 0.0, w, h, 0x07080A, 1.0);
+    if let Some((rect, iw, ih)) = title {
+        // A slow zoom in and out keeps the screen alive.
+        let breathe = 1.03 + 0.02 * ((now as f32) / 9000.0).sin();
+        let k = (w / iw as f32).max(h / ih as f32) * breathe;
+        let (dw, dh) = (iw as f32 * k, ih as f32 * k);
+        ui.renderer.sprite(rect, Quad::rect((w - dw) / 2.0, (h - dh) / 2.0, dw, dh), Tint::NONE);
+    }
+    let dark = match screen {
+        Screen::Login | Screen::Register | Screen::Busy => 0.15,
+        Screen::Death => 0.75,
+        _ => 0.62,
+    };
+    ui.rect(0.0, 0.0, w, h, 0x000000, dark);
+    // Vignette: darker toward the top and bottom edges.
+    let band = h * 0.28;
+    theme::rounded(ui.renderer, [0.0, 0.0, w, band], 0.0, (0x000000, 0.55), (0x000000, 0.0));
+    theme::rounded(ui.renderer, [0.0, h - band, w, band], 0.0, (0x000000, 0.0), (0x000000, 0.6));
+}
+
+fn ui_time() -> i32 {
+    thread_local!(static START: web_time::Instant = web_time::Instant::now());
+    START.with(|t| t.elapsed().as_millis() as i32)
+}
+
+/// Dots chasing round a circle.
+fn spinner(ui: &mut Ui, cx: f32, cy: f32, radius: f32, now: i32, s: f32) {
+    const DOTS: i32 = 10;
+    let head = (now / 90) % DOTS;
+    for i in 0..DOTS {
+        let a = i as f32 / DOTS as f32 * std::f32::consts::TAU - std::f32::consts::FRAC_PI_2;
+        let age = (head - i).rem_euclid(DOTS) as f32 / DOTS as f32;
+        let d = 5.0 * s;
+        let (x, y) = (cx + radius * a.cos(), cy + radius * a.sin());
+        theme::fill(ui.renderer, [x - d / 2.0, y - d / 2.0, d, d], d / 2.0, color::ACCENT, 1.0 - age * 0.85);
+    }
+}
+
+/// A class's standing frame, dyed, centred at (cx, cy).
+pub fn portrait(ui: &mut Ui, desc: &ObjectDesc, tex1: i32, tex2: i32, cx: f32, cy: f32, s: f32) {
+    let TextureRef::Animated { set, index } = &desc.texture.pick(0).main else { return };
+    let Some(src) = ui.sprites.char_src(set, *index, 0, 0) else { return };
+    let dye = ui.sprites.char_mask_src(set, *index, 0, 0).map(|mask| Dye { mask, tex1, tex2 });
+    // Redrawn at the size it shows, so the pixels stay sharp.
+    let size = ((100.0 * s).round() as i32).max(1);
+    let Some(img) = ui.redrawer.get(ui.sprites, ui.renderer, src, false, size, dye) else { return };
+    let (iw, ih) = (img.w as f32, img.h as f32);
+    // The redrawn image has room for the outline above and beside it: centre the sprite.
+    let lift = (crate::redraw::PAD as f32 - 1.0) / 2.0;
+    ui.renderer.sprite(img.rect, Quad::rect((cx - iw / 2.0).round(), (cy - ih / 2.0 - lift).round(), iw, ih), Tint::NONE);
+}
+
+/// The menu Escape opens in the game.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MenuChoice {
+    Resume,
+    /// Back to the Nexus.
+    Nexus,
+    Options,
+    /// Out of the game, to the main menu (the character list).
+    Home,
+    Logout,
+}
+
+/// Draw the in-game menu; returns the buttons for clicks.
+pub fn draw_game_menu(ui: &mut Ui, w: f32, h: f32, mouse: (f64, f64)) -> Vec<(MenuChoice, [f32; 4])> {
+    let s = scale(w, h);
+    ui.rect(0.0, 0.0, w, h, 0x000000, 0.5);
+    let r = [(w - 320.0 * s) / 2.0, (h - 366.0 * s) / 2.0, 320.0 * s, 366.0 * s];
+    theme::panel(ui.renderer, r, s);
+    let size = (22.0 * s).round();
+    let tw = ui.measure("Paused", size, true);
+    ui.label("Paused", r[0] + (r[2] - tw) / 2.0, r[1] + 20.0 * s, size, true, color::TEXT);
+    let hint = "Esc to close";
+    let hs = (12.0 * s).round();
+    let hw = ui.measure(hint, hs, false);
+    ui.label(hint, r[0] + (r[2] - hw) / 2.0, r[1] + 50.0 * s, hs, false, color::TEXT_MUTED);
+    let mut out = Vec::new();
+    for (i, (choice, label, kind)) in [
+        (MenuChoice::Resume, "Back to the game", Kind::Primary),
+        (MenuChoice::Nexus, "Nexus", Kind::Secondary),
+        (MenuChoice::Options, "Options", Kind::Secondary),
+        (MenuChoice::Home, "Return home", Kind::Secondary),
+        (MenuChoice::Logout, "Log out", Kind::Danger),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let b = [r[0] + 30.0 * s, r[1] + 80.0 * s + i as f32 * 54.0 * s, r[2] - 60.0 * s, 42.0 * s];
+        ui.button(b, label, kind, inside(b, mouse), s);
+        out.push((choice, b));
+    }
+    out
+}
+
+pub fn menu_click(buttons: &[(MenuChoice, [f32; 4])], pos: (f64, f64)) -> Option<MenuChoice> {
+    buttons.iter().find(|(_, r)| inside(*r, pos)).map(|(c, _)| *c)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn typing_and_tab() {
+        let mut f = Front::default();
+        f.show(Screen::Login);
+        f.key(KeyCode::KeyA, Some("a@b"));
+        f.key(KeyCode::Tab, None);
+        f.key(KeyCode::KeyX, Some("pw"));
+        f.key(KeyCode::Backspace, None);
+        assert_eq!(f.fields[EMAIL], "a@b");
+        assert_eq!(f.fields[PASSWORD], "p");
+        assert_eq!(f.key(KeyCode::Enter, None), Some(Action::SignIn));
+        // Escape from Register goes back to Login.
+        f.show(Screen::Register);
+        f.key(KeyCode::Escape, None);
+        assert_eq!(f.screen, Screen::Login);
+    }
+
+    #[test]
+    fn cards_fit_wide_and_tall_windows() {
+        for (w, h) in [(1920.0, 1080.0), (800.0, 1000.0), (640.0, 480.0)] {
+            let s = scale(w, h);
+            let r = Front::card_rect(w, h, 380.0 * s, 420.0 * s);
+            assert!(r[0] >= 0.0 && r[0] + r[2] <= w + 0.5, "{w}×{h}: {r:?}");
+            assert!(r[1] >= 0.0, "{w}×{h}: {r:?}");
+        }
+    }
+}
