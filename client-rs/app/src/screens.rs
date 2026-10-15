@@ -6,6 +6,7 @@
 
 use crate::hud::Ui;
 use crate::redraw::Dye;
+use crate::stars;
 use crate::theme::{self, color, Kind};
 use bsk_data::{ObjectClass, ObjectDesc, TextureRef};
 use bsk_net::account::{CharList, CharSummary, FameSummary, Legend};
@@ -29,6 +30,8 @@ pub enum Screen {
     Account,
     /// How a dead character's fame was counted.
     Death,
+    /// The world servers to play on (`ServersScreen`).
+    Servers,
 }
 
 /// The text fields, by index.
@@ -78,7 +81,12 @@ enum Target {
     Back,
     ServerPrev,
     ServerNext,
+    ToServers,
+    /// A row of the Servers screen: play on that server.
+    Server(usize),
     Logout,
+    /// The Changelog window.
+    Changelog,
 }
 
 /// What the player asked for.
@@ -98,6 +106,8 @@ pub enum Action {
     Legends(&'static str),
     /// Show how a dead character's fame was counted.
     ViewDeath(i32),
+    /// Open the Changelog window.
+    Changelog,
 }
 
 pub struct Front {
@@ -130,6 +140,10 @@ pub struct Front {
     pub endpoint_label: String,
     /// A button was clicked since this was last cleared (for its sound).
     pub clicked: bool,
+    /// The version (and any update in progress), bottom right; a click opens the changelog.
+    pub version_line: String,
+    /// The character list's first row shown, when it's longer than the window.
+    chars_row: usize,
 }
 
 impl Default for Front {
@@ -152,6 +166,8 @@ impl Default for Front {
             clicked: false,
             targets: Vec::new(),
             endpoint_label: String::new(),
+            version_line: String::new(),
+            chars_row: 0,
         }
     }
 }
@@ -257,7 +273,26 @@ impl Front {
         }
     }
 
+    /// Nothing under way that switching to a new version would lose: the character list with no
+    /// dialog open, or the sign-in form with nothing typed.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))] // updates are desktop-only
+    pub fn at_rest(&self) -> bool {
+        self.confirm.is_none()
+            && match self.screen {
+                Screen::Chars => true,
+                Screen::Login => self.fields[EMAIL].is_empty() && self.fields[PASSWORD].is_empty(),
+                _ => false,
+            }
+    }
+
     /// Show a screen, focusing its first field.
+    /// The mouse wheel, `notches` up (positive) or down: scrolls the character list a row a notch.
+    pub fn wheel(&mut self, notches: i32) {
+        if self.screen == Screen::Chars && self.confirm.is_none() {
+            self.chars_row = (self.chars_row as i32 - notches).max(0) as usize;
+        }
+    }
+
     pub fn show(&mut self, screen: Screen) {
         self.screen = screen;
         self.confirm = None;
@@ -299,7 +334,7 @@ impl Front {
             KeyCode::Escape => match self.screen {
                 Screen::Register => self.show(Screen::Login),
                 Screen::Death if self.death_from_graveyard => self.show(Screen::Graveyard),
-                Screen::NewChar | Screen::Legends | Screen::Graveyard | Screen::Account | Screen::Death => self.show(Screen::Chars),
+                Screen::NewChar | Screen::Legends | Screen::Graveyard | Screen::Account | Screen::Death | Screen::Servers => self.show(Screen::Chars),
                 Screen::Class(_) => self.show(Screen::NewChar),
                 _ => {}
             },
@@ -384,7 +419,13 @@ impl Front {
             Target::ServerPrev if servers > 0 => self.server = (self.server + servers - 1) % servers,
             Target::ServerNext if servers > 0 => self.server = (self.server + 1) % servers,
             Target::ServerPrev | Target::ServerNext => {}
+            Target::ToServers => self.show(Screen::Servers),
+            Target::Server(i) => {
+                self.server = i.min(servers.saturating_sub(1));
+                self.show(Screen::Chars);
+            }
             Target::Logout => return Some(Action::Logout),
+            Target::Changelog => return Some(Action::Changelog),
         }
         None
     }
@@ -420,6 +461,16 @@ impl Front {
             Screen::Graveyard => self.draw_graveyard(ui, w, h, s, mouse),
             Screen::Account => self.draw_account(ui, w, h, s, mouse, now),
             Screen::Death => self.draw_death(ui, w, h, s, mouse),
+            Screen::Servers => self.draw_servers(ui, w, h, s, mouse),
+        }
+        // The version, bottom right: opens the changelog.
+        if !self.version_line.is_empty() && self.screen != Screen::Busy {
+            let size = (12.0 * s).round().max(9.0);
+            let line = self.version_line.clone();
+            let lw = ui.measure(&line, size, true);
+            let r = [w - lw - 14.0 * s, h - size * 1.7, lw, size * 1.3];
+            ui.label(&line, r[0], r[1], size, true, if inside(r, mouse) { color::ACCENT_HI } else { color::TEXT_MUTED });
+            self.targets.push((Target::Changelog, r));
         }
         if self.confirm.is_some() {
             self.draw_confirm(ui, w, h, s, mouse);
@@ -540,46 +591,87 @@ impl Front {
 
     fn draw_chars(&mut self, ui: &mut Ui, w: f32, h: f32, s: f32, mouse: (f64, f64)) {
         let Some(list) = self.list.clone() else { return };
-        // The top bar: who, their fame and gold, and Log out.
+        // The top bar: who and their rank, the buttons, then their fame and gold at the right.
         let bar = [0.0, 0.0, w, 68.0 * s];
         theme::rounded(ui.renderer, bar, 0.0, (color::PANEL_TOP, 0.92), (color::PANEL_BOTTOM, 0.92));
         theme::fill(ui.renderer, [0.0, bar[3] - s.max(1.0), w, s.max(1.0)], 0.0, color::BORDER, 1.0);
         let pad = 24.0 * s;
         ui.label(&list.name, pad, 12.0 * s, (24.0 * s).round(), true, color::TEXT);
         let size = (14.0 * s).round();
-        let mut x = pad;
-        for (label, value, c) in [("Fame", list.fame, color::ACCENT), ("Gold", list.credits, 0xFFE27A)] {
-            ui.label(label, x, 42.0 * s, size, false, color::TEXT_DIM);
-            x += ui.measure(label, size, false) + 6.0 * s;
+        let x = pad;
+        // The rank (`AccountScreen.rankText`): the class quests done, and its star.
+        let classes = stars::class_count(ui.data);
+        let rank = stars::account_stars(&list);
+        ui.label("Rank", x, 42.0 * s, size, false, color::TEXT_DIM);
+        let rx = x + ui.measure("Rank", size, false) + 6.0 * s;
+        let v = rank.to_string();
+        ui.label(&v, rx, 42.0 * s, size, true, color::TEXT);
+        let vw = ui.measure(&v, size, true);
+        stars::icon(ui.renderer, rx + vw + 11.0 * s, 42.0 * s + size * 0.55, s, stars::color(rank, classes));
+        let rank_r = [x, 38.0 * s, rx + vw + 20.0 * s - x, size * 1.6];
+        // Fame and gold (`CreditDisplay`), one above the other, right-aligned in the corner.
+        let money = (16.0 * s).round();
+        let mut money_w: f32 = 0.0;
+        for (i, (label, value, c)) in [("Fame", list.fame, color::ACCENT), ("Gold", list.credits, 0xFFE27A)].into_iter().enumerate() {
             let v = value.to_string();
-            ui.label(&v, x, 42.0 * s, size, true, c);
-            x += ui.measure(&v, size, true) + 18.0 * s;
+            let vw = ui.measure(&v, money, true);
+            let lw = ui.measure(label, size, false);
+            let y = 10.0 * s + i as f32 * 25.0 * s;
+            ui.label(&v, w - pad - vw, y, money, true, c);
+            ui.label(label, w - pad - vw - 6.0 * s - lw, y + (money - size) * 0.6, size, false, color::TEXT_DIM);
+            money_w = money_w.max(vw + 6.0 * s + lw);
         }
-        let bw = 110.0 * s;
-        self.button(ui, Target::Logout, [w - pad - bw, 16.0 * s, bw, 36.0 * s], "Log out", Kind::Secondary, s, mouse);
-        self.button(ui, Target::ToAccount, [w - pad - 2.0 * bw - 10.0 * s, 16.0 * s, bw, 36.0 * s], "Account", Kind::Secondary, s, mouse);
-        self.button(ui, Target::ToLegends, [w - pad - 3.0 * bw - 20.0 * s, 16.0 * s, bw, 36.0 * s], "Legends", Kind::Secondary, s, mouse);
-        self.button(ui, Target::ToGraveyard, [w - pad - 4.0 * bw - 30.0 * s, 16.0 * s, bw, 36.0 * s], "Graveyard", Kind::Secondary, s, mouse);
+        let bw = 104.0 * s;
+        let right = w - pad - money_w - 22.0 * s;
+        let buttons = [
+            (Target::Logout, "Log out"),
+            (Target::ToAccount, "Account"),
+            (Target::ToServers, "Servers"),
+            (Target::ToLegends, "Legends"),
+            (Target::ToGraveyard, "Graveyard"),
+            (Target::Changelog, "Changelog"),
+        ];
+        for (i, (target, label)) in buttons.into_iter().enumerate() {
+            let bx = right - (i + 1) as f32 * bw - i as f32 * 8.0 * s;
+            self.button(ui, target, [bx, 16.0 * s, bw, 36.0 * s], label, Kind::Secondary, s, mouse);
+        }
 
-        // Characters, then a card for a new one while there's room, else one to buy a slot.
-        let (cw, ch, gap) = (440.0 * s, 96.0 * s, 14.0 * s);
+        // Characters, then a card for a new one while there's room, else one to buy a slot. Rows
+        // that don't fit scroll, a row a wheel notch.
+        let (cw, ch, gap) = (380.0 * s, 88.0 * s, 10.0 * s);
         let room = (list.chars.len() as i32) < list.max_num_chars;
         let count = list.chars.len() + 1;
-        let cols = (((w - 2.0 * pad + gap) / (cw + gap)).floor() as usize).clamp(1, 3).min(count.max(1));
+        let cols = (((w - 2.0 * pad - 20.0 * s + gap) / (cw + gap)).floor() as usize).clamp(1, 4).min(count.max(1));
         let rows = count.div_ceil(cols);
         let total_w = cols as f32 * (cw + gap) - gap;
         let x0 = (w - total_w) / 2.0;
-        let y0 = (bar[3] + 70.0 * s).max((h - rows as f32 * (ch + gap)) / 2.0);
+        let area_top = bar[3] + 60.0 * s;
+        let area_h = (h - 120.0 * s - area_top).max(ch);
+        let visible = (((area_h + gap) / (ch + gap)).floor() as usize).clamp(1, rows);
+        self.chars_row = self.chars_row.min(rows - visible);
+        let first = self.chars_row;
+        let y0 = area_top.max(area_top + (area_h - visible as f32 * (ch + gap) + gap) / 2.0);
         let title = "Choose your character";
-        let ts = (24.0 * s).round();
+        let ts = (22.0 * s).round();
         let tw = ui.measure(title, ts, true);
-        ui.label(title, (w - tw) / 2.0, y0 - 46.0 * s, ts, true, color::TEXT);
-        let cell = |i: usize| [x0 + (i % cols) as f32 * (cw + gap), y0 + (i / cols) as f32 * (ch + gap), cw, ch];
-        for (i, c) in list.chars.iter().enumerate() {
-            self.char_card(ui, c, cell(i), s, mouse);
+        ui.label(title, (w - tw) / 2.0, y0 - 40.0 * s, ts, true, color::TEXT);
+        let shown = |i: usize| (first..first + visible).contains(&(i / cols));
+        let cell = |i: usize| [x0 + (i % cols) as f32 * (cw + gap), y0 + (i / cols - first) as f32 * (ch + gap), cw, ch];
+        for (i, c) in list.chars.iter().enumerate().filter(|(i, _)| shown(*i)) {
+            let best = list.class_stats.get(&c.object_type).map_or(0, |cs| cs.1);
+            self.char_card(ui, c, best, cell(i), s, mouse);
         }
-        if !room {
-            let r = cell(list.chars.len());
+        // A scrollbar beside the cards when some are out of sight.
+        if visible < rows {
+            let track = [x0 + total_w + 10.0 * s, y0, 5.0 * s, visible as f32 * (ch + gap) - gap];
+            theme::fill(ui.renderer, track, 2.5 * s, color::TRACK, 0.9);
+            let thumb_h = track[3] * visible as f32 / rows as f32;
+            let thumb_y = track[1] + (track[3] - thumb_h) * first as f32 / (rows - visible) as f32;
+            theme::fill(ui.renderer, [track[0], thumb_y, track[2], thumb_h], 2.5 * s, color::ACCENT, 0.9);
+        }
+        let last = list.chars.len();
+        if !room && shown(last) {
+            let r = cell(last);
             let over = inside(r, mouse) && self.confirm.is_none();
             let edge = if over { color::ACCENT } else { color::BORDER };
             theme::frame(ui.renderer, r, 10.0 * s, s.max(1.0), (edge, 0.9), ((0x1A1D24, 0.6), (0x14161B, 0.6)));
@@ -595,14 +687,14 @@ impl Front {
             ui.label(&cost, r[0] + (r[2] - cw) / 2.0, r[1] + r[3] / 2.0 + 4.0 * s, cs, true, if afford { color::ACCENT } else { color::DANGER });
             self.targets.push((Target::BuySlot, r));
         }
-        if room {
-            let r = cell(list.chars.len());
+        if room && shown(last) {
+            let r = cell(last);
             let over = inside(r, mouse) && self.confirm.is_none();
             let edge = if over { color::ACCENT } else { color::BORDER };
             theme::frame(ui.renderer, r, 10.0 * s, s.max(1.0), (edge, 0.9), ((0x1A1D24, 0.6), (0x14161B, 0.6)));
-            let plus = (34.0 * s).round();
+            let plus = (30.0 * s).round();
             let label = "New character";
-            let size = (18.0 * s).round();
+            let size = (17.0 * s).round();
             let lw = ui.measure(label, size, true);
             let pw = ui.measure("+", plus, true);
             let total = pw + 12.0 * s + lw;
@@ -612,16 +704,18 @@ impl Front {
             ui.label(label, cx + pw + 12.0 * s, r[1] + (r[3] - size * 1.22) / 2.0, size, true, c);
             self.targets.push((Target::NewChar, r));
         }
-        let bottom = y0 + rows as f32 * (ch + gap);
-        // The server: arrows to switch when there's a choice.
+        let bottom = y0 + visible as f32 * (ch + gap);
+        // The server: arrows to switch when there's a choice; the pill opens the Servers screen.
         if let Some(server) = list.servers.get(self.server.min(list.servers.len().saturating_sub(1))) {
             let size = (15.0 * s).round();
             let label = format!("Server: {}", server.name);
             let lw = ui.measure(&label, size, true);
             let pill_w = lw + if list.servers.len() > 1 { 90.0 * s } else { 36.0 * s };
             let pill = [(w - pill_w) / 2.0, bottom + 10.0 * s, pill_w, 34.0 * s];
-            theme::frame(ui.renderer, pill, pill[3] / 2.0, s.max(1.0), (color::BORDER, 1.0), ((color::PANEL_TOP, 0.9), (color::PANEL_BOTTOM, 0.9)));
+            let over = inside(pill, mouse) && self.confirm.is_none();
+            theme::frame(ui.renderer, pill, pill[3] / 2.0, s.max(1.0), (if over { color::ACCENT } else { color::BORDER }, 1.0), ((color::PANEL_TOP, 0.9), (color::PANEL_BOTTOM, 0.9)));
             ui.label(&label, pill[0] + (pill[2] - lw) / 2.0, pill[1] + (pill[3] - size * 1.22) / 2.0, size, true, color::TEXT);
+            self.targets.push((Target::ToServers, pill));
             if list.servers.len() > 1 {
                 for (t, arrow, ax) in [(Target::ServerPrev, "‹", pill[0] + 10.0 * s), (Target::ServerNext, "›", pill[0] + pill[2] - 26.0 * s)] {
                     let r = [ax - 6.0 * s, pill[1], 28.0 * s, pill[3]];
@@ -632,13 +726,17 @@ impl Front {
             }
         }
         self.message_line(ui, w / 2.0, bottom + 60.0 * s, w * 0.8, s);
-        let hint = "Click a character to play";
+        let hint = if visible < rows { "Click a character to play; scroll for more" } else { "Click a character to play" };
         let hs = (13.0 * s).round();
         let hw = ui.measure(hint, hs, false);
         ui.label(hint, (w - hw) / 2.0, h - hs * 2.2, hs, false, color::TEXT_MUTED);
+        if inside(rank_r, mouse) && self.confirm.is_none() {
+            rank_tooltip(ui, rank, classes, (rank_r[0], rank_r[1] + rank_r[3] + 6.0 * s), s);
+        }
     }
 
-    fn char_card(&mut self, ui: &mut Ui, c: &CharSummary, r: [f32; 4], s: f32, mouse: (f64, f64)) {
+    /// `CurrentCharacterRect`. `best` is the best fame reached with the character's class.
+    fn char_card(&mut self, ui: &mut Ui, c: &CharSummary, best: i32, r: [f32; 4], s: f32, mouse: (f64, f64)) {
         let over = inside(r, mouse) && self.confirm.is_none();
         let r = if over { [r[0], r[1] - 2.0 * s, r[2], r[3]] } else { r };
         theme::shadow(ui.renderer, r, 10.0 * s, if over { 16.0 * s } else { 9.0 * s }, if over { 0.55 } else { 0.4 });
@@ -646,44 +744,51 @@ impl Front {
         theme::frame(ui.renderer, r, 10.0 * s, s.max(1.0), (edge, 1.0), ((color::PANEL_TOP, 0.95), (color::PANEL_BOTTOM, 0.97)));
         self.targets.push((Target::Char(c.id), r));
         // The portrait in a dark well.
-        let well = [r[0] + 12.0 * s, r[1] + 12.0 * s, r[3] - 24.0 * s, r[3] - 24.0 * s];
+        let well = [r[0] + 10.0 * s, r[1] + 10.0 * s, r[3] - 20.0 * s, r[3] - 20.0 * s];
         theme::rounded(ui.renderer, well, 8.0 * s, (0x0E1015, 0.9), (0x1A1E26, 0.9));
         let class = ui.data.objects.get(&c.object_type);
         let skin = (c.skin != 0).then(|| ui.data.objects.get(&(c.skin as u16))).flatten();
         if let Some(d) = skin.or(class) {
-            portrait(ui, d, c.tex1, c.tex2, well[0] + well[2] / 2.0, well[1] + well[3] / 2.0, s * 0.95);
+            portrait(ui, d, c.tex1, c.tex2, well[0] + well[2] / 2.0, well[1] + well[3] / 2.0, s * 0.85);
         }
-        let tx = well[0] + well[2] + 14.0 * s;
+        let tx = well[0] + well[2] + 12.0 * s;
         let name = class.map_or("Unknown", |d| d.display_id.as_str());
-        ui.label(name, tx, r[1] + 16.0 * s, (20.0 * s).round(), true, color::TEXT);
-        let size = (14.0 * s).round();
+        ui.label(name, tx, r[1] + 9.0 * s, (18.0 * s).round(), true, color::TEXT);
+        let size = (13.0 * s).round();
         let mut x = tx;
         for (label, value, col) in [("Level", c.level, color::TEXT), ("Fame", c.fame, color::ACCENT)] {
-            ui.label(label, x, r[1] + 50.0 * s, size, false, color::TEXT_DIM);
+            ui.label(label, x, r[1] + 35.0 * s, size, false, color::TEXT_DIM);
             x += ui.measure(label, size, false) + 5.0 * s;
             let v = value.to_string();
-            ui.label(&v, x, r[1] + 50.0 * s, size, true, col);
-            x += ui.measure(&v, size, true) + 14.0 * s;
+            ui.label(&v, x, r[1] + 35.0 * s, size, true, col);
+            x += ui.measure(&v, size, true) + 12.0 * s;
         }
         // What it wears, edged by tier.
-        let side = 38.0 * s;
+        let side = 30.0 * s;
         for (k, &item) in c.equipment.iter().take(4).enumerate() {
-            let sx = r[0] + r[2] - 14.0 * s - (4 - k) as f32 * (side + 6.0 * s) + 6.0 * s;
-            let sr = [sx, r[1] + r[3] - side - 12.0 * s, side, side];
+            let sx = r[0] + r[2] - 12.0 * s - (4 - k) as f32 * (side + 4.0 * s) + 4.0 * s;
+            let sr = [sx, r[1] + 26.0 * s, side, side];
             let edge = if item > 0 { tier_edge(ui.data, item) } else { None };
             ui.slot_box(sr, edge, false, s);
             if item > 0 {
-                ui.item_icon(item, 80, sr[0] + side / 2.0, sr[1] + side / 2.0, s * 0.8);
+                ui.item_icon(item, 80, sr[0] + side / 2.0, sr[1] + side / 2.0, s * 0.64);
             }
         }
+        // The class quest it's working on (`makeTagline`): its fame of the next one's.
+        let size = (12.0 * s).round();
+        let qy = r[1] + r[3] - 24.0 * s;
+        let quest = match stars::next_star_fame(best, c.fame) {
+            Some(next) => format!("Class Quest: {} of {next} Fame", c.fame),
+            None => "Class Quests completed".to_owned(),
+        };
+        theme::star(ui.renderer, tx + 7.0 * s, qy + size * 0.6, 7.0 * s, stars::GREY);
+        ui.label(&quest, tx + 18.0 * s, qy, size, false, stars::GREY);
         // Delete, top right, only under the mouse.
         let d = [r[0] + r[2] - 30.0 * s, r[1] + 6.0 * s, 24.0 * s, 24.0 * s];
         if over || inside(d, mouse) {
             let over_d = inside(d, mouse);
             theme::fill(ui.renderer, d, 12.0 * s, if over_d { color::DANGER } else { 0x3A4050 }, 0.95);
-            let size = (13.0 * s).round();
-            let xw = ui.measure("✕", size, true);
-            ui.label("✕", d[0] + (d[2] - xw) / 2.0, d[1] + (d[3] - size * 1.22) / 2.0, size, true, 0xFFFFFF);
+            theme::cross(ui.renderer, d[0] + d[2] / 2.0, d[1] + d[3] / 2.0, 4.5 * s, (2.0 * s).max(1.5), 0xFFFFFF);
             self.targets.push((Target::Delete(c.id), d));
         }
     }
@@ -696,6 +801,12 @@ impl Front {
         let ts = (26.0 * s).round();
         let tw = ui.measure(title, ts, true);
         ui.label(title, (w - tw) / 2.0, pad, ts, true, color::TEXT);
+        // `CreateNewCharacterRect`'s tagline: the class quests still to do.
+        let left = stars::max_stars(classes.len() as i32) - stars::account_stars(&list);
+        let sub = if left > 0 { format!("{left} class quests not yet completed") } else { "Every class quest completed".to_owned() };
+        let subs = (13.0 * s).round();
+        let sw = ui.measure(&sub, subs, false);
+        ui.label(&sub, (w - sw) / 2.0, pad + 34.0 * s, subs, false, color::TEXT_DIM);
         // Tiles shrink until every class fits between the title and the Back button.
         let top = pad + 56.0 * s;
         let room = h - top - 70.0 * s;
@@ -724,6 +835,12 @@ impl Front {
             let well = [r[0] + 14.0 * k, r[1] + 12.0 * k, r[2] - 28.0 * k, r[2] - 28.0 * k];
             theme::rounded(ui.renderer, well, 8.0 * k, (0x0E1015, 0.85), (0x1A1E26, 0.85));
             portrait(ui, d, 0, 0, well[0] + well[2] / 2.0, well[1] + well[3] / 2.0, k * 1.15);
+            // Its class quests, along the bottom of the well.
+            if need.is_none() {
+                let done = stars::num_stars(list.class_stats.get(&d.object_type).map_or(0, |cs| cs.1));
+                let sk = k * 0.8;
+                stars::row(ui.renderer, well[0] + (well[2] - stars::row_width(sk)) / 2.0, well[1] + well[3] - 9.0 * k, sk, done);
+            }
             if need.is_some() {
                 theme::fill(ui.renderer, r, 10.0 * k, 0x000000, 0.45);
             }
@@ -813,9 +930,22 @@ impl Front {
         let ss = (16.0 * s).round();
         let sw = ui.measure(&skin_name, ss, true);
         ui.label(&skin_name, well[0] + (well[2] - sw) / 2.0, well[1] + well[3] + 10.0 * s, ss, true, color::ACCENT);
+        // The class quests (`ClassToolTip`): those done, the bests, and the next goal.
+        let (best_level, best_fame) = list.class_stats.get(&class).copied().unwrap_or((0, 0));
+        let done = stars::num_stars(best_fame);
+        let qy = well[1] + well[3] + 42.0 * s;
+        stars::row(ui.renderer, left[0] + 22.0 * s, qy + 8.0 * s, s, done);
+        let size = (13.0 * s).round();
+        let qx = left[0] + 22.0 * s + stars::row_width(s) + 10.0 * s;
+        ui.label(&format!("{done} of {} Class Quests", stars::STARS.len()), qx, qy, size, true, color::TEXT);
+        ui.label(&format!("Best level {best_level}, best fame {best_fame}"), left[0] + 22.0 * s, qy + 22.0 * s, size, false, 0x5EB531);
+        let mut dy = qy + 40.0 * s;
+        if let Some(next) = stars::next_star_fame(best_fame, 0) {
+            ui.label(&format!("Next goal: earn {next} fame with a {}", desc.display_id), left[0] + 22.0 * s, dy, size, false, 0xFC8642);
+            dy += 18.0 * s;
+        }
         if let Some(d) = desc.xml.text_of("Description") {
-            let size = (13.0 * s).round();
-            let mut y = well[1] + well[3] + 40.0 * s;
+            let mut y = dy + 12.0 * s;
             let mut line = String::new();
             for word in d.split_whitespace() {
                 let next = if line.is_empty() { word.to_owned() } else { format!("{line} {word}") };
@@ -1005,6 +1135,50 @@ impl Front {
         self.button(ui, Target::Back, [(w - 140.0 * s) / 2.0, h - 66.0 * s, 140.0 * s, 40.0 * s], "Back", Kind::Secondary, s, mouse);
     }
 
+    /// `ServersScreen`: the world servers with how full each is; a click picks one and goes back
+    /// to the characters.
+    fn draw_servers(&mut self, ui: &mut Ui, w: f32, h: f32, s: f32, mouse: (f64, f64)) {
+        let pad = 24.0 * s;
+        let ts = (26.0 * s).round();
+        let tw = ui.measure("Servers", ts, true);
+        ui.label("Servers", (w - tw) / 2.0, pad, ts, true, color::TEXT);
+        let servers = self.list.as_ref().map_or_else(Vec::new, |l| l.servers.clone());
+        let list_r = [(w - 640.0 * s).max(16.0) / 2.0, pad + 56.0 * s, (640.0 * s).min(w - 32.0), h - pad * 2.0 - 124.0 * s];
+        theme::panel(ui.renderer, list_r, s);
+        if servers.is_empty() {
+            let t = "The account server lists no world servers.";
+            let size = (16.0 * s).round();
+            let tw = ui.measure(t, size, true);
+            ui.label(t, list_r[0] + (list_r[2] - tw) / 2.0, list_r[1] + list_r[3] / 2.0, size, true, color::TEXT_DIM);
+        }
+        let chosen = self.server.min(servers.len().saturating_sub(1));
+        let row_h = 58.0 * s;
+        let fit = ((list_r[3] - 16.0 * s) / row_h).floor().max(1.0) as usize;
+        for (i, server) in servers.iter().take(fit).enumerate() {
+            let r = [list_r[0] + 8.0 * s, list_r[1] + 8.0 * s + i as f32 * row_h, list_r[2] - 16.0 * s, row_h - 6.0 * s];
+            let over = inside(r, mouse);
+            let edge = if i == chosen { color::ACCENT } else if over { color::BORDER_HI } else { color::BORDER };
+            theme::frame(ui.renderer, r, 8.0 * s, s.max(1.0), (edge, 1.0), ((color::SLOT_TOP, if over { 0.95 } else { 0.8 }), (color::SLOT_BOTTOM, 0.9)));
+            let ns = (18.0 * s).round();
+            let name = if server.admin_only { format!("{} (admin)", server.name) } else { server.name.clone() };
+            ui.label(&name, r[0] + 18.0 * s, r[1] + (r[3] - ns * 1.22) / 2.0, ns, true, color::TEXT);
+            // As `ServerBox`: Full at 100%, Crowded from 66%, with the player count.
+            let (status, c) = if server.usage >= 1.0 {
+                ("Full", color::DANGER)
+            } else if server.usage >= 0.66 {
+                ("Crowded", 0xFC8642)
+            } else {
+                ("Normal", color::GOOD)
+            };
+            let status = if server.usage_text.is_empty() { status.to_owned() } else { format!("{status} {}", server.usage_text) };
+            let ss = (16.0 * s).round();
+            let sw = ui.measure(&status, ss, true);
+            ui.label(&status, r[0] + r[2] - sw - 18.0 * s, r[1] + (r[3] - ss * 1.22) / 2.0, ss, true, c);
+            self.targets.push((Target::Server(i), r));
+        }
+        self.button(ui, Target::Back, [(w - 140.0 * s) / 2.0, h - 66.0 * s, 140.0 * s, 40.0 * s], "Back", Kind::Secondary, s, mouse);
+    }
+
     /// Account settings: change the password.
     fn draw_account(&mut self, ui: &mut Ui, w: f32, h: f32, s: f32, mouse: (f64, f64), now: i32) {
         let r = [(w - 380.0 * s) / 2.0, ((h - 420.0 * s) / 2.0).max(16.0), 380.0 * s, 420.0 * s];
@@ -1131,6 +1305,39 @@ fn spinner(ui: &mut Ui, cx: f32, cy: f32, radius: f32, now: i32, s: f32) {
     }
 }
 
+/// `RankToolTip`: the stars earned, how to earn more, and which colour each range of stars
+/// shows, in a box with its top left at `at` (kept inside the window).
+pub fn rank_tooltip(ui: &mut Ui, rank: i32, classes: i32, at: (f32, f32), s: f32) {
+    let size = (13.0 * s).round();
+    let line_h = 20.0 * s;
+    let (w, h) = (230.0 * s, 64.0 * s + line_h * (stars::COLORS.len() + 1) as f32);
+    let (sw, sh) = ui.renderer.size();
+    let r = [at.0.min(sw as f32 - w - 4.0).max(0.0), at.1.min(sh as f32 - h - 4.0).max(0.0), w, h];
+    theme::shadow(ui.renderer, r, 8.0 * s, 12.0 * s, 0.5);
+    theme::frame(ui.renderer, r, 8.0 * s, s.max(1.0), (color::BORDER_HI, 0.9), ((color::PANEL_TOP, 0.97), (color::PANEL_BOTTOM, 0.98)));
+    let (x, y) = (r[0] + 10.0 * s, r[1] + 8.0 * s);
+    let earned = format!("You have earned {rank}");
+    ui.label(&earned, x, y, size, true, stars::GREY);
+    let ew = ui.measure(&earned, size, true);
+    theme::star(ui.renderer, x + ew + 10.0 * s, y + size * 0.62, 6.5 * s, stars::GREY);
+    ui.label("You can earn more by completing Class Quests.", x, y + 22.0 * s, (11.5 * s).round(), false, color::TEXT_DIM);
+    let ly = y + 46.0 * s;
+    theme::fill(ui.renderer, [x, ly - 4.0 * s, w - 20.0 * s, s.max(1.0)], 0.0, color::BORDER, 1.0);
+    // LegendLine: a coloured star, the range, then a grey star.
+    let mut ranges: Vec<(u32, String)> = (0..stars::COLORS.len() as i32)
+        .map(|i| (stars::COLORS[i as usize], format!(": {} - {}", i * classes, (i + 1) * classes - 1)))
+        .collect();
+    let max = stars::max_stars(classes);
+    ranges.push((0xFFFFFF, format!(": {max}")));
+    for (i, (c, text)) in ranges.iter().enumerate() {
+        let ry = ly + 4.0 * s + i as f32 * line_h;
+        theme::star(ui.renderer, x + 7.0 * s, ry + size * 0.62, 6.5 * s, *c);
+        ui.label(text, x + 15.0 * s, ry, size, true, stars::GREY);
+        let tw = ui.measure(text, size, true);
+        theme::star(ui.renderer, x + 24.0 * s + tw, ry + size * 0.62, 6.5 * s, stars::GREY);
+    }
+}
+
 /// A class's standing frame, dyed, centred at (cx, cy).
 pub fn portrait(ui: &mut Ui, desc: &ObjectDesc, tex1: i32, tex2: i32, cx: f32, cy: f32, s: f32) {
     let TextureRef::Animated { set, index } = &desc.texture.pick(0).main else { return };
@@ -1152,6 +1359,7 @@ pub enum MenuChoice {
     /// Back to the Nexus.
     Nexus,
     Options,
+    Changelog,
     /// Out of the game, to the main menu (the character list).
     Home,
     Logout,
@@ -1161,7 +1369,7 @@ pub enum MenuChoice {
 pub fn draw_game_menu(ui: &mut Ui, w: f32, h: f32, mouse: (f64, f64)) -> Vec<(MenuChoice, [f32; 4])> {
     let s = scale(w, h);
     ui.rect(0.0, 0.0, w, h, 0x000000, 0.5);
-    let r = [(w - 320.0 * s) / 2.0, (h - 366.0 * s) / 2.0, 320.0 * s, 366.0 * s];
+    let r = [(w - 320.0 * s) / 2.0, (h - 420.0 * s) / 2.0, 320.0 * s, 420.0 * s];
     theme::panel(ui.renderer, r, s);
     let size = (22.0 * s).round();
     let tw = ui.measure("Paused", size, true);
@@ -1175,6 +1383,7 @@ pub fn draw_game_menu(ui: &mut Ui, w: f32, h: f32, mouse: (f64, f64)) -> Vec<(Me
         (MenuChoice::Resume, "Back to the game", Kind::Primary),
         (MenuChoice::Nexus, "Nexus", Kind::Secondary),
         (MenuChoice::Options, "Options", Kind::Secondary),
+        (MenuChoice::Changelog, "Changelog", Kind::Secondary),
         (MenuChoice::Home, "Return home", Kind::Secondary),
         (MenuChoice::Logout, "Log out", Kind::Danger),
     ]

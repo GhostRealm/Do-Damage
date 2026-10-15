@@ -64,6 +64,8 @@ pub struct Game {
     pub tellers: Vec<String>,
     /// The arena's wave and clock (`ArenaMenu`): wave, seconds, since when, running.
     pub arena: Option<(i32, i32, i32, bool)>,
+    /// `MapInfo.showDisplays`: the map shows your rank at the top left (the Nexus, the Vault...).
+    pub show_displays: bool,
     /// Sparks, effects and area attacks.
     pub particles: crate::particles::Particles,
     /// The quest's object (`QuestObjId`), for the arrow and the boss bar.
@@ -88,6 +90,13 @@ pub struct Game {
     pub counts: std::collections::BTreeMap<&'static str, u32>,
     /// Chat, oldest first (kept across worlds, as the AIR client's TextBox is).
     pub chat: Vec<crate::hud::ChatLine>,
+    /// A new version is ready: the next portal's Reconnect is kept in `held` for it, not
+    /// followed (see `update.rs`).
+    pub hold_reconnect: bool,
+    pub held: Option<Reconnect>,
+    /// This connection follows a portal handed over by the version before: if its key no
+    /// longer works, go to the Nexus instead.
+    pub fallback_to_nexus: bool,
 }
 
 /// A trade in progress (`TradePanel`): both sides' items and what each offers.
@@ -177,6 +186,7 @@ impl Game {
             dealt: Default::default(),
             quest_damage: None,
             arena: None,
+            show_displays: false,
             particles: Default::default(),
             quest: None,
             name_result: None,
@@ -191,6 +201,9 @@ impl Game {
             next_ability: 0,
             counts: Default::default(),
             chat: Vec::new(),
+            hold_reconnect: false,
+            held: None,
+            fallback_to_nexus: false,
         };
         game.socket.send(&first);
         game
@@ -198,7 +211,7 @@ impl Game {
 
     /// `GameServerConnection.onReconnect`: connect again, to another server if the message
     /// names one, with its game id and key.
-    fn reconnect(&mut self, r: &Reconnect) {
+    pub fn reconnect(&mut self, r: &Reconnect) {
         self.reconnects += 1;
         self.socket.close();
         if !r.host.is_empty() {
@@ -217,8 +230,23 @@ impl Game {
         self.status = format!("Entering {}…", r.name);
     }
 
+    /// Where a Reconnect goes: its own server, or this one when it names none.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))] // updates are desktop-only
+    pub fn reconnect_target(&self, r: &Reconnect) -> (String, u16) {
+        if r.host.is_empty() {
+            (self.target.host.clone(), self.target.port)
+        } else {
+            (r.host.clone(), r.port as u16)
+        }
+    }
+
     /// Handle everything the server sent since the last frame.
     pub fn poll(&mut self, now: i32, data: &GameData) {
+        // A portal kept for the new version: this connection is closed, and its closing isn't
+        // the game ending.
+        if self.held.is_some() {
+            return;
+        }
         while let Some(event) = self.socket.poll() {
             match event {
                 SocketEvent::Connected => self.status = "Connected, entering the game…".into(),
@@ -267,6 +295,7 @@ impl Game {
                 self.world = Some(World::new(info.width as i32, info.height as i32, &info.display_name, info.seed));
                 self.particles.clear();
                 self.arena = None;
+                self.show_displays = info.show_displays;
                 self.music = Some(info.music.clone());
                 self.last_level = 0;
                 self.dealt.clear();
@@ -280,11 +309,36 @@ impl Game {
                 }
                 // The quest's top damage dealers, from now on.
                 self.quest_damage = None;
+                self.fallback_to_nexus = false;
                 self.socket.send(&bsk_proto::QuestDamageSubscribe {}.into());
                 self.status.clear();
             }
-            Some(Event::Failure { description, .. }) => self.status = description,
+            Some(Event::Failure { description, .. }) => {
+                // A handed-over portal whose key ran out: the Nexus instead.
+                if std::mem::take(&mut self.fallback_to_nexus) && self.world.as_ref().is_none_or(|w| w.me.is_none()) {
+                    log::info!("{description}: going to the Nexus instead");
+                    let nexus = Reconnect {
+                        name: "Nexus".into(),
+                        host: String::new(),
+                        port: self.target.port as i32,
+                        game_id: bsk_session::NEXUS_GAME_ID,
+                        key_time: -1,
+                        key: Default::default(),
+                    };
+                    self.reconnect(&nexus);
+                    return;
+                }
+                self.status = description;
+            }
             Some(Event::Reconnect(r)) => {
+                if self.hold_reconnect {
+                    // Kept for the new version, which goes through the portal instead.
+                    self.socket.close();
+                    self.world = None;
+                    self.status = format!("Entering {}…", r.name);
+                    self.held = Some(r);
+                    return;
+                }
                 self.reconnect(&r);
                 return;
             }
@@ -298,7 +352,7 @@ impl Game {
             }
             ServerMessage::TradeRequested(t) => {
                 self.invite = Some((Invite::Trade { name: t.name.clone() }, now));
-                self.add_chat("", "", &format!("{} wants to trade with you.", t.name), 0, 0, now);
+                self.add_chat("", "", &format!("{} wants to trade with you.", t.name), 0, 0, -1, now);
             }
             ServerMessage::TradeStart(t) => {
                 self.invite = None;
@@ -327,7 +381,7 @@ impl Game {
             ServerMessage::TradeDone(d) => {
                 self.trade = None;
                 // GameServerConnection.onTradeDone: a server line, whatever the code.
-                self.add_chat("", "", &d.description, 0, 0, now);
+                self.add_chat("", "", &d.description, 0, 0, -1, now);
             }
             ServerMessage::InvitedToParty(p) => self.invite = Some((Invite::Party { name: p.name.clone(), party_id: p.party_id }, now)),
             ServerMessage::InvitedToGuild(g) => {
@@ -335,14 +389,14 @@ impl Game {
             }
             ServerMessage::NameResult(n) => {
                 if n.success {
-                    self.add_chat("", "", "Your name has been changed.", 0, 0, now);
+                    self.add_chat("", "", "Your name has been changed.", 0, 0, -1, now);
                 }
                 self.name_result = Some((n.success, n.error_text.clone()));
             }
             ServerMessage::GuildResult(g) => {
                 self.guild_result = Some((g.success, g.error_text.clone()));
                 if !g.error_text.is_empty() {
-                    self.add_chat(if g.success { "" } else { "*Error*" }, "", &g.error_text, 0, 0, now);
+                    self.add_chat(if g.success { "" } else { "*Error*" }, "", &g.error_text, 0, 0, -1, now);
                 }
             }
             ServerMessage::AccountList(l) => {
@@ -355,7 +409,7 @@ impl Game {
             }
             ServerMessage::BuyResult(b) => {
                 let name = if b.result == 0 { "" } else { "*Error*" };
-                self.add_chat(name, "", &b.result_string, 0, 0, now);
+                self.add_chat(name, "", &b.result_string, 0, 0, -1, now);
             }
             ServerMessage::GlobalNotification(n) => {
                 let key = match n.text.as_str() {
@@ -385,7 +439,7 @@ impl Game {
             if self.is_ignored(t.object_id) {
                 return;
             }
-            self.add_chat(&t.name, &t.recipient, &t.text, t.name_color, t.text_color, now);
+            self.add_chat(&t.name, &t.recipient, &t.text, t.name_color, t.text_color, t.num_stars, now);
             // GameServerConnection.onText: a balloon over the speaker, coloured by who it is.
             let speaker = self.world.as_ref().and_then(|w| w.objects.get(&t.object_id));
             if let (Some(o), true) = (speaker, t.object_id >= 0 && t.bubble_time > 0) {
@@ -471,7 +525,7 @@ impl Game {
             ServerMessage::ServerPlayerShoot(s) => {
                 if world.objects.get(&s.owner_id).is_some_and(|o| !o.dead) {
                     let (x, y) = (s.starting_pos.x as f64, s.starting_pos.y as f64);
-                    let p = Projectile::new(s.owner_id, s.bullet_id, s.container_type as u16, 0, s.angle as f64, now, x, y, 1.0, s.damage, false);
+                    let p = Projectile::new(s.owner_id, s.bullet_id, s.container_type as u16, s.bullet_type.unwrap_or(0) as i32, s.angle as f64, now, x, y, 1.0, s.damage, false);
                     world.add_projectile(p);
                 }
             }
@@ -522,7 +576,9 @@ impl Game {
         }
     }
 
-    pub fn add_chat(&mut self, name: &str, recipient: &str, text: &str, name_color: i32, text_color: i32, now: i32) {
+    /// `stars` is the speaker's rank, or -1 for none (the server's own lines).
+    #[allow(clippy::too_many_arguments)]
+    pub fn add_chat(&mut self, name: &str, recipient: &str, text: &str, name_color: i32, text_color: i32, stars: i32, now: i32) {
         // TextBox.tellers_: who we last whispered with, newest last.
         let me = self.world.as_ref().and_then(|w| w.player()).and_then(|p| p.name()).unwrap_or("").to_owned();
         let other = if !recipient.is_empty() && recipient == me {
@@ -543,6 +599,7 @@ impl Game {
             text: text.to_owned(),
             name_color,
             text_color,
+            stars,
             at: now,
         });
         if self.chat.len() > CHAT_KEEP {
@@ -911,7 +968,7 @@ impl Game {
     pub fn teleport(&mut self, object_id: i32, now: i32) {
         if now < self.next_teleport {
             let secs = (self.next_teleport - now + 999) / 1000;
-            self.add_chat("*Error*", "", &format!("You can't teleport for {secs} more seconds."), 0, 0, now);
+            self.add_chat("*Error*", "", &format!("You can't teleport for {secs} more seconds."), 0, 0, -1, now);
             return;
         }
         self.next_teleport = now + TELEPORT_COOLDOWN;
