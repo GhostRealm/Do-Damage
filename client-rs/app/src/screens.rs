@@ -8,6 +8,7 @@ use crate::hud::Ui;
 use crate::redraw::Dye;
 use crate::sky;
 use crate::stars;
+use crate::textedit::LineEdit;
 use crate::theme::{self, color, Kind};
 use bsk_data::{ObjectClass, ObjectDesc, TextureRef};
 use bsk_net::account::{CharList, CharSummary, FameSummary, Legend};
@@ -16,6 +17,8 @@ use winit::keyboard::KeyCode;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Screen {
+    /// The main menu: Play, sign in or register, options, the changelog, quit.
+    Home,
     Login,
     Register,
     /// Waiting on the account server.
@@ -88,6 +91,11 @@ enum Target {
     Logout,
     /// The Changelog window.
     Changelog,
+    /// Home's buttons.
+    Play,
+    ToHome,
+    ToOptions,
+    Quit,
 }
 
 /// What the player asked for.
@@ -109,12 +117,18 @@ pub enum Action {
     ViewDeath(i32),
     /// Open the Changelog window.
     Changelog,
+    /// Open the Options window.
+    Options,
+    /// Play without an account.
+    PlayAsGuest,
+    /// Close the game.
+    Quit,
 }
 
 pub struct Front {
     pub screen: Screen,
     /// Email, password, name, confirm password, new password, confirm new password.
-    pub fields: [String; 6],
+    pub fields: [LineEdit; 6],
     focus: usize,
     pub remember: bool,
     /// A line under the form or list: (text, is it an error).
@@ -137,6 +151,9 @@ pub struct Front {
     pub death_from_graveyard: bool,
     /// Clickable areas from the last frame.
     targets: Vec<(Target, [f32; 4])>,
+    /// Where each field's characters were drawn last frame: (field, first character shown,
+    /// the x of each edge between the characters shown), to put the cursor where it's clicked.
+    field_edges: Vec<(usize, usize, Vec<f32>)>,
     /// Where the account server is, shown small on the login screen.
     pub endpoint_label: String,
     /// A button was clicked since this was last cleared (for its sound).
@@ -145,6 +162,10 @@ pub struct Front {
     pub version_line: String,
     /// The character list's first row shown, when it's longer than the window.
     chars_row: usize,
+    /// A remembered login is being checked in the background (Home says so).
+    pub signing_in: bool,
+    /// Signed in as this device's guest: Register saves their progress.
+    pub guest: bool,
     /// The night sky behind it all.
     sky: crate::sky::Sky,
 }
@@ -152,8 +173,8 @@ pub struct Front {
 impl Default for Front {
     fn default() -> Self {
         Front {
-            screen: Screen::Login,
-            fields: Default::default(),
+            screen: Screen::Home,
+            fields: std::array::from_fn(|_| LineEdit::new("", 128)),
             focus: EMAIL,
             remember: true,
             message: None,
@@ -168,9 +189,12 @@ impl Default for Front {
             death_from_graveyard: false,
             clicked: false,
             targets: Vec::new(),
+            field_edges: Vec::new(),
             endpoint_label: String::new(),
             version_line: String::new(),
             chars_row: 0,
+            signing_in: false,
+            guest: false,
             sky: Default::default(),
         }
     }
@@ -283,8 +307,8 @@ impl Front {
     pub fn at_rest(&self) -> bool {
         self.confirm.is_none()
             && match self.screen {
-                Screen::Chars => true,
-                Screen::Login => self.fields[EMAIL].is_empty() && self.fields[PASSWORD].is_empty(),
+                Screen::Chars | Screen::Home => true,
+                Screen::Login => self.fields[EMAIL].text.is_empty() && self.fields[PASSWORD].text.is_empty(),
                 _ => false,
             }
     }
@@ -302,17 +326,30 @@ impl Front {
         self.confirm = None;
         if screen == Screen::Account {
             for f in [PASSWORD, NEW_PASSWORD, NEW_CONFIRM] {
-                self.fields[f].clear();
+                self.set_field(f, String::new());
             }
         }
         if let Some(&first) = self.fields_on_screen().first() {
             // Signing in with an email already typed: start at the password.
-            self.focus = if screen == Screen::Login && !self.fields[EMAIL].is_empty() { PASSWORD } else { first };
+            self.focus = if screen == Screen::Login && !self.fields[EMAIL].text.is_empty() { PASSWORD } else { first };
         }
     }
 
-    /// A key pressed (with the text it types, if any).
-    pub fn key(&mut self, code: KeyCode, text: Option<&str>) -> Option<Action> {
+    /// Put `text` in a field, with the cursor at its end.
+    pub fn set_field(&mut self, i: usize, text: String) {
+        self.fields[i] = LineEdit::new(text, 128);
+    }
+
+    /// Text the browser pasted: into the field being typed in.
+    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+    pub fn paste(&mut self, text: &str) {
+        if self.fields_on_screen().contains(&self.focus) {
+            self.fields[self.focus].insert(text);
+        }
+    }
+
+    /// A key pressed (with the text it types, if any, and whether Ctrl and Shift are held).
+    pub fn key(&mut self, code: KeyCode, text: Option<&str>, ctrl: bool, shift: bool) -> Option<Action> {
         if self.confirm.is_some() {
             match code {
                 KeyCode::Escape => self.confirm = None,
@@ -323,9 +360,11 @@ impl Front {
         }
         let fields = self.fields_on_screen();
         match code {
+            // Shift+Tab goes back a field.
             KeyCode::Tab if !fields.is_empty() => {
                 let i = fields.iter().position(|&f| f == self.focus).unwrap_or(0);
-                self.focus = fields[(i + 1) % fields.len()];
+                let n = fields.len();
+                self.focus = fields[if shift { (i + n - 1) % n } else { (i + 1) % n }];
             }
             KeyCode::Enter | KeyCode::NumpadEnter => match self.screen {
                 Screen::Login => return Some(Action::SignIn),
@@ -336,24 +375,22 @@ impl Front {
                 _ => {}
             },
             KeyCode::Escape => match self.screen {
-                Screen::Register => self.show(Screen::Login),
+                Screen::Login | Screen::Register | Screen::Chars => {
+                    self.message = None;
+                    self.show(Screen::Home);
+                }
                 Screen::Death if self.death_from_graveyard => self.show(Screen::Graveyard),
                 Screen::NewChar | Screen::Legends | Screen::Graveyard | Screen::Account | Screen::Death | Screen::Servers => self.show(Screen::Chars),
                 Screen::Class(_) => self.show(Screen::NewChar),
                 _ => {}
             },
-            KeyCode::Backspace if fields.contains(&self.focus) => {
-                self.fields[self.focus].pop();
+            // A password can't be copied or cut out of its field, as in any desktop text box.
+            KeyCode::KeyC | KeyCode::KeyX | KeyCode::Insert if ctrl && Self::field_is_secret(self.focus) => {}
+            KeyCode::Delete if shift && !ctrl && Self::field_is_secret(self.focus) => {}
+            _ if fields.contains(&self.focus) => {
+                self.fields[self.focus].key(code, text, ctrl, shift);
             }
-            _ => {
-                if let (Some(t), true) = (text, fields.contains(&self.focus)) {
-                    let field = &mut self.fields[self.focus];
-                    field.extend(t.chars().filter(|c| !c.is_control()));
-                    while field.chars().count() > 128 {
-                        field.pop();
-                    }
-                }
-            }
+            _ => {}
         }
         None
     }
@@ -364,7 +401,17 @@ impl Front {
         self.clicked |= !matches!(target, Target::Field(_));
         let servers = self.list.as_ref().map_or(0, |l| l.servers.len());
         match target {
-            Target::Field(i) => self.focus = i,
+            Target::Field(i) => {
+                self.focus = i;
+                // The cursor goes to the edge between characters nearest the click.
+                if let Some((_, first, edges)) = self.field_edges.iter().find(|(f, _, _)| *f == i) {
+                    let x = pos.0 as f32;
+                    let k = edges.iter().enumerate().min_by(|a, b| (a.1 - x).abs().total_cmp(&(b.1 - x).abs())).map_or(0, |(k, _)| k);
+                    let field = &mut self.fields[i];
+                    field.cursor = first + k;
+                    field.anchor = None;
+                }
+            }
             Target::SignIn => return Some(Action::SignIn),
             Target::Register => return Some(Action::Register),
             Target::ToRegister => {
@@ -430,6 +477,21 @@ impl Front {
             }
             Target::Logout => return Some(Action::Logout),
             Target::Changelog => return Some(Action::Changelog),
+            // Signed in (or a guest): the characters; else play as a guest.
+            Target::Play => {
+                self.message = None;
+                if self.list.is_some() {
+                    self.show(Screen::Chars);
+                } else {
+                    return Some(Action::PlayAsGuest);
+                }
+            }
+            Target::ToHome => {
+                self.message = None;
+                self.show(Screen::Home);
+            }
+            Target::ToOptions => return Some(Action::Options),
+            Target::Quit => return Some(Action::Quit),
         }
         None
     }
@@ -446,15 +508,18 @@ impl Front {
     /// Draw the current screen.
     pub fn draw(&mut self, ui: &mut Ui, w: f32, h: f32, mouse: (f64, f64), now: i32) {
         self.targets.clear();
+        self.field_edges.clear();
         let s = scale(w, h);
         self.sky.draw(ui, w, h, s, now);
         draw_shade(ui, w, h, self.screen);
         match self.screen {
             Screen::Login | Screen::Register => draw_logo(ui, w, h, s, Self::card_rect(w, h, 380.0 * s, 420.0 * s)[0]),
+            Screen::Home => {}
             Screen::Busy => draw_logo(ui, w, h, s, w),
             _ => {}
         }
         match self.screen {
+            Screen::Home => self.draw_home(ui, w, h, s, mouse, now),
             Screen::Login => self.draw_login(ui, w, h, s, mouse, now),
             Screen::Register => self.draw_register(ui, w, h, s, mouse, now),
             Screen::Busy => {
@@ -510,22 +575,40 @@ impl Front {
         let r = [x, y + 20.0 * s, width, 38.0 * s];
         let focused = self.focus == i;
         ui.field_box(r, focused, s);
-        let value = &self.fields[i];
+        let field = &self.fields[i];
         let fsize = (16.0 * s).round().max(10.0);
         let ty = r[1] + (r[3] - fsize * 1.22) / 2.0;
-        if value.is_empty() && !focused {
-            ui.label(placeholder, r[0] + 12.0 * s, ty, fsize, false, color::TEXT_MUTED);
+        let (left, room) = (r[0] + 12.0 * s, width - 24.0 * s);
+        if field.text.is_empty() && !focused {
+            ui.label(placeholder, left, ty, fsize, false, color::TEXT_MUTED);
         } else {
-            let mut shown = if Self::field_is_secret(i) { "•".repeat(value.chars().count()) } else { value.clone() };
+            let chars: Vec<char> = if Self::field_is_secret(i) { vec!['•'; field.text.chars().count()] } else { field.text.chars().collect() };
+            let width_of = |ui: &mut Ui, a: usize, b: usize| ui.measure(&chars[a..b].iter().collect::<String>(), fsize, false);
+            // Scroll so the cursor shows: the first character drawn is the furthest left that
+            // keeps it in the box, then as many as fit after it.
+            let cursor = field.cursor.min(chars.len());
+            let mut first = 0;
+            while first < cursor && width_of(ui, first, cursor) > room {
+                first += 1;
+            }
+            let mut last = cursor;
+            while last < chars.len() && width_of(ui, first, last + 1) <= room {
+                last += 1;
+            }
+            let edges: Vec<f32> = (first..=last).map(|k| left + width_of(ui, first, k)).collect();
+            if let (true, Some((a, b))) = (focused, field.selection()) {
+                let (a, b) = (a.clamp(first, last), b.clamp(first, last));
+                if b > a {
+                    theme::fill(ui.renderer, [edges[a - first], ty - 1.0 * s, edges[b - first] - edges[a - first], fsize * 1.25], 2.0 * s, color::ACCENT, 0.35);
+                }
+            }
+            let shown: String = chars[first..last].iter().collect();
+            ui.label(&shown, left, ty, fsize, false, color::TEXT);
             if focused && (now / 530) % 2 == 0 {
-                shown.push('|');
+                let x = edges[cursor - first];
+                theme::fill(ui.renderer, [x, ty, (1.5 * s).max(1.0), fsize * 1.2], 0.0, color::TEXT, 1.0);
             }
-            // Long text scrolls: show its end.
-            let mut start = 0;
-            while start < shown.len() && ui.measure(&shown[start..], fsize, false) > width - 24.0 * s {
-                start += shown[start..].chars().next().map_or(1, |c| c.len_utf8());
-            }
-            ui.label(&shown[start..], r[0] + 12.0 * s, ty, fsize, false, color::TEXT);
+            self.field_edges.push((i, first, edges));
         }
         self.targets.push((Target::Field(i), r));
         y + 72.0 * s
@@ -534,10 +617,19 @@ impl Front {
     fn message_line(&self, ui: &mut Ui, cx: f32, y: f32, max_w: f32, s: f32) {
         if let Some((text, error)) = &self.message {
             let size = (14.0 * s).round().max(9.0);
-            let tw = ui.measure(text, size, true).min(max_w);
+            // Wrapped to the width, so a long message stays on the screen.
+            let lines = wrap(ui, text, size, max_w - 24.0 * s);
+            let tw = lines.iter().map(|l| ui.measure(l, size, true)).fold(0.0, f32::max);
+            let line_h = size * 1.3;
             let c = if *error { color::DANGER } else { color::GOOD };
-            theme::fill(ui.renderer, [cx - tw / 2.0 - 12.0 * s, y - 4.0 * s, tw + 24.0 * s, size * 1.25 + 8.0 * s], 6.0 * s, c, 0.16);
-            ui.label(text, cx - tw / 2.0, y, size, true, theme::shade(c, 0.35));
+            let r = [cx - tw / 2.0 - 12.0 * s, y - 4.0 * s, tw + 24.0 * s, line_h * lines.len() as f32 + 8.0 * s];
+            // Dark under the tint, so it reads over the bright parts of the sky.
+            theme::fill(ui.renderer, r, 6.0 * s, color::PANEL_BOTTOM, 0.92);
+            theme::fill(ui.renderer, r, 6.0 * s, c, 0.16);
+            for (i, line) in lines.iter().enumerate() {
+                let lw = ui.measure(line, size, true);
+                ui.label(line, cx - lw / 2.0, y + i as f32 * line_h, size, true, theme::shade(c, 0.35));
+            }
         }
     }
 
@@ -552,7 +644,73 @@ impl Front {
         }
     }
 
+    /// The main menu: the game's name, who's signed in, then a column of buttons.
+    fn draw_home(&mut self, ui: &mut Ui, w: f32, h: f32, s: f32, mouse: (f64, f64), now: i32) {
+        let name = crate::TITLE;
+        let cell = (w * 0.7 / sky::logo_width(name, 1.0)).min(11.0 * s).floor().max(2.0);
+        let top = (h * 0.12).max(16.0 * s);
+        let lh = sky::logo(ui, name, w / 2.0, top, cell);
+        let size = (16.0 * s).round().max(10.0);
+        let tagline = "A Realm of the Mad God private server";
+        let tw = ui.measure(tagline, size, false);
+        ui.label(tagline, (w - tw) / 2.0, top + lh + 8.0 * s, size, false, color::TEXT);
+        let bw = 320.0 * s;
+        let (bh, gap) = (46.0 * s, 12.0 * s);
+        let x = (w - bw) / 2.0;
+        let mut y = top + lh + 56.0 * s;
+        // Who's signed in, if anyone.
+        let who = match (&self.list, self.signing_in) {
+            (Some(list), _) if self.guest => Some(format!("Playing as a guest ({})", list.name)),
+            (Some(list), _) => Some(format!("Signed in as {}", list.name)),
+            (None, true) => Some("Signing in\u{2026}".to_owned()),
+            _ => None,
+        };
+        let ws = (14.0 * s).round().max(9.0);
+        if let Some(who) = who {
+            let ww = ui.measure(&who, ws, false);
+            ui.label(&who, (w - ww) / 2.0, y, ws, false, color::TEXT_DIM);
+        }
+        y += ws * 1.6 + 6.0 * s;
+        let half = (bw - gap) / 2.0;
+        self.button(ui, Target::Play, [x, y, bw, bh + 6.0 * s], "Play", Kind::Primary, s, mouse);
+        y += bh + 6.0 * s + gap;
+        if self.list.is_some() && self.guest {
+            self.button(ui, Target::ToRegister, [x, y, half, bh], "Save progress", Kind::Secondary, s, mouse);
+            self.button(ui, Target::ToLogin, [x + half + gap, y, half, bh], "Sign in", Kind::Secondary, s, mouse);
+        } else if self.list.is_some() {
+            self.button(ui, Target::Logout, [x, y, bw, bh], "Log out", Kind::Secondary, s, mouse);
+        } else {
+            self.button(ui, Target::ToLogin, [x, y, half, bh], "Sign in", Kind::Secondary, s, mouse);
+            self.button(ui, Target::ToRegister, [x + half + gap, y, half, bh], "Register", Kind::Secondary, s, mouse);
+        }
+        y += bh + gap;
+        self.button(ui, Target::ToOptions, [x, y, half, bh], "Options", Kind::Secondary, s, mouse);
+        self.button(ui, Target::Changelog, [x + half + gap, y, half, bh], "Changelog", Kind::Secondary, s, mouse);
+        y += bh + gap;
+        // A browser tab is closed by the browser.
+        if cfg!(not(target_arch = "wasm32")) {
+            self.button(ui, Target::Quit, [x, y, bw, bh], "Quit", Kind::Secondary, s, mouse);
+            y += bh + gap;
+        }
+        if self.list.is_none() && self.message.is_none() {
+            let hint = "No account needed: Play starts you as a guest. Register any time to keep your progress.";
+            let hs = (13.0 * s).round().max(9.0);
+            let hw = ui.measure(hint, hs, false).min(w - 32.0);
+            ui.label(hint, (w - hw) / 2.0, y + 4.0 * s, hs, false, color::TEXT_DIM);
+        }
+        self.message_line(ui, w / 2.0, y + 8.0 * s, (w - 32.0).min(560.0 * s), s);
+        let _ = now;
+        let small = (12.0 * s).round().max(9.0);
+        ui.label(&self.endpoint_label, 12.0 * s, h - small * 1.7, small, false, color::TEXT_MUTED);
+    }
+
+    /// "Back" to the main menu, top left of the sign-in and register screens.
+    fn back_home(&mut self, ui: &mut Ui, s: f32, mouse: (f64, f64)) {
+        self.button(ui, Target::ToHome, [16.0 * s, 16.0 * s, 110.0 * s, 38.0 * s], "\u{2039} Back", Kind::Secondary, s, mouse);
+    }
+
     fn draw_login(&mut self, ui: &mut Ui, w: f32, h: f32, s: f32, mouse: (f64, f64), now: i32) {
+        self.back_home(ui, s, mouse);
         let r = Self::card_rect(w, h, 380.0 * s, 420.0 * s);
         let [x, y, bw, bh] = r;
         theme::panel(ui.renderer, r, s);
@@ -579,11 +737,13 @@ impl Front {
     }
 
     fn draw_register(&mut self, ui: &mut Ui, w: f32, h: f32, s: f32, mouse: (f64, f64), now: i32) {
+        self.back_home(ui, s, mouse);
         let r = Self::card_rect(w, h, 380.0 * s, 520.0 * s);
         let [x, y, bw, bh] = r;
         theme::panel(ui.renderer, r, s);
         let pad = 28.0 * s;
-        ui.label("Create your account", x + pad, y + 24.0 * s, (24.0 * s).round(), true, color::TEXT);
+        let title = if self.guest && self.list.is_some() { "Save your progress" } else { "Create your account" };
+        ui.label(title, x + pad, y + 24.0 * s, (24.0 * s).round(), true, color::TEXT);
         let mut fy = y + 66.0 * s;
         for (i, label, hint) in [
             (NAME, "Name", "Up to 10 letters"),
@@ -634,8 +794,8 @@ impl Front {
         let bw = 104.0 * s;
         let right = w - pad - money_w - 22.0 * s;
         let buttons = [
-            (Target::Logout, "Log out"),
-            (Target::ToAccount, "Account"),
+            (Target::ToHome, "Main menu"),
+            if self.guest { (Target::ToRegister, "Register") } else { (Target::ToAccount, "Account") },
             (Target::ToServers, "Servers"),
             (Target::ToLegends, "Legends"),
             (Target::ToGraveyard, "Graveyard"),
@@ -1196,7 +1356,7 @@ impl Front {
         theme::panel(ui.renderer, r, s);
         let pad = 28.0 * s;
         ui.label("Account", x + pad, y + 24.0 * s, (24.0 * s).round(), true, color::TEXT);
-        let email = self.fields[EMAIL].clone();
+        let email = self.fields[EMAIL].text.clone();
         ui.label(&email, x + pad, y + 58.0 * s, (14.0 * s).round(), false, color::TEXT_DIM);
         let mut fy = y + 90.0 * s;
         fy = self.field(ui, PASSWORD, "Current password", "Your password", x + pad, fy, bw - 2.0 * pad, s, now);
@@ -1278,7 +1438,7 @@ impl Front {
 /// Over the sky: darker behind lists, so they read easily, and a little darker at the top.
 fn draw_shade(ui: &mut Ui, w: f32, h: f32, screen: Screen) {
     let dark = match screen {
-        Screen::Login | Screen::Register | Screen::Busy => 0.0,
+        Screen::Home | Screen::Login | Screen::Register | Screen::Busy => 0.0,
         Screen::Death => 0.6,
         _ => 0.4,
     };
@@ -1310,6 +1470,35 @@ fn draw_logo(ui: &mut Ui, w: f32, h: f32, s: f32, card_x: f32) {
     let size = (16.0 * s).round().max(10.0);
     let tw = ui.measure(tagline, size, false);
     ui.label(tagline, cx - tw / 2.0, top + lh + 8.0 * s, size, false, color::TEXT);
+}
+
+/// `text` broken into lines no wider than `max_w` (bold), at spaces where it can, else
+/// anywhere (a long address).
+fn wrap(ui: &mut Ui, text: &str, size: f32, max_w: f32) -> Vec<String> {
+    let mut lines = Vec::new();
+    let mut line = String::new();
+    for word in text.split_whitespace() {
+        let next = if line.is_empty() { word.to_owned() } else { format!("{line} {word}") };
+        if ui.measure(&next, size, true) <= max_w || line.is_empty() && ui.measure(word, size, true) <= max_w {
+            line = next;
+            continue;
+        }
+        if !line.is_empty() {
+            lines.push(std::mem::take(&mut line));
+        }
+        // A word wider than the line on its own: cut it.
+        for c in word.chars() {
+            line.push(c);
+            if ui.measure(&line, size, true) > max_w && line.chars().count() > 1 {
+                line.pop();
+                lines.push(std::mem::replace(&mut line, c.to_string()));
+            }
+        }
+    }
+    if !line.is_empty() || lines.is_empty() {
+        lines.push(line);
+    }
+    lines
 }
 
 fn ui_time() -> i32 {
@@ -1434,17 +1623,28 @@ mod tests {
     fn typing_and_tab() {
         let mut f = Front::default();
         f.show(Screen::Login);
-        f.key(KeyCode::KeyA, Some("a@b"));
-        f.key(KeyCode::Tab, None);
-        f.key(KeyCode::KeyX, Some("pw"));
-        f.key(KeyCode::Backspace, None);
-        assert_eq!(f.fields[EMAIL], "a@b");
-        assert_eq!(f.fields[PASSWORD], "p");
-        assert_eq!(f.key(KeyCode::Enter, None), Some(Action::SignIn));
-        // Escape from Register goes back to Login.
+        f.key(KeyCode::KeyA, Some("a@b"), false, false);
+        f.key(KeyCode::Tab, None, false, false);
+        f.key(KeyCode::KeyX, Some("pw"), false, false);
+        f.key(KeyCode::Backspace, None, false, false);
+        assert_eq!(f.fields[EMAIL].text, "a@b");
+        assert_eq!(f.fields[PASSWORD].text, "p");
+        // Shift+Tab back to the email; Home, Shift+End selects it all, and typing replaces it.
+        f.key(KeyCode::Tab, None, false, true);
+        f.key(KeyCode::Home, None, false, false);
+        f.key(KeyCode::End, None, false, true);
+        assert_eq!(f.fields[EMAIL].selected_text(), Some("a@b"));
+        f.key(KeyCode::KeyC, Some("c"), false, false);
+        assert_eq!(f.fields[EMAIL].text, "c");
+        // Ctrl+A then Backspace empties it.
+        f.key(KeyCode::KeyA, None, true, false);
+        f.key(KeyCode::Backspace, None, false, false);
+        assert_eq!(f.fields[EMAIL].text, "");
+        assert_eq!(f.key(KeyCode::Enter, None, false, false), Some(Action::SignIn));
+        // Escape from Register goes back to the main menu, whose Play asks to sign in first.
         f.show(Screen::Register);
-        f.key(KeyCode::Escape, None);
-        assert_eq!(f.screen, Screen::Login);
+        f.key(KeyCode::Escape, None, false, false);
+        assert_eq!(f.screen, Screen::Home);
     }
 
     #[test]

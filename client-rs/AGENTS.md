@@ -31,7 +31,11 @@ python tools\build_client_rs.py --account http://<ip>:8080 --publish   # dist\cl
   the test stack: `--account http://127.0.0.1:8082 --publish --publish-to build/iso1/client`.
 
 - **Web:** needs `rustup target add wasm32-unknown-unknown` and `wasm-bindgen-cli` at the
-  version in `Cargo.lock` (the script says which). Serve it with the gateway (below);
+  version in `Cargo.lock` (the script says which). The build writes a `.gz` beside each
+  compressible file, which the gateway sends to browsers (`precompressed_gzip`), and fills in the
+  page's loading bar totals; the gateway marks `?v=` files cacheable for good and the page
+  `no-cache`. The game reports each asset to the page (`window.bskAssetLoaded`) and says when
+  it can draw (`window.bskReady`). Serve it with the gateway (below);
   `.claude/launch.json` has `client-rs-web`, a gateway on port 8095 for isolated stack slot 1.
 - **Window title** is "Do Damage", the game's name for players, never "betterSkillys" (that's
   the AIR client's). Settings and the saved login stay in `betterSkillys-rs` folders, so the
@@ -111,9 +115,13 @@ For example, the Battle Arena (its monsters come 60 s after you enter):
 - **Atlas:** pages are 4096², or the GPU's limit (WebGL2 can be 2048). Sheets bigger than a page
   are cut into pieces on tile boundaries (`Sheet::rect`).
 - **Colours:** the surface is non-sRGB and the atlas premultiplied, so blending matches Flash.
-- **Signing in:** the client opens on its own sign-in screen (register, character select, new
-  character, delete). The account server is `--account <url>`, else `BSK_ACCOUNT` from the
-  environment or the build, else `http://127.0.0.1:8080`. "Remember me" keeps the login in
+- **Signing in:** the client opens on its main menu (`Screen::Home`: Play, Sign in, Register,
+  Options, Changelog, Quit), checking a remembered login behind it; then the sign-in screen,
+  register, character select, new character, delete. The account server is `--account <url>`, else `BSK_ACCOUNT` from the
+  environment or the build, else `http://127.0.0.1:8080`. An address ending in `/api` is a
+  gateway (`https://<site>/api` through Caddy): the game then goes over its WebSocket bridge
+  (`wss://<site>/ws`), encrypted, instead of TCP to the world server. `BSK_CA=<pem>` trusts a test
+  CA as well (`tools/testclient/tls_front.py`; see SETUP-LOCAL.md, "Encrypted connections"). "Remember me" keeps the login in
   `%APPDATA%\betterSkillys-rs\login.txt` (`~/.config/...` on Linux and macOS, local storage in a
   browser), as the AIR client keeps it in its shared object.
 - **Look:** the website's (`website/`). `theme.rs` holds the shared style (its palette: dark

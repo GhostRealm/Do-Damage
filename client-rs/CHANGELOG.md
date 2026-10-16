@@ -8,6 +8,51 @@ version (`python tools/build_client_rs.py --publish`) needs a section for that v
 refuses while an `Unreleased` one is left, so rename it to `## <version> (<date>)` then. The
 version number itself is in `client-rs/Cargo.toml`.
 
+## 1.2.1 (2026-10-16)
+- The desktop game now signs in and plays over an encrypted connection (https), like the
+  browser version, so your password and what you do in game can't be read on the way to the
+  server. Your game switches over by itself when it updates.
+- The Native White Demons in the Abyss of Demons now chase you and shoot back instead of standing still.
+
+## 1.2.0 (2026-10-16)
+- Signing in with an email that has no account, or with the wrong password, now stops at the
+  sign-in screen with a message. It used to show an empty character list that couldn't play.
+- Clearer messages when signing in or creating an account fails: wrong password, unknown
+  email, name or email already taken, an email that isn't valid, a password that's too short
+  (6 characters at least), or no connection to the server. Long messages now wrap instead of
+  running off the screen.
+- The sign-in, register and account boxes work like normal text boxes: Ctrl+A, copy, cut and
+  paste, undo, the arrow keys, Home and End, Shift to select, Shift+Tab to go back a box, and a
+  click puts the cursor where you click. Passwords can't be copied out.
+- The game opens on a main menu: Play, Sign in, Register, Options, Changelog and Quit. If you
+  stay signed in, it says who you are and Play takes you straight to your characters. Options
+  can be changed before you play, and Escape or "Main menu" brings you back to it.
+- Play without an account: Play on the main menu starts you as a guest with a name of your own.
+  Your characters stay on this computer or browser; Register ("Save progress") at any time
+  turns them into a full account, characters, items and fame included. Guests can't buy from
+  the Nexus merchants.
+- Monsters and other players move smoothly: they no longer stop and start, slide past where
+  they are and back, or jump when the server's updates arrive a little late or bunched up.
+- Effects that flash "forever" (some monsters' glows) no longer stop at once.
+- Less stutter on the server: opening a dungeon no longer freezes the realm (and every dungeon
+  opened from it) for up to a second, the server's memory clean-ups no longer pause the whole
+  game, and moves and shots in dungeons and vaults are handled at once instead of up to a tenth
+  of a second later.
+- Pets that look like a boss now fight like it: Bes, Nut, Geb, the Cube God, Limon, Malphas,
+  Septavius, Stheno, Thessal, the Grand Sphinx, Horrific Creation and the other boss pets shoot
+  that boss's projectiles in its patterns (without its stuns and other effects). Their item
+  tooltips show the new damage.
+- Less lag around Assassins and thrown items: every poison vial and every thrown object left an
+  invisible marker on the map for 25 minutes, and they piled up for everyone nearby. They now
+  vanish once the throw lands. Huntress traps land when the throw does.
+- Ability tooltips show what the ability does and its numbers for every class: the
+  Necromancer's skull, the Huntress's trap, the Mystic's orb, the Sorcerer's scepter, auras,
+  boosts, decoys, teleports and the rest, instead of just a code name like "VampireBlast".
+- With the frame rate on (L), the ping to the server shows beside it.
+- Playing in the browser: a loading screen with a progress bar shows how much of the game is
+  left to download. The download is about a third of the size, the game's files load all at
+  once, and your browser keeps them, so the next visit starts much faster.
+
 ## 1.1.7.1 (2026-10-16)
 - The game has moved to its own server at dodmg.com, so it's up even when the old host's PC is
   off. Your client switches over by itself, and your account, characters and vault came along.

@@ -83,6 +83,8 @@ enum Request {
     Legends,
     /// A dead character's fame summary.
     Fame,
+    /// A new guest account.
+    Guest,
 }
 
 /// What an NPC's window asked the account server.
@@ -169,9 +171,12 @@ struct App {
     account: Option<(String, String)>,
     /// Signed in from --credentials (a test): the remembered login is left as it is.
     test_login: bool,
+    /// Signed in with this device's guest login (`login::guest_login`).
+    guest: bool,
     request: Option<(Request, Pending<bsk_net::http::Response>)>,
     /// Keys typed on the screens: (key, text).
-    front_keys: Vec<(KeyCode, Option<String>)>,
+    /// Keys for the screens: the key, the text it types, and whether Ctrl and Shift were held.
+    front_keys: Vec<(KeyCode, Option<String>, bool, bool)>,
     /// The Escape menu in the game, and its buttons last frame.
     game_menu: bool,
     menu_buttons: Vec<(screens::MenuChoice, [f32; 4])>,
@@ -572,8 +577,13 @@ async fn load(window: Arc<Window>) -> Result<Box<Loaded>, String> {
     log::info!("assets: {}", source.describe());
     let manifest = source.manifest().await.map_err(|e| e.to_string())?;
     let t = Instant::now();
-    let sprites = Sprites::load(&source, &manifest, &mut renderer).await?;
-    let data = GameData::load(&source, &manifest).await?;
+    // The sprites, the game data and the fonts download together (in a browser they're 500 files).
+    let (sprites, data, (regular, bold)) = futures::join!(
+        Sprites::load(&source, &manifest, &mut renderer),
+        GameData::load(&source, &manifest),
+        async { futures::join!(source.load(&manifest.fonts.regular), source.load(&manifest.fonts.bold)) }
+    );
+    let (sprites, data) = (sprites?, data?);
     log::info!(
         "loaded {} sheets ({} atlas pages), {} grounds, {} objects in {} ms",
         manifest.sheet_files().len(),
@@ -582,7 +592,6 @@ async fn load(window: Arc<Window>) -> Result<Box<Loaded>, String> {
         data.objects.len(),
         t.elapsed().as_millis()
     );
-    let (regular, bold) = futures::join!(source.load(&manifest.fonts.regular), source.load(&manifest.fonts.bold));
     let fonts = text::Fonts::new(regular.map_err(|e| e.to_string())?, bold.map_err(|e| e.to_string())?)?;
     Ok(Box::new(Loaded {
         renderer,
@@ -618,8 +627,8 @@ impl App {
                     return;
                 }
                 if let Some((email, password)) = start.login {
-                    self.front.fields[screens::EMAIL] = email;
-                    self.front.fields[screens::PASSWORD] = password;
+                    self.front.set_field(screens::EMAIL, email);
+                    self.front.set_field(screens::PASSWORD, password);
                     // Desktop tests sign in and go straight into the game, leaving the player's
                     // remembered login alone.
                     self.front.remember = false;
@@ -627,33 +636,80 @@ impl App {
                     let stay = cfg!(not(target_arch = "wasm32")) && std::env::args().any(|a| a == "--stay");
                     self.sign_in(cfg!(not(target_arch = "wasm32")) && !stay);
                 } else if let Some((email, password)) = login::remembered() {
-                    self.front.fields[screens::EMAIL] = email;
-                    self.front.fields[screens::PASSWORD] = password;
-                    self.sign_in(false);
+                    self.front.set_field(screens::EMAIL, email);
+                    self.front.set_field(screens::PASSWORD, password);
+                    self.front.show(screens::Screen::Home);
+                    self.sign_in_quietly();
+                } else if let Some((guid, password)) = login::guest_login() {
+                    self.front.show(screens::Screen::Home);
+                    self.sign_in_as_guest(guid, password, false);
                 } else {
-                    self.front.show(screens::Screen::Login);
+                    self.front.show(screens::Screen::Home);
                 }
             }
             Err(e) => {
                 self.front.message = Some((e, true));
-                self.front.show(screens::Screen::Login);
+                self.front.show(screens::Screen::Home);
             }
         }
     }
 
     fn sign_in(&mut self, auto_play: bool) {
-        let (email, password) = (self.front.fields[screens::EMAIL].trim().to_owned(), self.front.fields[screens::PASSWORD].clone());
-        if email.is_empty() || password.is_empty() {
-            self.front.message = Some(("Enter your email and password.".into(), true));
+        let (email, password) = (self.front.fields[screens::EMAIL].text.trim().to_owned(), self.front.fields[screens::PASSWORD].text.clone());
+        if let Some(problem) = login::check_sign_in(&email, &password) {
+            self.front.message = Some((problem.into(), true));
             self.front.show(screens::Screen::Login);
             return;
         }
         let Some(endpoint) = &self.endpoint else { return };
         self.request = Some((Request::CharList { auto_play }, endpoint.char_list(&email, &password)));
         self.account = Some((email, password));
+        self.guest = false;
         self.front.busy = "Signing in…".into();
         self.front.message = None;
         self.front.show(screens::Screen::Busy);
+    }
+
+    /// Play without an account: this device's guest login, or a new one from the server.
+    fn play_as_guest(&mut self) {
+        if let Some((guid, password)) = login::guest_login() {
+            self.sign_in_as_guest(guid, password, true);
+            return;
+        }
+        let Some(endpoint) = &self.endpoint else { return };
+        self.request = Some((Request::Guest, endpoint.guest()));
+        self.front.busy = "Making you a guest account…".into();
+        self.front.message = None;
+        self.front.show(screens::Screen::Busy);
+    }
+
+    /// Sign in with a guest login: on to the characters (`busy`), or quietly behind the menu.
+    fn sign_in_as_guest(&mut self, guid: String, password: String, busy: bool) {
+        let Some(endpoint) = &self.endpoint else { return };
+        self.request = Some((Request::CharList { auto_play: false }, endpoint.char_list(&guid, &password)));
+        self.account = Some((guid, password));
+        self.guest = true;
+        self.front.message = None;
+        if busy {
+            self.front.busy = "Entering as a guest…".into();
+            self.front.show(screens::Screen::Busy);
+        } else {
+            self.front.signing_in = true;
+        }
+    }
+
+    /// Check the remembered login while the main menu shows (Play then goes straight to the
+    /// characters).
+    fn sign_in_quietly(&mut self) {
+        let (email, password) = (self.front.fields[screens::EMAIL].text.trim().to_owned(), self.front.fields[screens::PASSWORD].text.clone());
+        let Some(endpoint) = &self.endpoint else { return };
+        if login::check_sign_in(&email, &password).is_some() {
+            return;
+        }
+        self.request = Some((Request::CharList { auto_play: false }, endpoint.char_list(&email, &password)));
+        self.account = Some((email, password));
+        self.guest = false;
+        self.front.signing_in = true;
     }
 
     /// Carry on where the version before left off (`--resume`): signed in, and through the
@@ -663,8 +719,8 @@ impl App {
         log::info!("carrying on from version {}", r.from_version);
         let now = self.now();
         if !r.email.is_empty() {
-            self.front.fields[screens::EMAIL] = r.email.clone();
-            self.front.fields[screens::PASSWORD] = r.password.clone();
+            self.front.set_field(screens::EMAIL, r.email.clone());
+            self.front.set_field(screens::PASSWORD, r.password.clone());
             self.account = Some((r.email.clone(), r.password.clone()));
             // The remembered login is the old version's business: left as it is.
             self.test_login = true;
@@ -706,7 +762,7 @@ impl App {
                 self.refresh();
             }
             (_, _, Some(_)) => self.sign_in(false),
-            _ => self.front.show(screens::Screen::Login),
+            _ => self.front.show(screens::Screen::Home),
         }
     }
 
@@ -889,7 +945,7 @@ impl App {
             return;
         }
         let ready = match &self.phase {
-            Phase::Menu => self.front.screen == screens::Screen::Chars,
+            Phase::Menu => matches!(self.front.screen, screens::Screen::Chars | screens::Screen::Home),
             Phase::Playing(game) => game.world.as_ref().is_some_and(|w| w.player().is_some()),
         };
         if !ready {
@@ -918,23 +974,15 @@ impl App {
             Action::SignIn => self.sign_in(false),
             Action::Register => {
                 let f = &self.front.fields;
-                let (name, email, password) = (f[screens::NAME].trim().to_owned(), f[screens::EMAIL].trim().to_owned(), f[screens::PASSWORD].clone());
-                let problem = if name.is_empty() || email.is_empty() || password.is_empty() {
-                    Some("Fill in every field.")
-                } else if password != f[screens::CONFIRM] {
-                    Some("The passwords don't match.")
-                } else if !name.chars().all(|c| c.is_ascii_alphabetic()) || name.len() > 10 {
-                    Some("Names are up to 10 letters, A to Z.")
-                } else {
-                    None
-                };
-                if let Some(p) = problem {
+                let (name, email, password) = (f[screens::NAME].text.trim().to_owned(), f[screens::EMAIL].text.trim().to_owned(), f[screens::PASSWORD].text.clone());
+                if let Some(p) = login::check_register(&name, &email, &password, &f[screens::CONFIRM].text) {
                     self.front.message = Some((p.into(), true));
                     return;
                 }
                 let Some(endpoint) = &self.endpoint else { return };
-                self.request = Some((Request::Register, endpoint.register(&email, &password, &name)));
-                self.front.busy = "Creating your account…".into();
+                let guest = self.account.as_ref().filter(|_| self.guest).map(|(g, p)| (g.as_str(), p.as_str()));
+                self.request = Some((Request::Register, endpoint.register(&email, &password, &name, guest)));
+                self.front.busy = if guest.is_some() { "Saving your progress…" } else { "Creating your account…" }.into();
                 self.front.message = None;
                 self.front.show(Screen::Busy);
             }
@@ -950,13 +998,13 @@ impl App {
             }
             Action::ChangePassword => {
                 let f = &self.front.fields;
-                let (current, new) = (f[screens::PASSWORD].clone(), f[screens::NEW_PASSWORD].clone());
+                let (current, new) = (f[screens::PASSWORD].text.clone(), f[screens::NEW_PASSWORD].text.clone());
                 let problem = if current.is_empty() || new.is_empty() {
                     Some("Fill in every field.")
-                } else if new != f[screens::NEW_CONFIRM] {
+                } else if new != f[screens::NEW_CONFIRM].text {
                     Some("The new passwords don't match.")
-                } else if new.chars().count() < 6 {
-                    Some("Use at least 6 characters.")
+                } else if new.chars().count() < login::MIN_PASSWORD {
+                    Some("Passwords need at least 6 characters.")
                 } else {
                     None
                 };
@@ -989,16 +1037,22 @@ impl App {
             }
             Action::Logout => self.logout(),
             Action::Changelog => self.changelog.show(),
+            Action::Options => self.options_ui.show(),
+            Action::PlayAsGuest => self.play_as_guest(),
+            Action::Quit => self.quit = true,
         }
     }
 
     fn logout(&mut self) {
         self.account = None;
+        // A guest's login stays on this device: Play brings them back.
+        self.guest = false;
+        self.front.guest = false;
         self.front.list = None;
-        self.front.fields[screens::PASSWORD].clear();
+        self.front.set_field(screens::PASSWORD, String::new());
         self.front.message = None;
         login::remember(None);
-        self.front.show(screens::Screen::Login);
+        self.front.show(screens::Screen::Home);
     }
 
     /// Into the game with this character (or a new one), on the chosen server.
@@ -1082,7 +1136,7 @@ impl App {
             };
         }
         let Some((_, pending)) = &self.npc_request else { return };
-        let Some(response) = pending.take() else { return };
+        let Some(response) = pending.take().map(login::reached) else { return };
         let Some((kind, _)) = self.npc_request.take() else { return };
         use bsk_net::account as acc;
         match (kind, &mut self.npcs.window) {
@@ -1124,11 +1178,21 @@ impl App {
         let Some(response) = pending.take() else { return };
         let Some((kind, _)) = self.request.take() else { return };
         use screens::Screen;
+        self.front.signing_in = false;
         match kind {
             Request::CharList { auto_play } => match login::parse_char_list(response) {
+                // Older account servers answered an unknown email with a made-up guest list
+                // (account 0) that couldn't play: that's no sign-in.
+                Ok(list) if list.account_id <= 0 && self.front.list.is_none() => {
+                    self.account = None;
+                    self.front.message = Some(("No account uses that email.".into(), true));
+                    if self.front.screen != Screen::Home {
+                        self.front.show(Screen::Login);
+                    }
+                }
                 Ok(list) => {
                     if let Some((email, password)) = &self.account {
-                        if !self.test_login {
+                        if !self.test_login && !self.guest {
                             login::remember(self.front.remember.then_some((email.as_str(), password.as_str())));
                         }
                     }
@@ -1141,6 +1205,7 @@ impl App {
                         .min(list.servers.len().saturating_sub(1));
                     let first = list.chars.iter().find(|c| !c.dead).map(|c| c.id);
                     self.front.list = Some(list);
+                    self.front.guest = self.guest;
                     if matches!(self.phase, Phase::Menu) {
                         if self.front.screen == Screen::Busy || self.front.screen == Screen::Login {
                             self.front.show(Screen::Chars);
@@ -1154,17 +1219,30 @@ impl App {
                     }
                 }
                 Err(e) => {
-                    if self.front.list.is_some() {
-                        self.front.message = Some((e, true));
-                    } else {
-                        self.account = None;
-                        self.front.message = Some((e, true));
-                        self.front.show(Screen::Login);
+                    // A guest login the server no longer knows (its data was reset): forget it,
+                    // and Play makes a new one.
+                    if self.guest && self.front.list.is_none() {
+                        login::keep_guest(None);
+                        self.guest = false;
                     }
+                    if self.front.list.is_none() {
+                        self.account = None;
+                        // A remembered login that failed behind the main menu says so there.
+                        if self.front.screen != Screen::Home {
+                            self.front.show(Screen::Login);
+                        }
+                    }
+                    self.front.message = Some((e, true));
                 }
             },
             Request::Register => match login::parse_success(response) {
-                Ok(()) => self.sign_in(false),
+                Ok(()) => {
+                    // A guest's progress is the new account's now.
+                    if self.guest {
+                        login::keep_guest(None);
+                    }
+                    self.sign_in(false);
+                }
                 Err(e) => {
                     self.front.message = Some((e, true));
                     self.front.show(Screen::Register);
@@ -1197,21 +1275,31 @@ impl App {
                             login::remember(Some((email, &new)));
                         }
                     }
-                    self.front.fields[screens::PASSWORD] = new;
+                    self.front.set_field(screens::PASSWORD, new);
                     self.front.message = Some(("Password changed.".into(), false));
                     self.front.show(Screen::Chars);
                 }
                 Err(e) => self.front.message = Some((e, true)),
             },
-            Request::Legends => match bsk_net::account::parse_fame_list(&response.unwrap_or_default()) {
+            Request::Legends => match login::reached(response).and_then(|xml| bsk_net::account::parse_fame_list(&xml)) {
                 Ok(list) => self.front.legends = Some(list),
                 Err(e) => {
                     self.front.legends = Some(Vec::new());
                     self.front.message = Some((e, true));
                 }
             },
+            Request::Guest => match login::parse_guest(response) {
+                Ok((guid, password)) => {
+                    login::keep_guest(Some((&guid, &password)));
+                    self.sign_in_as_guest(guid, password, true);
+                }
+                Err(e) => {
+                    self.front.message = Some((e, true));
+                    self.front.show(Screen::Home);
+                }
+            },
             Request::Fame => {
-                match response.and_then(|xml| bsk_net::account::parse_char_fame(&xml)) {
+                match login::reached(response).and_then(|xml| bsk_net::account::parse_char_fame(&xml)) {
                     Ok(summary) => {
                         self.front.death = Some(summary);
                         self.front.show(Screen::Death);
@@ -1300,8 +1388,12 @@ impl App {
         let dt = (now - self.last_frame).clamp(0, 200);
         self.last_frame = now;
         prof::start();
-        if let (Some(text), Some(input)) = (textedit::clipboard::take_pasted(), &mut self.chat_input) {
-            input.insert(&text);
+        if let Some(text) = textedit::clipboard::take_pasted() {
+            match (&mut self.chat_input, &self.phase) {
+                (Some(input), _) => input.insert(&text),
+                (None, Phase::Menu) => self.front.paste(&text),
+                _ => {}
+            }
         }
         self.advance();
         #[cfg(not(target_arch = "wasm32"))]
@@ -1366,8 +1458,8 @@ impl App {
                 }
             }
         }
-        // A mouse script can also start on the character list (tests of the screens).
-        if self.holds_from.is_none() && !self.mouse_script.is_empty() && matches!(self.phase, Phase::Menu) && self.front.screen == screens::Screen::Chars {
+        // A mouse script can also start on the character list or the main menu (tests of the screens).
+        if self.holds_from.is_none() && !self.mouse_script.is_empty() && matches!(self.phase, Phase::Menu) && matches!(self.front.screen, screens::Screen::Chars | screens::Screen::Home) {
             self.holds_from = Some(now);
         }
         if self.holds_from.is_none() && !(self.holds.is_empty() && self.mouse_script.is_empty()) && self.walk_to.is_none() {
@@ -1427,18 +1519,29 @@ impl App {
         };
         if matches!(self.phase, Phase::Menu) {
             let mut actions = Vec::new();
-            for (code, text) in std::mem::take(&mut self.front_keys) {
-                actions.extend(self.front.key(code, text.as_deref()));
+            for (code, text, ctrl, shift) in std::mem::take(&mut self.front_keys) {
+                actions.extend(self.front.key(code, text.as_deref(), ctrl, shift));
             }
             for (down, pos) in std::mem::take(&mut self.clicks) {
-                if down {
+                if !down {
+                    continue;
+                }
+                if self.options_ui.open {
+                    if self.options_ui.click(pos, &mut self.settings) {
+                        self.settings.save();
+                    }
+                } else {
                     actions.extend(self.front.click(pos));
                 }
             }
+            // Its "Return home" means nothing out here.
+            self.options_ui.go_home = false;
             renderer.begin();
             let (w, h) = renderer.size();
             let mut ui = hud::Ui { renderer: &mut *renderer, sprites, data, redrawer: &mut *redrawer, fonts, text: &mut *text };
             self.front.draw(&mut ui, w as f32, h as f32, mouse, now);
+            self.options_ui.in_game = false;
+            self.options_ui.draw(&mut ui, &lay, &self.settings, mouse);
             let s = screens::scale(w as f32, h as f32);
             self.changelog.draw_note(&mut ui, 16.0 * s, 16.0 * s, s, mouse, now);
             self.changelog.draw(&mut ui, w as f32, h as f32, &cl_entries, version::VERSION, cl_coming.as_deref(), mouse);
@@ -1886,9 +1989,12 @@ impl App {
                 game.use_ability(now, x, y, angle, data);
             }
         }
-        // The frame rate, top right of the view (L), under the gold and fame.
-        if self.settings.show_fps && matches!(self.phase, Phase::Playing(_)) {
-            let t = format!("{:.0} fps", self.fps_shown);
+        // The frame rate and the ping, top right of the view (L), under the gold and fame.
+        if let (true, Phase::Playing(game)) = (self.settings.show_fps, &self.phase) {
+            let t = match game.ping {
+                Some(ms) => format!("{:.0} fps  ·  {ms} ms", self.fps_shown),
+                None => format!("{:.0} fps", self.fps_shown),
+            };
             let style = text::Style { size: (13.0 * lay.s).round().max(10.0), bold: true, color: 0xB0FFB0 };
             let w = text.measure(fonts, renderer, &t, style);
             text.draw(fonts, renderer, &t, lay.view_w() - w - 10.0 * lay.s, credits_bottom + 4.0 * lay.s, style);
@@ -1923,6 +2029,7 @@ impl App {
         }
         if self.options_ui.open {
             let mut ui = hud::Ui { renderer: &mut *renderer, sprites, data, redrawer: &mut *redrawer, fonts, text: &mut *text };
+            self.options_ui.in_game = true;
             self.options_ui.draw(&mut ui, &lay, &self.settings, mouse);
         }
         {
@@ -2062,6 +2169,16 @@ impl ApplicationHandler<UserEvent> for App {
         match event {
             UserEvent::Ready(loaded) => {
                 self.loaded = Some(loaded);
+                // The page's loading screen can go (`window.bskReady()`, web/index.html).
+                #[cfg(target_arch = "wasm32")]
+                if let Some(window) = web_sys::window() {
+                    use wasm_bindgen::JsCast;
+                    if let Ok(f) = js_sys::Reflect::get(&window, &wasm_bindgen::JsValue::from_str("bskReady")) {
+                        if let Some(f) = f.dyn_ref::<js_sys::Function>() {
+                            let _ = f.call0(&wasm_bindgen::JsValue::NULL);
+                        }
+                    }
+                }
                 if let Some(window) = &self.window {
                     let size = window.inner_size();
                     self.loaded.as_mut().unwrap().renderer.resize(size.width, size.height);
@@ -2117,9 +2234,15 @@ impl ApplicationHandler<UserEvent> for App {
                     self.keys.remove(&code);
                     return;
                 }
+                if self.options_ui.open && matches!(self.phase, Phase::Menu) {
+                    if pressed && self.options_ui.key(code, &mut self.settings) {
+                        self.settings.save();
+                    }
+                    return;
+                }
                 if matches!(self.phase, Phase::Menu) {
                     if pressed {
-                        self.front_keys.push((code, event.text.as_ref().map(|t| t.to_string())));
+                        self.front_keys.push((code, event.text.as_ref().map(|t| t.to_string()), self.ctrl_held, self.shift_held));
                     }
                     return;
                 }
@@ -2362,6 +2485,7 @@ fn main() {
         endpoint: None,
         account: None,
         test_login: false,
+        guest: false,
         request: None,
         front_keys: Vec::new(),
         game_menu: false,

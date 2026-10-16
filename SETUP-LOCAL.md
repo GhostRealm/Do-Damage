@@ -88,7 +88,10 @@ The same servers run on a Linux VPS (Ubuntu 24.04, x86_64; 4 GB of RAM is enough
 comfortable), so this PC doesn't have to stay on. Everything is built on this PC by
 `deploy/deploy.py` and copied over ssh; the VPS only runs it. Players open `https://<site>`, the
 website, and play from there in the browser (`https://<site>/play/`), or download the desktop
-client, which uses `http://<public_address>:8080` as its account server.
+client. A desktop client built with `--account https://<site>/api` goes the browser's way too:
+sign-in over https and the game over wss, through Caddy and the gateway, so passwords and game
+traffic are encrypted (see "Encrypted connections" below). Older desktop clients use
+`http://<public_address>:8080` and TCP 2051, unencrypted; those stay open for them.
 
 | Service (systemd) | What | Port |
 |---|---|---|
@@ -104,7 +107,7 @@ client, which uses `http://<public_address>:8080` as its account server.
   full changelog page. The game's name on it is `site_name` in the VPS config.
 - **Deploying:** `deploy.py` builds it into the bundle on every deploy.
 - **Downloads:** the site offers the zips in `dist\` (`Do-Damage-<os>.zip`). Build them for
-  the VPS first: `python tools\build_client_rs.py --account http://<public_address>:8080 --package`.
+  the VPS first: `python tools\build_client_rs.py --account https://<site>/api --package`.
 - **Trying it on this PC:** `.claude/launch.json` has `site`, which serves `build\site` on port
   8097. The server status reads "unavailable" there, as nothing answers `/api`.
 
@@ -132,10 +135,53 @@ client, which uses `http://<public_address>:8080` as its account server.
    base of its new AOF (tried with a copy of the live data: all 139 keys loaded). It refuses to overwrite data already on the VPS; `--force-data`
    replaces it (the old folder is kept as `data.before-import.<time>`).
 5. Point players at the VPS: publish the desktop client for the new address
-   (`python tools\build_client_rs.py --account http://<public_address>:8080 --publish`, then run
+   (`python tools\build_client_rs.py --account https://<site>/api --publish`, then run
    `deploy\deploy.py` again so the VPS serves it at `/client/`) and send the `--package` zip to
    anyone who needs it. Clients built for the old address keep updating from this PC until it
    stops, so publish the new-address build from this PC once as well.
+
+**The live game moved here on 2026-10-16:** `dodmg.com` (Contabo, 169.58.244.146, ssh as root
+with `~/.ssh/dodmg_ed25519`; the config is `deploy/vps.local.json`, not tracked). The servers on
+this PC are stopped and `Run Server.bat` asks before starting them. Desktop clients from before
+the move still look for updates at this PC's address: `python tools\update_relay.py` serves them
+the releases (and nothing else) on port 8080, so they switch to `dodmg.com` by themselves. Leave
+it running for a while; it doesn't survive a restart of this PC.
+
+**Encrypted connections (desktop client):**
+- **How:** a desktop client whose account address ends in `/api` treats it as a site's gateway:
+  account requests go to `https://<site>/api/...` and the game to `wss://<site>/ws/<host>:<port>`,
+  the WebSocket bridge the browser client uses (`client-rs/crates/net`: `tls.rs`, `socket.rs`).
+  Caddy holds the certificate; nothing new listens on the VPS. Any other address (`http://...:8080`)
+  is the account server itself, with the game over plain TCP, as before.
+- **Switching players over:** publish with `--account https://<site>/api` (step 5 above) and run
+  `deploy\deploy.py`. Older clients still update from `http://<public_address>:8080/client/`
+  (releases are signed, so that's safe over http), and the new version has the https address
+  built in, so they switch by themselves. Once nobody plays an old version, ports 8080 and 2051
+  can be closed in the VPS firewall; until then they carry old clients' passwords in the clear.
+- **Players' addresses:** through the gateway, the world servers would see every player as
+  127.0.0.1, so IP bans and mutes would hit everyone at once. With `"forward_address": true` in
+  the deploy config, the gateway sends the player's address (from Caddy's `X-Forwarded-For`) as a
+  PROXY_INFO message, which `world_proxy.py` passes on in place of its own. Turn it on only after
+  `bsk-world` has restarted with the world proxy from 2026-10-16 (that restart kicks everyone, so
+  pick a quiet moment and tell players): the old proxy, still running until then, would route
+  such connections to the active world server whatever their Hello asks for. Until it's on,
+  players on https show as 127.0.0.1 in game, as browser players already do.
+- **Trying it on this PC:** start a test stack, a gateway in front of it and
+  `tools/testclient/tls_front.py` (a stand-in for Caddy with a test certificate), then point the
+  client at it with `BSK_CA` naming the test CA (only for that run):
+
+  ```
+  python tools\testclient\iso_stack.py --slot 3 start --rolling --data-from <main>\source\Redis\data
+  client-rs\target\debug\bsk-gateway --web build\iso3\web --account http://127.0.0.1:8084 --allow 127.0.0.1:2055 --bind 127.0.0.1:8198 --forward-address
+  python tools\testclient\tls_front.py --listen 8443 --to 8198 --dir build\iso3\tls --forwarded-for 203.0.113.7
+  set BSK_CA=build\iso3\tls\ca.pem
+  client-rs\target\debug\betterskillys --account https://127.0.0.1:8443/api --credentials test-account.local.txt
+  ```
+
+  Without `BSK_CA` the client refuses the test certificate ("UnknownIssuer"), as it should.
+- **The RSA key** that encrypts the password in the Hello (`source/WorldServer/networking/RSA.cs`)
+  is the well-known upstream pair, so it hides nothing from anyone who looks it up. Over wss it
+  doesn't matter (TLS covers the Hello); it was left as it is so old clients keep working.
 
 **Updating:** `python deploy\deploy.py`. It replaces only what changed: a new world server goes in
 with a rolling deploy (nobody is kicked, as on this PC); a changed account server restarts (logins
@@ -230,7 +276,10 @@ In `PlayerShootHandler.cs`, the merge keeps HaloCelsius's rate-of-fire and proje
   - Fixed byte counting when a send needs more than two chunks, which could drop data and corrupt the stream. A message that doesn't fit in the send buffer now goes first in the next send, so messages stay in order.
   - Quick Edit is turned off in the World Server console window. Clicking in it no longer pauses the server.
   - Per-hit debug prints are gone from the console.
-  - Ticks slower than 200 ms are logged as "Slow tick" in `logs/wServer`.
+  - Ticks slower than 200 ms are logged as "Slow tick" in `logs/wServer`, slow passes over players' messages as "Slow messages", and every 30 s each world with players logs "Tick stats" (work, gaps between ticks, time per part, garbage collections).
+  - New dungeons, vaults and `/dungeon` worlds are built on a pool thread (`WorldManager.CreateNewWorldAsync`). Built inline, a dungeon froze the realm it was opened from, and every dungeon of that realm, for up to a second (measured: a 1070 ms gap with four players while one opened six dungeons; afterwards no slow passes). Players who use a portal while its dungeon is being built go in with the first.
+  - Players in a dungeon or vault (a branch world, run on its realm's or the Nexus's thread) now wake that thread when they send something; their moves and shots used to wait for the next tick, up to 100 ms.
+  - The world server uses the server garbage collector with DATAS (`WorldServer.csproj`): collections run on every core and are rare. With the default collector a full collection of the ~1 GB heap stopped every world for up to 1.8 s; measured afterwards, at most 137 ms. It uses about 300 MB more memory; remove the three GC lines from the project to go back.
   - The WorldServer and Shared projects are compiled with optimisation, in the Debug build that `Run Server.bat` uses too.
 - `wServer.json`: port 2051 instead of 2050, and the public address.
 - **Client rendering**, ported from the Doomed Realms client's optimisations and adapted to the GPU (Stage3D) renderer. In the nexus this took the test client from 110 to 191 fps.
@@ -344,6 +393,9 @@ In `PlayerShootHandler.cs`, the merge keeps HaloCelsius's rate-of-fire and proje
   - Enabled for the Tomb of the Ancients (the boss room is the hub and each of the five sarcophagus rooms ends a branch), Pirate Cave, Spider Den, Snake Pit, Forest Maze, Undead Lair, Abyss of Demons, Toxic Sewers, Woodland Labyrinth, Ocean Trench and Ancient Ruins.
   - Left fixed: Mountain Temple (Daichi moves to fixed map positions), Parasite Chambers (its blockades seal the rooms from the corridors), Cave of a Thousand Treasures (the boulder corridor would be lost), and the Mad Lab, Crawling Depths and Davy Jones' Locker (their bosses sit behind doors and walls their scripts open). Open maps (Sprite World, the Hive, the Ice Cave) don't split into rooms, and the multi-stage dungeons (Oryx's Castle, Lost Halls, the Shatters and so on) depend on their layouts.
 - **Rolling world server updates:** the world proxy (`tools/world_proxy.py`) owns port 2051 and forwards each connection by the game id in its Hello: world ids from 1000000 belong to world server slot a, from 2000000 to slot b (`serverSettings.worldIdBase`), anything else goes to the active one. `tools/rolling_restart.py deploy` starts a new world server beside the old one, which then hands its players over at their next Nexus or realm trip (`GameServer.DrainTick`; `Client.Reconnect` sends them to the Nexus with no key, so the proxy picks the new server); see "Updating the world server without kicking anyone" above. The proxy passes on each player's address (message 250, `PROXY_INFO`), and a world server behind it listens on 127.0.0.1 only (`serverInfo.listenPort`). A login whose account another world server still holds asks it to sign the account out (Redis channel `Kick`) and waits up to 5 seconds before "Account in Use". The account server lists world servers that share an address and port as one.
+- **Encrypted connections** (Rust desktop client, gateway, world proxy, world server): an account address ending in `/api` makes the desktop client sign in over https and play over wss through the site's Caddy and gateway, as the browser client does (see "Encrypted connections" under "Running on a VPS"). `BSK_CA=<pem>` adds a test CA. The gateway's `--forward-address` sends the player's address as a PROXY_INFO before the game bytes; `world_proxy.py` takes one from this machine in place of its own and drops one from anyone else, and the world server takes a PROXY_INFO only as a connection's first message, so a player can't choose the address IP bans see. The gateway also no longer passes on an `X-Forwarded-For` a player sent it directly.
+- **Sign-in checks** (account server): `/char/list` no longer makes a throwaway guest list (account 0) for an email it doesn't know; it answers "No account uses that email", and a wrong password "Wrong password". Registering and changing a password need at least 6 characters.
+- **Guest accounts** (account server, Rust client): `/account/guest` makes a real account with a made-up login (`guest-<32 hex>` and a random password, `guest` flag set) and a unique name ("Guest" and four random letters, so the world server lets it in and finds it by name). At most 10 an hour per address and 300 an hour in all; behind the gateway or Caddy the address comes from `X-Forwarded-For`, which only a request from this machine may set. The client keeps the login on the device (`guest.txt` in `betterSkillys-rs`, or local storage), apart from "Remember me", and Play on the main menu uses it. Guests play like anyone else, except that Nexus merchants don't sell to them (an upstream rule). `/account/register` with the guest's `guid` and `password` turns the guest's account into a normal one (`RenameUUID`, `RenameIGN`), keeping its characters, vault and fame. A guest whose device forgets the login loses that account; unused guest accounts stay in Redis.
 
 ## Content ported from Doomed Realms
 
@@ -358,6 +410,7 @@ In `PlayerShootHandler.cs`, the merge keeps HaloCelsius's rate-of-fire and proje
   - Remote textures are saved in `tools/doomed/remote`.
   - Pets whose id is already used in betterSkillys get a " (Doomed)" suffix and keep their display name.
   - Pet behaviour is in `BehaviorDb.DoomedPets.cs`: PetFollow, plus PetHeal and PetStrike (melee and thrown attacks) with the Doomed Realms amounts and cooldowns. Pets that fired projectiles use PetShoot: the same projectiles, counts and spreads, sent as the owner's server shots (`ServerPlayerShoot`), so the owner's client reports the hits and the damage is the owner's. `ServerPlayerShoot` has a trailing projectile-type byte for this (older clients ignore it and draw projectile 0).
+  - Boss pets: a pet with a betterSkillys boss's sprite (a `<Quest/>` monster with projectiles, or one in `EXTRA_BOSSES`) gets that boss's projectiles (without their condition effects) and a PetShoot for each distinct Shoot in the boss's behaviour (up to 4, at most one volley per 300 ms). `port_doomed_pets.find_bosses` matches them; the script prints "<pet> shoots like <boss>".
   - The port script writes each pet's damage per second on one enemy and its healing onto the generators' `PermaPet` activates (`petDps`, `petHp`/`petHpMs`, `petMp`/`petMpMs`); the Rust client's tooltip shows them.
   - Doomed Realms items are kept out of the random tier drops.
 - **Chat:** public chat no longer needs 2 stars (`PlayerTextHandler.cs`).
@@ -378,7 +431,7 @@ In `PlayerShootHandler.cs`, the merge keeps HaloCelsius's rate-of-fire and proje
   - Admins can open any dungeon with `/dungeon <name>`; with no name it lists the Doomed Realms ones. Several of them (Battle Arena, Kitchen, Mine, Gauntlet, ...) have no other entrance.
   - Fixed from Doomed Realms: the Elder Beach Key opened the Elder Jungle.
   - **Elder stats:** Doomed Realms balanced its Elder monsters for its own much stronger characters (10 to 700 times the regular monster's health, 10 or more times its damage, defense in the thousands). The port gives every Elder monster twice its regular version's health, its defense + 10 and 1.3 times its projectile damage instead, and twice the experience (`<XpBonus>2</XpBonus>`, which also doubles the per-kill experience cap, so level 20 characters get it too; fame follows experience). An Elder monster is also a quest where its regular version is (`rebalance_elders` in `port_doomed.py`).
-  - **Elder dungeons from betterSkillys maps:** `tools/make_elder.py` (run by `port_doomed.py` first) lists the Elder dungeons built from betterSkillys' own map of the regular dungeon (`DUNGEONS`). For each it generates darker "Elder <id>" copies of every ground and wall the regular map uses, with "Lit 1" to "Lit 6" versions of each walkable ground, onto the client's `ElderAssets8x8.png`, an "Elder <id>" copy, with the Elder stats, of every monster the regular map or behaviours use that Doomed Realms gave no Elder version, and an "Elder <id>" copy of every other object the map places that the behaviours define (spawners such as the Snake Grate, so the Elder version spawns Elder monsters). Its outputs are `xml/custom/ElderGrounds.xml` and `ElderObjects.xml` (and client copies); type codes stay stable in `tools/elder/types.json`. `port_doomed_worlds.py` then builds each map from the regular one with everything swapped for its Elder version, braziers and their light, and a random layout where the dungeon lists goals.
+  - **Elder dungeons from betterSkillys maps:** `tools/make_elder.py` (run by `port_doomed.py` first) lists the Elder dungeons built from betterSkillys' own map of the regular dungeon (`DUNGEONS`). For each it generates darker "Elder <id>" copies of every ground and wall the regular map uses, with "Lit 1" to "Lit 6" versions of each walkable ground, onto the client's `ElderAssets8x8.png`, an "Elder <id>" copy, with the Elder stats, of every monster the regular map or behaviours use that Doomed Realms gave no Elder version, and an "Elder <id>" copy of every other object the map places that the behaviours define (spawners such as the Snake Grate, so the Elder version spawns Elder monsters). `port_doomed.py` always ports the Doomed Realms objects these regular maps place (`make_elder.regular_map_objects`, e.g. Abyss of Demons' Native White Demon), since `make_elder.py` copies monsters from the last port's output: before, a regenerate alternated between two states. A monster newly placed on such a map takes two regenerates to get its Elder copy. Its outputs are `xml/custom/ElderGrounds.xml` and `ElderObjects.xml` (and client copies); type codes stay stable in `tools/elder/types.json`. `port_doomed_worlds.py` then builds each map from the regular one with everything swapped for its Elder version, braziers and their light, and a random layout where the dungeon lists goals.
   - **Elder Tomb of the Ancients:** rebuilt from betterSkillys' own Tomb: the same rooms, laid out anew for every visit (`<RandomLayout>`), with every monster swapped for its Elder version, the tiles for dark stone and the walls for aged gold Elder versions (`Elder Sandstone Tile` and co., `Elder Tomb Wall`; generated with their sprites by `tools/make_elder.py`, see below). Elder Braziers stand by the rooms' walls, corners first, about 9 tiles apart. The client has no lighting, so their light is baked into the map: the floor a brazier can see within 10 tiles becomes a lighter, warmer "Lit 1" to "Lit 6" version of its ground, brighter closer to it (`LIGHT_REACH` in `port_doomed_worlds.py`). It stops at walls and turns with the camera. The braziers themselves have no glow, which would show behind walls. Its monsters use the regular Tomb's behaviours (`BehaviorDb.Tomb.cs` builds both) with a quarter shorter cooldowns, and the Elder bosses drop the regular loot plus their Doomed Realms Elder drops. The `Elder Tomb Boss Anchor` drops the exit portal once the Elder bosses are dead; the regular Tomb's anchor also drops the Elder Tomb portal half the time. Before, the Elder Tomb's map was a rough path, its bosses had 1,000,000 HP, 5,000 defense and ten times the damage, and the regular anchor it used dropped the exit portal two seconds in. `port_doomed_worlds.py` builds it.
   - **The other Elder dungeons** (Pirate Cave, Spider Den, Snake Pit, Undead Lair, Abyss, Ocean Trench, Beach Zone, Jungle, Manor, Sprite World and Davy Jones' Locker) are built the same way from the regular betterSkillys map: darker tiles, braziers and their light, every monster swapped for its Elder version, and a new layout every visit where the regular dungeon has one. Each dungeon's behaviour file builds both versions (`PirateCaveBehaviours(db, elder)` and so on, with the helpers in `BehaviorDb.Elder.cs`): the Elder version uses the regular behaviours with a quarter shorter cooldowns and spawns Elder minions, and every Elder monster drops its regular loot plus its Doomed Realms Elder drops. The regular boss drops its Elder dungeon's portal half the time. Before, these used Doomed Realms' maps and behaviours, written for its far stronger characters, and many Elder monsters dropped nothing. Walls a behaviour opens by name (Davy's doors) keep their regular look so their scripts still find them.
   - The Undead Lair map's invisible Doomed Realms "Septavius Summoner" dropped a second Realm Portal (an Elder Abyss portal in the Elder Lair) when Septavius died; it now removes itself, since Septavius drops the portals.
