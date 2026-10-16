@@ -10,7 +10,9 @@ namespace WorldServer.logic
         private _ OryxCastle = () => Behav()
             .Init("Oryx Stone Guardian Right",
                 new State(
-                    new ScaleHP2(23),
+                    // stage 1 of the Oryx chain; in the Doomed Cellar they are Oryx 5's honour guard
+                    new BossStats(60000, 45, 1.6, 0.3, world: "Doomed Cellar"),
+                    new BossStats(35000, 30, 0.75, 0.25),
                     new State("Idle",
                         new ConditionEffectBehavior(ConditionEffectIndex.Invulnerable),
                         new PlayerWithinTransition(14, "Start")
@@ -25,7 +27,7 @@ namespace WorldServer.logic
                         new StayCloseToSpawn(0.5, range: 3),
                         new Wander(0.25),
                         new Shoot(15, count: 5, shootAngle: 7, projectileIndex: 0, coolDown: 1200),
-                        new RingAttack(20, 12, 0, projectileIndex: 1, 25, 0, coolDown: 3000),
+                        new Shoot(0, count: 12, fixedAngle: 0, rotateAngle: 15, projectileIndex: 1, coolDown: 3000),
                         new HpLessTransition(0.75, "Attack2")
                     ),
                     new State("Attack2",
@@ -45,22 +47,25 @@ namespace WorldServer.logic
                     ),
                     new State("Attack4",
                         new Follow(0.5, 10, 0),
-                        new RingAttack(20, 3, 0, projectileIndex: 0, 0.20, 0.0, coolDown: 200, seeInvis: true)
+                        new Shoot(0, count: 3, fixedAngle: 0, rotateAngle: 11, projectileIndex: 0, coolDown: 200)
                     )
                  ),
-                 new Threshold(0.03,
+                 new Threshold(0.01,
+                    new ItemLoot("Potion of Defense", 0.3),
+                    new ItemLoot("Potion of Attack", 0.15),
                     new ItemLoot("Ancient Stone Sword", 0.003)
                 ),
                 new Threshold(.005,
-                    LootTemplates.BasicDrop()
-                ),
-                new Threshold(0.0001,
-                    new ItemLoot("Potion of Defense", 1)
+                    new TierLoot(10, ItemType.Weapon, 0.04),
+                    new TierLoot(11, ItemType.Armor, 0.04),
+                    new TierLoot(4, ItemType.Ability, 0.04),
+                    new TierLoot(4, ItemType.Ring, 0.04)
                 )
             )
             .Init("Oryx Stone Guardian Left",
                 new State(
-                    new ScaleHP2(23),
+                    new BossStats(60000, 45, 1.6, 0.3, world: "Doomed Cellar"),
+                    new BossStats(35000, 30, 0.75, 0.25),
                     new State("Start",
                         new ConditionEffectBehavior(ConditionEffectIndex.Invulnerable),
                         new Flash(0xC0C0C0, 0.5, 3),
@@ -68,12 +73,12 @@ namespace WorldServer.logic
                     ),
                     new State("Attack",
                         new Follow(0.35, 10, 0),
-                        new Shoot(15, count: 2, shootAngle: 12, projectileIndex: 0, coolDown: 500),
+                        new Shoot(15, count: 2, shootAngle: 12, projectileIndex: 0, coolDown: 900),
                         new HpLessTransition(0.75, "Attack2")
                     ),
                     new State("Attack2",
                         new Charge(speed: 2, range: 20, coolDown: 1800),
-                        new RingAttack(20, 16, 0, projectileIndex: 1, 25, 0, coolDown: 5000),
+                        new Shoot(0, count: 16, fixedAngle: 0, rotateAngle: 11, projectileIndex: 1, coolDown: 5000),
                         new HpLessTransition(0.50, "Return1")
                     ),
                     new State("Return1",
@@ -92,14 +97,18 @@ namespace WorldServer.logic
                         new StayCloseToSpawn(0.5, range: 6),
                         new Wander(0.25),
                         new Shoot(15, count: 3, shootAngle: 14, projectileIndex: 1, coolDown: 1000),
-                        new RingAttack(20, 10, 0, projectileIndex: 2, 0.20, 0.0, coolDown: 3000, seeInvis: true)
+                        new Shoot(0, count: 10, fixedAngle: 0, rotateAngle: 11, projectileIndex: 2, coolDown: 3000)
                     )
                  ),
-                new Threshold(.005,
-                    LootTemplates.BasicDrop()
+                new Threshold(0.01,
+                    new ItemLoot("Potion of Defense", 0.3),
+                    new ItemLoot("Potion of Attack", 0.15)
                 ),
-                new Threshold(0.0001,
-                    new ItemLoot("Potion of Defense", 1)
+                new Threshold(.005,
+                    new TierLoot(10, ItemType.Weapon, 0.04),
+                    new TierLoot(11, ItemType.Armor, 0.04),
+                    new TierLoot(4, ItemType.Ability, 0.04),
+                    new TierLoot(4, ItemType.Ring, 0.04)
                 )
             )
             .Init("Oryx Guardian TaskMaster",
@@ -130,7 +139,8 @@ namespace WorldServer.logic
             )
             .Init("md Janus the Doorwarden",
                 new State(
-                    new ScaleHP2(20),
+                    // stage 2: its boomerangs are 50 damage in the XML, far below the guardians before it
+                    new BossStats(70000, 25, 2.4, 0.25),
                     new DropPortalOnDeath("Oryx Chamber Portal", 1.0, timeout: 0),
                     new State("Idle",
                         new ConditionEffectBehavior(ConditionEffectIndex.Invulnerable),
@@ -172,21 +182,30 @@ namespace WorldServer.logic
                     )
                 ),
                 new Threshold(0.01,
-                    new ItemLoot("Potion of Defense", 1),
-                    new ItemLoot("Potion of Attack", 0.5)
+                    new ItemLoot("Potion of Defense", 0.5),
+                    new ItemLoot("Potion of Attack", 0.5),
+                    new ItemLoot("Potion of Wisdom", 0.2),
+                    new ItemLoot("Wine Cellar Incantation", 0.04)
                 ),
                 new Threshold(.005,
-                    LootTemplates.BasicDrop()
+                    new TierLoot(10, ItemType.Weapon, 0.06),
+                    new TierLoot(11, ItemType.Weapon, 0.04),
+                    new TierLoot(4, ItemType.Ability, 0.06),
+                    new TierLoot(11, ItemType.Armor, 0.06),
+                    new TierLoot(12, ItemType.Armor, 0.03),
+                    new TierLoot(4, ItemType.Ring, 0.06)
                 )
             )
             .Init("md LightKey",
                 new State(
+                    new BossStats(3000, 40, 1.6, 0.25),
                     new Orbit(0.6, 4, 15, "md Janus the Doorwarden", speedVariance: 0.1, radiusVariance: 0.5),
                     new Shoot(10, count: 2, shootAngle: 10, projectileIndex: 0, coolDown: 1000)
                 )
             )
             .Init("md DarkKey",
                 new State(
+                    new BossStats(6000, 20, 1.6, 0.25),
                     new Orbit(0.4, 6, 15, "md Janus the Doorwarden", speedVariance: 0.1, radiusVariance: 0.5, orbitClockwise: true),
                     new Shoot(10, count: 3, shootAngle: 15, projectileIndex: 1, coolDown: 1600)
                 )
