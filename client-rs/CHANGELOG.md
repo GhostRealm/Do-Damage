@@ -8,6 +8,19 @@ version (`python tools/build_client_rs.py --publish`) needs a section for that v
 refuses while an `Unreleased` one is left, so rename it to `## <version> (<date>)` then. The
 version number itself is in `client-rs/Cargo.toml`.
 
+## 1.1.7.1 (2026-10-16)
+- The game has moved to its own server at dodmg.com, so it's up even when the old host's PC is
+  off. Your client switches over by itself, and your account, characters and vault came along.
+- The game has a website, dodmg.com: play straight from your browser, download the desktop
+  client, see how many players are online, look up the controls and read every change.
+
+## 1.1.7 (2026-10-16)
+- The game is now called Do Damage: the window and the downloads say so. Your settings and
+  saved login carry over.
+- A new look to match the website: the sign-in and character screens open on a pixel night sky
+  over a castle, with the game's name in pixel letters, and every window, button and tooltip,
+  in the menus and in the game, is now dark violet with ember-orange buttons.
+
 ## 1.1.6 (2026-10-16)
 - Server updates and the 2-hourly restart no longer kick anyone. When an update is waiting, a
   chat message says so: you keep playing where you are (dungeons included) and switch to the

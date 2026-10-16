@@ -13,7 +13,7 @@ python tools\gen_rs_manifest.py              # after the AIR client's asset list
 cd client-rs; cargo run                      # desktop, development layout
 python tools\build_client_rs.py              # build\client-rs\native: exe + assets\
 python tools\build_client_rs.py --web        # build\client-rs\web: index.html + wasm + assets/
-python tools\build_client_rs.py --account http://<ip>:8080 --package   # dist\betterSkillys-rs-<os>.zip for players
+python tools\build_client_rs.py --account http://<ip>:8080 --package   # dist\Do-Damage-<os>.zip for players
 python tools\build_client_rs.py --account http://<ip>:8080 --publish   # dist\client, for players' clients to update to
 ```
 
@@ -33,13 +33,16 @@ python tools\build_client_rs.py --account http://<ip>:8080 --publish   # dist\cl
 - **Web:** needs `rustup target add wasm32-unknown-unknown` and `wasm-bindgen-cli` at the
   version in `Cargo.lock` (the script says which). Serve it with the gateway (below);
   `.claude/launch.json` has `client-rs-web`, a gateway on port 8095 for isolated stack slot 1.
-- **Window title** is "betterSkillys-rs", never "betterSkillys" (that's the AIR client's).
+- **Window title** is "Do Damage", the game's name for players, never "betterSkillys" (that's
+  the AIR client's). Settings and the saved login stay in `betterSkillys-rs` folders, so the
+  rename didn't lose anyone's.
 
 ## Gateway (browser play)
 
 Browsers can't open TCP sockets, so `bsk-gateway` serves the web build and bridges to the servers
 on one port: `/api/<path>` goes to the account server, `/ws/<host>:<port>` is a WebSocket carrying
-the world server's TCP stream. Only `--allow`ed world servers are reachable. It binds 127.0.0.1
+the world server's TCP stream. Only `--allow`ed world servers are reachable
+(`--allow <public>:2051=127.0.0.1:2051` takes the first and connects to the second, as on the VPS). It binds 127.0.0.1
 unless `--bind` says otherwise; sharing it with players means `--bind 0.0.0.0:<port>` and opening
 that port, which is the owner's call.
 
@@ -113,8 +116,11 @@ For example, the Battle Arena (its monsters come 60 s after you enter):
   environment or the build, else `http://127.0.0.1:8080`. "Remember me" keeps the login in
   `%APPDATA%\betterSkillys-rs\login.txt` (`~/.config/...` on Linux and macOS, local storage in a
   browser), as the AIR client keeps it in its shared object.
-- **Look:** `theme.rs` holds the shared style (glass panels, shadows, gradients, the gold accent,
-  buttons, fields, slots edged by item tier); the HUD and the screens draw with it.
+- **Look:** the website's (`website/`). `theme.rs` holds the shared style (its palette: dark
+  violet glass panels, the ember accent; shadows, gradients, buttons, fields, slots edged by item
+  tier); the HUD and the screens draw with it, so use `color::` names rather than new hex
+  values for interface colours. `sky.rs` draws the screens' night sky (a port of the site's
+  hero) and the game's name in a 5×7 pixel font.
 - **Controls:** WASD move, Q/E turn, Z resets the view, mouse fires (I toggles autofire), Space
   uses the ability at the mouse, 1-8 equip or use an inventory slot, F/V drink a stacked potion,
   0 enters a portal (or opens the NPC beside you), R goes to the Nexus, Enter or / chats, Tab
