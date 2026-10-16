@@ -6,11 +6,12 @@ Runs alongside Doomed Realms (which uses ports 8888, 2050 and 843).
 |---|---|---|
 | Redis (database, `source/Redis/redis.local.conf`, data in `source/Redis/data/`) | 6379, this PC only | `Run Server.bat` |
 | Account server (`source/App`) | 8080 | `Run Server.bat` |
-| World server (`source/WorldServer`, settings in `wServer.json`) | 2051 | `Run Server.bat` |
+| World proxy (`tools/world_proxy.py`) | 2051 | `Run Server.bat` |
+| World server (`source/WorldServer`, settings in `wServer.json`), run from `build/live/a` or `b` | 12051 / 22051, this PC only | `Run Server.bat`, `tools/rolling_restart.py` |
 
 ## Play
 
-1. `Run Server.bat`. It rebuilds the servers (needs the .NET 8 SDK) unless one is already running, then opens Redis, Account Server and World Server windows. Close those windows to stop the servers.
+1. `Run Server.bat`. It rebuilds the servers (needs the .NET 8 SDK) unless one is already running, then opens Redis, Account Server, World Proxy and World Server windows. Run again while they're up, it updates the world server without kicking anyone (see below); the account server keeps running its old build. Close those windows to stop the servers (or `python tools\rolling_restart.py stop` for the proxy and world servers).
 2. `Play Client.bat`. This runs the client with the AIR runtime from `tools/airsdk`.
 
 ## Client
@@ -38,6 +39,40 @@ Players only need the zip once. Its client keeps itself up to date from `dist\cl
 - **Versions:** the version is in `client-rs/Cargo.toml` (`[workspace.package]`). Every change goes under `## Unreleased` at the top of `client-rs/CHANGELOG.md` as it lands, in plain words for players. For each release, raise the version and rename that section to it: publishing refuses a version with no section or with an `Unreleased` one left, and the game's Changelog window shows the file.
 - **Signing:** releases are signed with `build/client-update.key`, made on the first publish. Keep it (and back it up): clients only take releases signed with the key they were built with, so a new key means sending everyone a new zip.
 - **Rolling back:** `cargo run -p bsk-publish -- rollback --to dist/client --version <x.y.z>` (in `client-rs`) makes an earlier published version the latest again; clients switch to it like any update.
+
+## Updating the world server without kicking anyone
+
+The world proxy owns port 2051 and forwards each player to one of two world servers on this PC,
+slot a (port 12051) or slot b (22051), each run from its own build in `build/live/<slot>`.
+To put a new world server build live, run `Run Server.bat` again: with the servers running it builds the
+current source and switches to it (`rolling_restart.py update`), publishing the client first. By hand:
+
+```
+python tools\rolling_restart.py update          # start them if they aren't running, else deploy (what Run Server.bat runs)
+python tools\rolling_restart.py deploy          # build source/WorldServer into the free slot and switch to it
+python tools\rolling_restart.py status          # which slot is active, and how many players the old one still has
+```
+
+- **What players see:** nothing at first. The new server takes the Nexus and every new login at
+  once; players in the old server's Nexus move there straight away (a short loading screen).
+  Everyone else keeps their world, dungeon runs included, gets a chat message that an update is
+  waiting, and switches at their next trip to the Nexus or a realm. After 60 minutes
+  (`--minutes`) whoever is left is moved to the new Nexus, with warnings 5 and 1 minutes before.
+  The old server then stops by itself.
+- **The 2-hourly restart** (`restartTime` in `wServer.json`) works the same way: the server asks
+  the proxy, which runs `rolling_restart.py deploy --reuse` (the same build, copied to the other
+  slot). Nobody is kicked any more.
+- **A second deploy while the old server is still handing over** waits for it to empty;
+  `deploy --now` moves its players to the new Nexus first.
+- **Only the world server is deployed this way.** The account server can be restarted without
+  kicking anyone in game. A message change still needs the client and server shipped together.
+- **Logs:** `build/live/<slot>/logs/wServer/`, and the proxy's in `build/live/proxy.log`.
+- **Switching over the first time:** the world server started by the old `Run Server.bat` holds
+  port 2051 itself. Stop it (this kicks everyone, so ask first), then run `Run Server.bat` again
+  (or `python tools\rolling_restart.py up`). Restart the account server too, so it lists the two
+  world servers of a hand-over as one.
+- **Try it on a test stack:** `python tools\testclient\iso_stack.py --slot N start --rolling`,
+  then `python tools\rolling_restart.py --iso N deploy`.
 
 ## Letting other people play
 
@@ -177,16 +212,16 @@ In `PlayerShootHandler.cs`, the merge keeps HaloCelsius's rate-of-fire and proje
     - **Oryx 4** (Hash Cellar) and **Oryx 5** (Doomed Cellar) are hand-written (`BehaviorDb.OryxDoomed.cs`) and replace the generated Doomed Realms versions; that Oryx 4 stayed in its first ring phase for good. Oryx 4 is Oryx 1's moveset made harder, with Knights of Doom, six orbiting White Moons and a telegraphed weakening ring. Oryx 5 is invulnerable until the twenty Trees of Doom around him are cut down, with the castle's Stone Guardians beside him (stronger here); he then cycles fire, a blade charge, star spirals and summons of Knights and Trees of Doom (each living tree heals him), turns faster with Fire Boomerangs below 60% and makes a last stand below 20%.
     - Also given behaviours: Guardian Elements 3 and 4, Outer Guardian Elements, White Moons, Knights and Trees of Doom, the Hash Cellar's Jungle Fires (a mild fireball at anyone standing right beside one; they line the path) and the Doomed Cellar's Oryx Guardian Swords.
     - **Portals:** each Oryx drops the locked portal (10 minutes) two tiles to one side and a Realm Portal (2 minutes instead of the default 30 seconds) two tiles to the other, so neither hides under the loot bags.
-    - **Incantations:** the locked portal is the `Locked Wine Cellar Portal` object, named by the server for where it leads ("Locked: Oryx's Sanctuary"; `DropPortalOnDeath` `name`, which the Rust client shows). Entering it says which incantation it needs (`Portal.LockedHint`, `UsePortalHandler`). Using that incantation within 25 tiles of it, in that Oryx's dungeon, turns it into the open portal for 5 minutes and tells the dungeon who opened it. This is the XML `ChangeObject` activate effect (`targetId`, `newId`, `onlyInArea`, `customString`), which was never implemented before (`Player.AEChangeObject`); an incantation used in the wrong place, or with no locked portal near, says why and isn't spent.
+    - **Incantations:** the locked portal is the `Locked Wine Cellar Portal` object, named by the server for where it leads ("Locked: Oryx's Sanctuary"; `DropPortalOnDeath` `name`, which the Rust client shows). Entering it says which incantation it needs (`Portal.LockedHint`, `UsePortalHandler`). Using that incantation within 25 tiles of it, in that Oryx's dungeon, turns it into the open portal for 5 minutes and tells the dungeon who opened it. This is the XML `ChangeObject` activate effect (`targetId`, `newId`, `onlyInArea`, `customString`), which was never implemented before (`Player.AEChangeObject`); an incantation used in the wrong place, or with no locked portal near, says why and isn't spent. Refused item uses (that, too little mana, a consumable while trading) re-send the slot (`ForceUpdate`), because the client empties it as it asks, and put a popped health or magic potion back on its stack.
 
       | Oryx | Locked portal to | Incantation | Where to get it |
       |---|---|---|---|
-      | 1 | Wine Cellar | Wine Cellar Incantation | Janus (4%), and as before the Tomb, Ocean Trench, Snake Pit, Candyland and Ivory Wyvern bosses |
+      | 1 | Wine Cellar | Wine Cellar Incantation | Janus (4%), the Nexus Bazaar (125 fame), and as before the Tomb, Ocean Trench, Snake Pit, Candyland and Ivory Wyvern bosses |
       | 2 | Oryx's Sanctuary | Oryx's Sanctuary Incantation (`Oryx Sanctuary Key`) | Oryx 1 (4%), the Nexus Bazaar (300 fame) |
       | 3 | Hash Cellar | Hash Cellar Incantation | Oryx 2 (4%), the Nexus Bazaar (500 fame) |
       | 4 | Doomed Cellar | Doomed Cellar Incantation | Oryx 3 (4%), the Nexus Bazaar (1000 fame) |
 
-      The Oryx Sanctuary Key (a test item that opened the Sanctuary anywhere) became the Sanctuary's incantation in the prod XML (server and client copies). The Hash and Doomed Cellar Incantations opened their dungeon anywhere, like keys; `tools/port_doomed.py` (`INCANTATIONS`) makes them unlock the locked portal instead (only those items' lines of the generated XML were updated). The Bazaar's Wine Cellar Key and Oryx Chamber Key still open those dungeons directly.
+      The Oryx Sanctuary Key (a test item that opened the Sanctuary anywhere) became the Sanctuary's incantation in the prod XML (server and client copies). The Hash and Doomed Cellar Incantations opened their dungeon anywhere, like keys; `tools/port_doomed.py` (`INCANTATIONS`) makes them unlock the locked portal instead (only those items' lines of the generated XML were updated). The Wine Cellar Key no longer opens the Wine Cellar from anywhere: it works like a Wine Cellar Incantation (prod XML, server and client copies), and the Bazaar sells the incantation in its place. The Bazaar's Oryx Chamber Key still opens the Chamber directly.
     - **Quest arrow:** monsters with `<Oryx/>` now always win the quest choice (`Player.FindQuest`): the Doomed Cellar's Skull Shrine, an Encounter, outscored Oryx 5, and Oryx 3's XML level is 1.
     - Oryx 3's Protectors spawn on him and fly out to their orbits; tossed ones could fail to land (a toss needs a free target square) and leave the phase empty.
     - **Tested** on the isolated stack with the Rust client: realm close to the Castle, every stage's fight and phases (pushed through with `/smite`), each death's announcement and portals, and walking through Oryx 2's portal into the Sanctuary. Not yet played through by a group without admin help, so the numbers above are a first pass.
@@ -213,6 +248,7 @@ In `PlayerShootHandler.cs`, the merge keeps HaloCelsius's rate-of-fire and proje
 - **Random dungeon layouts** (`Shared/terrain/DungeonGenerator.cs`): a world with `<RandomLayout>` in `Dungeons.xml` gets a new layout for every instance, built from the rooms of its own map. The map is cut into rooms (wide areas, with their monsters, objects and walls) and corridors (passages up to `passage` tiles wide); the rooms are joined again in a random tree with straight corridors `corridor` tiles wide. The spawn room is the root and each room holding a `<Goal>` object ends a branch, about 60% of the other rooms lie on the way to the goals and the rest become side rooms. Every room is used once, so the monster count stays the same; monsters standing in the old corridors move into a room next to them, while corridor decoration is left out. If no layout fits in 40 tries, or anything fails, the fixed map is used. Background walled in on every side (the hollow middle of a block of wall) is filled with wall, so it doesn't show as a black hole.
   - Enabled for the Tomb of the Ancients (the boss room is the hub and each of the five sarcophagus rooms ends a branch), Pirate Cave, Spider Den, Snake Pit, Forest Maze, Undead Lair, Abyss of Demons, Toxic Sewers, Woodland Labyrinth, Ocean Trench and Ancient Ruins.
   - Left fixed: Mountain Temple (Daichi moves to fixed map positions), Parasite Chambers (its blockades seal the rooms from the corridors), Cave of a Thousand Treasures (the boulder corridor would be lost), and the Mad Lab, Crawling Depths and Davy Jones' Locker (their bosses sit behind doors and walls their scripts open). Open maps (Sprite World, the Hive, the Ice Cave) don't split into rooms, and the multi-stage dungeons (Oryx's Castle, Lost Halls, the Shatters and so on) depend on their layouts.
+- **Rolling world server updates:** the world proxy (`tools/world_proxy.py`) owns port 2051 and forwards each connection by the game id in its Hello: world ids from 1000000 belong to world server slot a, from 2000000 to slot b (`serverSettings.worldIdBase`), anything else goes to the active one. `tools/rolling_restart.py deploy` starts a new world server beside the old one, which then hands its players over at their next Nexus or realm trip (`GameServer.DrainTick`; `Client.Reconnect` sends them to the Nexus with no key, so the proxy picks the new server); see "Updating the world server without kicking anyone" above. The proxy passes on each player's address (message 250, `PROXY_INFO`), and a world server behind it listens on 127.0.0.1 only (`serverInfo.listenPort`). A login whose account another world server still holds asks it to sign the account out (Redis channel `Kick`) and waits up to 5 seconds before "Account in Use". The account server lists world servers that share an address and port as one.
 
 ## Content ported from Doomed Realms
 

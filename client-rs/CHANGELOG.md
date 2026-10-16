@@ -8,6 +8,17 @@ version (`python tools/build_client_rs.py --publish`) needs a section for that v
 refuses while an `Unreleased` one is left, so rename it to `## <version> (<date>)` then. The
 version number itself is in `client-rs/Cargo.toml`.
 
+## 1.1.6 (2026-10-16)
+- Server updates and the 2-hourly restart no longer kick anyone. When an update is waiting, a
+  chat message says so: you keep playing where you are (dungeons included) and switch to the
+  new version the next time you go to the Nexus, or after an hour at the latest.
+- The Wine Cellar Key no longer opens the Wine Cellar from anywhere: like a Wine Cellar
+  Incantation, it unlocks the portal Oryx 1 leaves behind. The Nexus Bazaar now sells the Wine
+  Cellar Incantation (125 fame) instead of the key.
+- Using an item where it can't be used (an incantation away from its locked portal, anything
+  without enough mana or while trading) no longer makes it vanish from your inventory: it stays
+  where it was, and a potion goes back on its stack.
+
 ## 1.1.5 (2026-10-16)
 - Cloth and dye items (and a few dungeon objects) show their real names instead of codes like "{textiles.Small_Vine_Cloth}".
 - The fight against Oryx now goes all the way: when a realm closes you can follow him from his
