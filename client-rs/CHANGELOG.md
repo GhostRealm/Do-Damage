@@ -8,6 +8,26 @@ version (`python tools/build_client_rs.py --publish`) needs a section for that v
 refuses while an `Unreleased` one is left, so rename it to `## <version> (<date>)` then. The
 version number itself is in `client-rs/Cargo.toml`.
 
+## 1.2.3 (2026-10-17)
+- Monsters that never had any behaviour now move, attack and taunt: the Red Demon, the Phoenix
+  Lord (which turns into an egg when it dies), the Lich, the Ent Ancient, the Ghost King and the
+  Oasis Giant with their minions, the golems, skeletons, mummies and ghosts, the Abyss lava bomb,
+  Bonegrind the Butcher and the Beer God, among about 80 others.
+- You can now see the Beer God in the high forest: it was invisible, with only its health bar
+  showing.
+- Smoother walking: your character no longer flickers to standing or shakes by a pixel while
+  you walk (most noticeable with the frame rate unlocked), sliding along a wall no longer shakes
+  the view, monsters and other players keep walking instead of flickering to standing between
+  server updates, and legs move at a pace that matches how fast each character walks, as in
+  the original game.
+- The mouse pointer no longer stays hidden on the menus after you die or get disconnected while
+  the crosshair is showing.
+- Randomly built dungeons are shorter: each run now comes out small (3 in 10 runs), medium (6 in
+  10) or large (1 in 10, about the size they were before), with shorter corridors in the small
+  and medium ones.
+- Every dungeon boss now leaves a Realm Portal behind when it dies, and portals that bosses drop
+  in a dungeon (the Realm Portal, an Elder dungeon) stay open instead of closing after a while.
+
 ## 1.2.2 (2026-10-17)
 - Fixed being disconnected from the game with "Overlapped I/O operation is in progress (os
   error 997)" on some Windows PCs.
