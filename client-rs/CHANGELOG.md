@@ -8,11 +8,46 @@ version (`python tools/build_client_rs.py --publish`) needs a section for that v
 refuses while an `Unreleased` one is left, so rename it to `## <version> (<date>)` then. The
 version number itself is in `client-rs/Cargo.toml`.
 
+## 1.2.2 (2026-10-17)
+- Fixed being disconnected from the game with "Overlapped I/O operation is in progress (os
+  error 997)" on some Windows PCs.
+- The Nexus is rebuilt as the courtyard of a castle, much smaller than before: you arrive by the
+  fountains, the realm portals are in the keep's great hall just north, and the shops are in two
+  market wards either side behind colonnades. The Vault and guild portals are beside the spawn;
+  the arena portals, the Wine Cellar, the class memorial and the shared chests are in the south
+  yard.
+- Your Vault is now a cellar under the castle, with your chests in its great hall and your gifts
+  in the gallery below.
+- Halloween has come to the castle: jack-o'-lanterns, green candles, fallen leaves, dead trees
+  and a witch's cauldron in the Nexus and your Vault, until the end of the season.
+- The server is called Europe in the server list instead of Localhost.
+- You no longer sometimes enter the realm right beside the Avatar of the Forgotten King's arena.
+- Bosses fought alone have their normal health: the extra health for a group now starts with
+  the second player, not the first.
+- Dr Terrible (25,000 health, was 55,000) and the Horrific Creation (35,000, was 60,000) in the
+  Mad Lab, and the Ghost of Skuld at the end of the Haunted Cemetery (50,000, was 130,000), are
+  much quicker to kill. Dr Terrible's and the Creation's armour is a little lower too.
+- A crosshair marks where you aim over the world (the pointer hides while it shows). Options,
+  Visuals, "Crosshair" turns it off.
+- Options has a new Visuals tab for what you see in the world: particles, shadows, health bars,
+  speech balloons, shots, damage numbers and the crosshair. Graphics keeps the camera, zoom and
+  frame rate.
+- New Visuals options: hide other players' pets' shots, hide other players' pets' effects, and
+  sliders to make other players and other players' pets see-through (or hide them at 0%).
+- The sliders in Options can be dragged: hold the button and slide, instead of clicking where
+  you want them.
+- Moving looks steadier: the ground and characters stay on whole pixels, so their pixel art no
+  longer shimmers or wobbles as the view follows you.
+
 ## 1.2.1 (2026-10-16)
 - The desktop game now signs in and plays over an encrypted connection (https), like the
   browser version, so your password and what you do in game can't be read on the way to the
   server. Your game switches over by itself when it updates.
 - The Native White Demons in the Abyss of Demons now chase you and shoot back instead of standing still.
+- Passwords are stored more safely on the server. Your password doesn't change, and nothing
+  needs doing.
+- After 10 wrong passwords for one account, signing in to it is blocked for 15 minutes, so
+  nobody can keep guessing.
 
 ## 1.2.0 (2026-10-16)
 - Signing in with an email that has no account, or with the wrong password, now stops at the

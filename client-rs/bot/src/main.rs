@@ -9,7 +9,6 @@
 //! With `--gateway`, the game connection goes through the gateway's WebSocket bridge, as the
 //! browser client's does. The exit code is 0 if it stayed connected for the whole time.
 
-mod ws;
 
 use bsk_net::{account, http, login, GameSocket, SocketEvent, Target};
 use bsk_proto::{ClientMessage, ServerMessage};
@@ -23,33 +22,6 @@ struct Args {
     seconds: u64,
     char_id: Option<i32>,
     gateway: Option<String>,
-}
-
-/// The game connection: direct TCP, or WebSocket through the gateway.
-enum Conn {
-    Tcp(GameSocket),
-    Ws(ws::WsSocket),
-}
-
-impl Conn {
-    fn send(&mut self, msg: &ClientMessage) {
-        match self {
-            Conn::Tcp(s) => s.send(msg),
-            Conn::Ws(s) => s.send(msg),
-        }
-    }
-    fn poll(&mut self) -> Option<SocketEvent> {
-        match self {
-            Conn::Tcp(s) => s.poll(),
-            Conn::Ws(s) => s.poll(),
-        }
-    }
-    fn close(&mut self) {
-        match self {
-            Conn::Tcp(s) => s.close(),
-            Conn::Ws(s) => s.close(),
-        }
-    }
 }
 
 fn parse_args() -> Result<Args, String> {
@@ -108,10 +80,9 @@ fn run(args: Args) -> Result<(), String> {
         ch.id, ch.object_type, ch.level, server.name, server.host, server.port
     );
 
-    let mut socket = match &args.gateway {
-        None => Conn::Tcp(GameSocket::connect(&Target { host: server.host.clone(), port: server.port, gateway: None })),
-        Some(g) => Conn::Ws(ws::WsSocket::connect(&format!("{}/{}:{}", g.trim_end_matches('/'), server.host, server.port))),
-    };
+    // Through the gateway the same way the desktop client goes (wss with BSK_CA, as in its tests).
+    let mut socket =
+        GameSocket::connect(&Target { host: server.host.clone(), port: server.port, gateway: args.gateway.clone() });
     let started = Instant::now();
     let now = || started.elapsed().as_millis() as i32;
     let hello = HelloParams {
@@ -131,6 +102,8 @@ fn run(args: Args) -> Result<(), String> {
     let mut out: Vec<ClientMessage> = Vec::new();
     let deadline = started + Duration::from_secs(args.seconds);
     let mut next_report = started + Duration::from_secs(10);
+    // The round trips the server measured (each Ping carries its recent average), this report.
+    let mut rtts: Vec<i32> = Vec::new();
 
     let result = loop {
         if Instant::now() >= deadline {
@@ -140,8 +113,15 @@ fn run(args: Args) -> Result<(), String> {
             std::thread::sleep(Duration::from_millis(2));
             if Instant::now() >= next_report {
                 next_report += Duration::from_secs(10);
+                let ping = match (rtts.iter().min(), rtts.iter().max()) {
+                    (Some(lo), Some(hi)) => {
+                        format!(", ping {lo}-{hi} ms (avg {})", rtts.iter().sum::<i32>() / rtts.len() as i32)
+                    }
+                    _ => String::new(),
+                };
+                rtts.clear();
                 log::info!(
-                    "{:>3} s: {} ticks, {} objects seen",
+                    "{:>3} s: {} ticks, {} objects seen{ping}",
                     started.elapsed().as_secs(),
                     received.get("NewTick").unwrap_or(&0),
                     objects.len()
@@ -155,6 +135,7 @@ fn run(args: Args) -> Result<(), String> {
             SocketEvent::Message(msg) => {
                 *received.entry(msg.name()).or_default() += 1;
                 match &*msg {
+                    ServerMessage::Ping(p) if p.round_trip_time >= 0 => rtts.push(p.round_trip_time),
                     ServerMessage::Update(u) => {
                         objects.extend(u.new_objs.iter().map(|o| o.status.object_id));
                         for o in u.new_objs.iter() {
