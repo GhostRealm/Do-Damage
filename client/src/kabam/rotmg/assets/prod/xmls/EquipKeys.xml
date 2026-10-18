@@ -736,7 +736,7 @@
          <Index>0x5f</Index>
       </Texture>
       <SlotType>10</SlotType>
-      <Description>A key which opens an entrance to the Oryx Chicken Chamber. For testing purposes.\n\nKeys can only be used once you have 10 or more stars!</Description>
+      <Description>A key which opens an entrance to the Chicken Chamber. One April morning a giant chicken took over Oryx's Chamber, and it has been roosting there ever since.\n\nKeys can only be used once you have 10 or more stars!</Description>
       <Sound>use_key</Sound>
       <Consumable/>
 

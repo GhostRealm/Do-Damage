@@ -185,7 +185,8 @@ namespace WorldServer.logic
                     new ItemLoot("Potion of Defense", 0.5),
                     new ItemLoot("Potion of Attack", 0.5),
                     new ItemLoot("Potion of Wisdom", 0.2),
-                    new ItemLoot("Wine Cellar Incantation", 0.04)
+                    new ItemLoot("Wine Cellar Incantation", 0.04),
+                    new ItemLoot("Oryx Chicken Chamber Key", 0.03)
                 ),
                 new Threshold(.005,
                     new TierLoot(10, ItemType.Weapon, 0.06),

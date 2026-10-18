@@ -82,7 +82,8 @@ namespace WorldServer.core.objects.vendors
             ("Wine Cellar Incantation", 125), ("Cult Key", 150), ("Ice Tomb Key", 150), ("Shaitan's Key", 300),
             ("Puppet Master's Encore Key", 300), ("Oryx's Castle Key", 300), ("Shatters Key", 400), ("Oryx Chamber Key", 400),
             ("Battle Nexus Key", 400), ("Tomb of the Ancients Key", 500), ("Lost Halls Key", 500),
-            ("Oryx Sanctuary Key", 300)   // the Oryx chain's incantation for the Sanctuary
+            ("Oryx Sanctuary Key", 300),  // the Oryx chain's incantation for the Sanctuary
+            ("Oryx Chicken Chamber Key", 400)
         };
 
         private static readonly (string Key, int Price)[] DoomedKeyPrices =

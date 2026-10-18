@@ -24,6 +24,11 @@ version number itself is in `client-rs/Cargo.toml`.
   spawn to shoot for experience; a new batch only comes once every gift of the last one is gone.
 - /godlands works from anywhere now: outside a realm it takes you to a realm and drops you
   straight into its Godlands.
+- New dungeon: the Chicken Chamber. A giant chicken has taken over Oryx's Chamber: fight
+  through a coop of chickens and eggs (break the eggs before they hatch), then pluck the Giant
+  Oryx Chicken for potions, gear and a chance at the Chicken Leg of Doom, Anatis Staff or
+  Apocalypse Feather. It opens the way to Oryx's Wine Cellar, like Oryx's own Chamber. The key
+  drops from Janus and is sold in the Nexus Bazaar.
 - The website has screenshots from the game: a realm fight in the Godlands, two dungeons, the
   Nexus, the character list and Oryx in the Wine Cellar. Click one to see it full size.
 
