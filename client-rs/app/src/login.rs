@@ -75,6 +75,11 @@ impl Endpoint {
         http::post_form(&format!("{}/fame/list", self.account), &[("timespan", timespan)])
     }
 
+    /// `/fame/recent`: the server's latest deaths, newest first.
+    pub fn recent_deaths(&self) -> Pending<http::Response> {
+        http::post_form(&format!("{}/fame/recent", self.account), &[("count", "20")])
+    }
+
     /// `/char/fame`: a dead character's fame summary.
     pub fn char_fame(&self, account_id: i32, char_id: i32) -> Pending<http::Response> {
         let (a, c) = (account_id.to_string(), char_id.to_string());

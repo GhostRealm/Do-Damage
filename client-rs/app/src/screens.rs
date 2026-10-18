@@ -11,7 +11,7 @@ use crate::stars;
 use crate::textedit::LineEdit;
 use crate::theme::{self, color, Kind};
 use bsk_data::{ObjectClass, ObjectDesc, TextureRef};
-use bsk_net::account::{CharList, CharSummary, FameSummary, Legend};
+use bsk_net::account::{CharList, CharSummary, FameSummary, Legend, RecentDeath};
 use bsk_render::{Quad, Tint};
 use winit::keyboard::KeyCode;
 
@@ -46,8 +46,11 @@ pub const CONFIRM: usize = 3;
 pub const NEW_PASSWORD: usize = 4;
 pub const NEW_CONFIRM: usize = 5;
 
-/// The legends' time spans: (id for the server, label).
-pub const TIMESPANS: [(&str, &str); 3] = [("week", "This week"), ("month", "This month"), ("all", "All time")];
+/// The legends' time spans: (id for the server, label). The last, "recent", is the server's
+/// latest deaths (`/fame/recent`) rather than a time span of `/fame/list`.
+pub const TIMESPANS: [(&str, &str); 4] = [("week", "This week"), ("month", "This month"), ("all", "All time"), ("recent", "Recent Deaths")];
+/// The Recent Deaths tab's place in `TIMESPANS`.
+pub const RECENT: usize = 3;
 
 /// What a confirmation dialog is asking about.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -83,6 +86,8 @@ enum Target {
     Timespan(usize),
     /// The legends' scrollbar: a click jumps there, a drag scrolls.
     LegendsBar,
+    /// A row of Recent Deaths (account, character): that death's fame summary.
+    Fallen(i32, i32),
     SavePassword,
     Back,
     ServerPrev,
@@ -117,6 +122,8 @@ pub enum Action {
     Legends(&'static str),
     /// Show how a dead character's fame was counted.
     ViewDeath(i32),
+    /// The same for anyone's character (account, character), from Recent Deaths.
+    ViewDeathOf(i32, i32),
     /// Open the Changelog window.
     Changelog,
     /// Open the Options window.
@@ -147,6 +154,8 @@ pub struct Front {
     /// The legends shown, and which time span.
     pub legends: Option<Vec<Legend>>,
     pub timespan: usize,
+    /// The server's latest deaths, newest first (the Recent Deaths tab).
+    pub recent: Option<Vec<RecentDeath>>,
     /// The legends' first row shown, when they don't all fit.
     legends_row: usize,
     /// The legends' scrollbar last frame: its track, the rows and how many fit.
@@ -157,6 +166,8 @@ pub struct Front {
     pub death: Option<FameSummary>,
     /// The summary was opened from the graveyard (Continue goes back there).
     pub death_from_graveyard: bool,
+    /// The summary was opened from Recent Deaths (Continue goes back to the legends).
+    pub death_from_legends: bool,
     /// Clickable areas from the last frame.
     targets: Vec<(Target, [f32; 4])>,
     /// Where each field's characters were drawn last frame: (field, first character shown,
@@ -193,11 +204,13 @@ impl Default for Front {
             skin: 0,
             legends: None,
             timespan: 0,
+            recent: None,
             legends_row: 0,
             legends_bar: None,
             legends_grab: None,
             death: None,
             death_from_graveyard: false,
+            death_from_legends: false,
             clicked: false,
             targets: Vec::new(),
             field_edges: Vec::new(),
@@ -226,15 +239,6 @@ pub fn player_classes(data: &bsk_data::GameData) -> Vec<&ObjectDesc> {
     let mut classes: Vec<_> = data.objects.values().filter(|d| d.player && d.class == ObjectClass::Player).collect();
     classes.sort_by_key(|d| d.object_type);
     classes
-}
-
-/// `<UnlockLevel level="5" type="0x0307">`: whether the account may play the class, and the
-/// first requirement it lacks.
-fn unlock(desc: &ObjectDesc, list: &CharList) -> Option<(u16, i32)> {
-    desc.xml
-        .children_named("UnlockLevel")
-        .map(|u| (bsk_data::xml::as3_int(u.attr("type").unwrap_or("0")) as u16, u.attr_int("level", 0)))
-        .find(|(t, level)| list.class_stats.get(t).is_none_or(|s| s.0 < *level))
 }
 
 /// A skin a class can wear, as the new-character page shows it.
@@ -404,6 +408,7 @@ impl Front {
                 Screen::Register => return Some(Action::Register),
                 Screen::Account => return Some(Action::ChangePassword),
                 Screen::Death if self.death_from_graveyard => self.show(Screen::Graveyard),
+                Screen::Death if self.death_from_legends => self.show(Screen::Legends),
                 Screen::Death => self.show(Screen::Chars),
                 _ => {}
             },
@@ -413,6 +418,7 @@ impl Front {
                     self.show(Screen::Home);
                 }
                 Screen::Death if self.death_from_graveyard => self.show(Screen::Graveyard),
+                Screen::Death if self.death_from_legends => self.show(Screen::Legends),
                 Screen::NewChar | Screen::Legends | Screen::Graveyard | Screen::Account | Screen::Death | Screen::Servers => self.show(Screen::Chars),
                 Screen::Class(_) => self.show(Screen::NewChar),
                 _ => {}
@@ -458,10 +464,12 @@ impl Front {
             Target::Back => match self.screen {
                 Screen::Class(_) => self.show(Screen::NewChar),
                 Screen::Death if self.death_from_graveyard => self.show(Screen::Graveyard),
+                Screen::Death if self.death_from_legends => self.show(Screen::Legends),
                 _ => self.show(Screen::Chars),
             },
             Target::ToGraveyard => self.show(Screen::Graveyard),
             Target::Grave(id) => return Some(Action::ViewDeath(id)),
+            Target::Fallen(account, id) => return Some(Action::ViewDeathOf(account, id)),
             Target::Remember => self.remember = !self.remember,
             Target::Char(id) => return Some(Action::Play(id)),
             Target::Delete(id) => self.confirm = Some(Confirm::Delete(id)),
@@ -498,6 +506,7 @@ impl Front {
             Target::Timespan(i) => {
                 self.timespan = i;
                 self.legends = None;
+                self.recent = None;
                 self.legends_row = 0;
                 return Some(Action::Legends(TIMESPANS[i].0));
             }
@@ -1043,8 +1052,8 @@ impl Front {
         let y0 = top.max(top + (room - rows as f32 * (th_ + gap)) / 2.0);
         for (i, d) in classes.iter().enumerate() {
             let r = [x0 + (i % cols) as f32 * (tw_ + gap), y0 + (i / cols) as f32 * (th_ + gap), tw_, th_];
-            let need = unlock(d, &list);
-            let over = inside(r, mouse) && need.is_none();
+            // Every class is open: the classes' `<UnlockLevel>` requirements don't apply here.
+            let over = inside(r, mouse);
             let r = if over { [r[0], r[1] - 3.0 * k, r[2], r[3]] } else { r };
             theme::shadow(ui.renderer, r, 10.0 * k, if over { 14.0 * k } else { 8.0 * k }, 0.45);
             let edge = if over { color::ACCENT } else { color::BORDER_HI };
@@ -1053,37 +1062,22 @@ impl Front {
             theme::rounded(ui.renderer, well, 8.0 * k, (color::FIELD, 0.85), (color::FIELD_BOTTOM, 0.85));
             portrait(ui, d, 0, 0, well[0] + well[2] / 2.0, well[1] + well[3] / 2.0, k * 1.15);
             // Its class quests, along the bottom of the well.
-            if need.is_none() {
-                let done = stars::num_stars(list.class_stats.get(&d.object_type).map_or(0, |cs| cs.1));
-                let sk = k * 0.8;
-                stars::row(ui.renderer, well[0] + (well[2] - stars::row_width(sk)) / 2.0, well[1] + well[3] - 9.0 * k, sk, done);
-            }
-            if need.is_some() {
-                theme::fill(ui.renderer, r, 10.0 * k, 0x000000, 0.45);
-            }
-            // The name, then one line under it: the skins, or what unlocks the class.
+            let done = stars::num_stars(list.class_stats.get(&d.object_type).map_or(0, |cs| cs.1));
+            let sk = k * 0.8;
+            stars::row(ui.renderer, well[0] + (well[2] - stars::row_width(sk)) / 2.0, well[1] + well[3] - 9.0 * k, sk, done);
+            // The name, then one line under it: the skins.
             let size = (15.0 * k).round().max(9.0);
             let ny = well[1] + well[3] + 6.0 * k;
             let nw = ui.measure(&d.display_id, size, true);
-            ui.label(&d.display_id, r[0] + (tw_ - nw) / 2.0, ny, size, true, if need.is_none() { color::TEXT } else { color::TEXT_DIM });
+            ui.label(&d.display_id, r[0] + (tw_ - nw) / 2.0, ny, size, true, color::TEXT);
             let small = (11.0 * k).round().max(8.0);
             let ly = ny + size * 1.3;
-            match need {
-                None => {
-                    self.targets.push((Target::Class(d.object_type), r));
-                    let n = class_skins(ui.data, d.object_type, &list).len();
-                    if n > 0 {
-                        let t = format!("{} skin{}", n, if n == 1 { "" } else { "s" });
-                        let tw = ui.measure(&t, small, false);
-                        ui.label(&t, r[0] + (tw_ - tw) / 2.0, ly, small, false, color::TEXT_MUTED);
-                    }
-                }
-                Some((t, level)) => {
-                    let req = ui.data.objects.get(&t).map_or("?", |c| c.display_id.as_str());
-                    let text = format!("Level {level} {req}");
-                    let lw = ui.measure(&text, small, true).min(tw_ - 8.0 * k);
-                    ui.label(&text, r[0] + (tw_ - lw) / 2.0, ly, small, true, 0xFFB070);
-                }
+            self.targets.push((Target::Class(d.object_type), r));
+            let n = class_skins(ui.data, d.object_type, &list).len();
+            if n > 0 {
+                let t = format!("{} skin{}", n, if n == 1 { "" } else { "s" });
+                let tw = ui.measure(&t, small, false);
+                ui.label(&t, r[0] + (tw_ - tw) / 2.0, ly, small, false, color::TEXT_MUTED);
             }
         }
         self.button(ui, Target::Back, [(w - 140.0 * s) / 2.0, h - 58.0 * s, 140.0 * s, 40.0 * s], "Back", Kind::Secondary, s, mouse);
@@ -1237,7 +1231,8 @@ impl Front {
         self.message_line(ui, w / 2.0, h - 26.0 * s, w * 0.8, s);
     }
 
-    /// The legends: the most famous characters this week, month or ever.
+    /// The legends: the most famous characters this week, month or ever; or the server's latest
+    /// deaths, each opening its fame summary.
     fn draw_legends(&mut self, ui: &mut Ui, w: f32, h: f32, s: f32, mouse: (f64, f64)) {
         self.legends_bar = None;
         let pad = 24.0 * s;
@@ -1245,8 +1240,9 @@ impl Front {
         let tw = ui.measure("Legends", ts, true);
         ui.label("Legends", (w - tw) / 2.0, pad, ts, true, color::TEXT);
         // The time spans, as pills.
-        let pw = 120.0 * s;
-        let x0 = (w - 3.0 * pw - 20.0 * s) / 2.0;
+        let n = TIMESPANS.len() as f32;
+        let pw = (130.0 * s).min((w - 32.0 - (n - 1.0) * 10.0 * s) / n);
+        let x0 = (w - n * pw - (n - 1.0) * 10.0 * s) / 2.0;
         for (i, (_, label)) in TIMESPANS.iter().enumerate() {
             let r = [x0 + i as f32 * (pw + 10.0 * s), pad + 46.0 * s, pw, 30.0 * s];
             let on = i == self.timespan;
@@ -1259,10 +1255,16 @@ impl Front {
         }
         let list_r = [(w - 760.0 * s).max(16.0) / 2.0, pad + 92.0 * s, (760.0 * s).min(w - 32.0), h - pad * 2.0 - 160.0 * s];
         theme::panel(ui.renderer, list_r, s);
-        match &self.legends {
+        let deaths = self.timespan == RECENT;
+        let rows: Option<Vec<LegendRow>> = if deaths {
+            self.recent.as_ref().map(|d| d.iter().take(20).map(LegendRow::death).collect())
+        } else {
+            self.legends.as_ref().map(|l| l.iter().take(20).map(LegendRow::legend).collect())
+        };
+        match &rows {
             None => spinner(ui, list_r[0] + list_r[2] / 2.0, list_r[1] + list_r[3] / 2.0, 16.0 * s, ui_time(), s),
             Some(rows) if rows.is_empty() => {
-                let t = "No legends yet. Be the first!";
+                let t = if deaths { "No one has died yet." } else { "No legends yet. Be the first!" };
                 let size = (16.0 * s).round();
                 let tw = ui.measure(t, size, true);
                 ui.label(t, list_r[0] + (list_r[2] - tw) / 2.0, list_r[1] + list_r[3] / 2.0, size, true, color::TEXT_DIM);
@@ -1270,7 +1272,6 @@ impl Front {
             Some(rows) => {
                 // Up to 20, as many as fit; the rest scroll, a row a wheel notch or by the
                 // scrollbar, with a line under them saying how many more.
-                let rows: Vec<Legend> = rows.iter().take(20).cloned().collect();
                 let row_h = 50.0 * s;
                 let fit = (((list_r[3] - 16.0 * s) / row_h).floor().max(1.0) as usize).min(rows.len());
                 let more = fit < rows.len();
@@ -1282,38 +1283,78 @@ impl Front {
                 for (i, l) in rows.iter().enumerate().skip(first).take(fit) {
                     let y = list_r[1] + 8.0 * s + (i - first) as f32 * row_h;
                     let r = [list_r[0] + 8.0 * s, y, list_r[2] - 16.0 * s - bar_w, row_h - 4.0 * s];
-                    if i % 2 == 0 {
-                        theme::fill(ui.renderer, r, 6.0 * s, 0xFFFFFF, 0.03);
+                    let over = l.target.is_some() && self.legends_grab.is_none() && inside(r, mouse);
+                    if over || i % 2 == 0 {
+                        theme::fill(ui.renderer, r, 6.0 * s, 0xFFFFFF, if over { 0.08 } else { 0.03 });
                     }
-                    let rank = format!("{}", i + 1);
-                    let rs = (18.0 * s).round();
-                    let rc = match i {
-                        0 => 0xFFD24A,
-                        1 => 0xD8DDE6,
-                        2 => 0xE0975A,
-                        _ => color::TEXT_MUTED,
-                    };
-                    ui.label(&rank, r[0] + 12.0 * s, r[1] + (r[3] - rs * 1.22) / 2.0, rs, true, rc);
+                    // The legends are ranked; the deaths aren't, so their characters stand
+                    // further left.
+                    let left = if deaths { 0.0 } else { 40.0 * s };
+                    if !deaths {
+                        let rank = format!("{}", i + 1);
+                        let rs = (18.0 * s).round();
+                        let rc = match i {
+                            0 => 0xFFD24A,
+                            1 => 0xD8DDE6,
+                            2 => 0xE0975A,
+                            _ => color::TEXT_MUTED,
+                        };
+                        ui.label(&rank, r[0] + 12.0 * s, r[1] + (r[3] - rs * 1.22) / 2.0, rs, true, rc);
+                    }
                     let class = ui.data.objects.get(&l.object_type);
                     let skin = (l.skin != 0).then(|| ui.data.objects.get(&(l.skin as u16))).flatten();
                     if let Some(d) = skin.or(class) {
-                        portrait(ui, d, l.tex1, l.tex2, r[0] + 70.0 * s, r[1] + r[3] / 2.0, s * 0.8);
+                        portrait(ui, d, l.tex1, l.tex2, r[0] + 30.0 * s + left, r[1] + r[3] / 2.0, s * 0.8);
                     }
                     let ns = (16.0 * s).round();
-                    ui.label(&l.name, r[0] + 100.0 * s, r[1] + 4.0 * s, ns, true, color::TEXT);
-                    ui.label(class.map_or("", |d| d.display_id.as_str()), r[0] + 100.0 * s, r[1] + 24.0 * s, (12.0 * s).round(), false, color::TEXT_DIM);
-                    for (k, &item) in l.equipment.iter().take(if gear { 4 } else { 0 }).enumerate() {
-                        let side = 32.0 * s;
-                        let sr = [r[0] + r[2] - 270.0 * s + k as f32 * (side + 4.0 * s), r[1] + (r[3] - side) / 2.0, side, side];
-                        ui.slot_box(sr, if item > 0 { tier_edge(ui.data, item) } else { None }, false, s);
-                        if item > 0 {
-                            ui.item_icon(item, 80, sr[0] + side / 2.0, sr[1] + side / 2.0, s * 0.7);
-                        }
-                    }
+                    ui.label(&l.name, r[0] + 60.0 * s + left, r[1] + 4.0 * s, ns, true, color::TEXT);
+                    let class_name = class.map_or("", |d| d.display_id.as_str());
                     let fame = format!("{}", l.total_fame);
                     let fs = (18.0 * s).round();
                     let fw = ui.measure(&fame, fs, true);
-                    ui.label(&fame, r[0] + r[2] - fw - 14.0 * s, r[1] + (r[3] - fs * 1.22) / 2.0, fs, true, color::ACCENT);
+                    match &l.death {
+                        None => {
+                            ui.label(class_name, r[0] + 60.0 * s + left, r[1] + 24.0 * s, (12.0 * s).round(), false, color::TEXT_DIM);
+                            for (k, &item) in l.equipment.iter().take(if gear { 4 } else { 0 }).enumerate() {
+                                let side = 32.0 * s;
+                                let sr = [r[0] + r[2] - 270.0 * s + k as f32 * (side + 4.0 * s), r[1] + (r[3] - side) / 2.0, side, side];
+                                ui.slot_box(sr, if item > 0 { tier_edge(ui.data, item) } else { None }, false, s);
+                                if item > 0 {
+                                    ui.item_icon(item, 80, sr[0] + side / 2.0, sr[1] + side / 2.0, s * 0.7);
+                                }
+                            }
+                            ui.label(&fame, r[0] + r[2] - fw - 14.0 * s, r[1] + (r[3] - fs * 1.22) / 2.0, fs, true, color::ACCENT);
+                        }
+                        Some((level, killer, world, ago)) => {
+                            // Beside the name its level; under it the class, what killed it and
+                            // where; on the right the fame, and how long ago.
+                            let lx = r[0] + 60.0 * s + left + ui.measure(&l.name, ns, true) + 8.0 * s;
+                            let ls = (13.0 * s).round();
+                            ui.label(&format!("Lv {level}"), lx, r[1] + 4.0 * s + (ns - ls) * 0.9, ls, false, color::TEXT_MUTED);
+                            let by = if killer.is_empty() { "something" } else { killer.as_str() };
+                            let mut how = format!("{class_name} · killed by {by}");
+                            if !world.is_empty() {
+                                how.push_str(&format!(" in {world}"));
+                            }
+                            let hs = (12.0 * s).round();
+                            let room = r[2] - 60.0 * s - left - 120.0 * s;
+                            if ui.measure(&how, hs, false) > room {
+                                while how.chars().count() > 4 && ui.measure(&format!("{how}…"), hs, false) > room {
+                                    how.pop();
+                                }
+                                how = format!("{}…", how.trim_end());
+                            }
+                            ui.label(&how, r[0] + 60.0 * s + left, r[1] + 25.0 * s, hs, false, color::TEXT_DIM);
+                            ui.label(&fame, r[0] + r[2] - fw - 14.0 * s, r[1] + 4.0 * s, fs, true, color::ACCENT);
+                            let when = time_ago(*ago);
+                            let ws = (12.0 * s).round();
+                            let ww = ui.measure(&when, ws, false);
+                            ui.label(&when, r[0] + r[2] - ww - 14.0 * s, r[1] + 26.0 * s, ws, false, color::TEXT_MUTED);
+                        }
+                    }
+                    if let Some(t) = l.target {
+                        self.targets.push((t, r));
+                    }
                 }
                 if more {
                     // Under the list, which rows these are and that there's more below.
@@ -1463,7 +1504,7 @@ impl Front {
         theme::panel(ui.renderer, r, s);
         let class = ui.data.objects.get(&sum.object_type);
         let pad = 28.0 * s;
-        let head = if self.death_from_graveyard { "In memory" } else { "You died" };
+        let head = if self.death_from_graveyard || self.death_from_legends { "In memory" } else { "You died" };
         ui.label(head, r[0] + pad, r[1] + 20.0 * s, (30.0 * s).round(), true, color::DANGER);
         let who = format!("{}, level {}, killed by {}", class.map_or("Your character", |d| d.display_id.as_str()), sum.level, if sum.killed_by.is_empty() { "something" } else { &sum.killed_by });
         ui.label(&who, r[0] + pad, r[1] + 62.0 * s, (15.0 * s).round(), false, color::TEXT_DIM);
@@ -1517,6 +1558,61 @@ impl Front {
             ui.label(value, x + colw - vw - 16.0 * s, yy, small, true, color::TEXT);
         }
         self.button(ui, Target::Back, [r[0] + (r[2] - 180.0 * s) / 2.0, r[1] + r[3] - 60.0 * s, 180.0 * s, 42.0 * s], "Continue", Kind::Primary, s, mouse);
+    }
+}
+
+/// A row of the Legends screen: a legend, or one of Recent Deaths.
+struct LegendRow {
+    name: String,
+    object_type: u16,
+    tex1: i32,
+    tex2: i32,
+    skin: i32,
+    equipment: Vec<i32>,
+    total_fame: i32,
+    /// A death's level, killer, world and seconds ago.
+    death: Option<(i32, String, String, i64)>,
+    target: Option<Target>,
+}
+
+impl LegendRow {
+    fn legend(l: &Legend) -> Self {
+        LegendRow {
+            name: l.name.clone(),
+            object_type: l.object_type,
+            tex1: l.tex1,
+            tex2: l.tex2,
+            skin: l.skin,
+            equipment: l.equipment.clone(),
+            total_fame: l.total_fame,
+            death: None,
+            target: None,
+        }
+    }
+
+    fn death(d: &RecentDeath) -> Self {
+        LegendRow {
+            name: d.name.clone(),
+            object_type: d.object_type,
+            tex1: d.tex1,
+            tex2: d.tex2,
+            skin: d.skin,
+            equipment: Vec::new(),
+            total_fame: d.total_fame,
+            death: Some((d.level, d.killer.clone(), d.world.clone(), d.ago)),
+            target: Some(Target::Fallen(d.account_id, d.char_id)),
+        }
+    }
+}
+
+/// How long ago, from seconds: "just now", "5 min ago", "3 h ago", "2 days ago".
+fn time_ago(secs: i64) -> String {
+    match secs.max(0) {
+        0..=59 => "just now".into(),
+        s @ 60..=3599 => format!("{} min ago", s / 60),
+        s @ 3600..=86_399 => format!("{} h ago", s / 3600),
+        s if s < 2 * 86_400 => "yesterday".into(),
+        s => format!("{} days ago", s / 86_400),
     }
 }
 

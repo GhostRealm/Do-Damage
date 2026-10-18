@@ -81,6 +81,8 @@ enum Request {
     /// The new password, kept for when it succeeds.
     ChangePassword(String),
     Legends,
+    /// The server's latest deaths (the Legends screen's Recent Deaths).
+    RecentDeaths,
     /// A dead character's fame summary.
     Fame,
     /// A new guest account.
@@ -1023,6 +1025,16 @@ impl App {
                 if let (Some(endpoint), Some(account_id)) = (&self.endpoint, account_id) {
                     self.request = Some((Request::Fame, endpoint.char_fame(account_id, char_id)));
                     self.front.death_from_graveyard = true;
+                    self.front.death_from_legends = false;
+                    self.front.busy = "Reading the gravestone…".into();
+                    self.front.show(screens::Screen::Busy);
+                }
+            }
+            Action::ViewDeathOf(account_id, char_id) => {
+                if let Some(endpoint) = &self.endpoint {
+                    self.request = Some((Request::Fame, endpoint.char_fame(account_id, char_id)));
+                    self.front.death_from_graveyard = false;
+                    self.front.death_from_legends = true;
                     self.front.busy = "Reading the gravestone…".into();
                     self.front.show(screens::Screen::Busy);
                 }
@@ -1030,7 +1042,12 @@ impl App {
             Action::Legends(span) => {
                 if let Some(endpoint) = &self.endpoint {
                     self.front.legends = None;
-                    self.request = Some((Request::Legends, endpoint.legends(span)));
+                    self.front.recent = None;
+                    self.request = Some(if span == screens::TIMESPANS[screens::RECENT].0 {
+                        (Request::RecentDeaths, endpoint.recent_deaths())
+                    } else {
+                        (Request::Legends, endpoint.legends(span))
+                    });
                 }
             }
             Action::Delete(id) => {
@@ -1106,6 +1123,7 @@ impl App {
         // After a death: the fame summary first (FameView), then the list.
         let account_id = self.front.list.as_ref().map(|l| l.account_id);
         self.front.death_from_graveyard = false;
+        self.front.death_from_legends = false;
         if let (Some(char_id), Some(account_id), Some(endpoint)) = (death, account_id, &self.endpoint) {
             self.request = Some((Request::Fame, endpoint.char_fame(account_id, char_id)));
             self.front.busy = "Counting your fame…".into();
@@ -1287,6 +1305,13 @@ impl App {
                 Ok(list) => self.front.legends = Some(list),
                 Err(e) => {
                     self.front.legends = Some(Vec::new());
+                    self.front.message = Some((e, true));
+                }
+            },
+            Request::RecentDeaths => match login::reached(response).and_then(|xml| bsk_net::account::parse_recent_deaths(&xml)) {
+                Ok(list) => self.front.recent = Some(list),
+                Err(e) => {
+                    self.front.recent = Some(Vec::new());
                     self.front.message = Some((e, true));
                 }
             },

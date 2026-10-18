@@ -357,19 +357,8 @@ namespace Shared.database
                 character = null;
                 return DbCreateStatus.Locked;
             }
-            var classStats = ReadClassStats(acc);
-            var unlockClass = playerDesc.Unlock?.Type;
-
-            // check to see if account has unlocked via gold
-            if (classStats.AllKeys.All(x => (ushort)(int)x != type))
-            {
-                // check to see if account meets unlock requirements
-                if (unlockClass != null && classStats[(ushort)unlockClass].BestLevel < playerDesc.Unlock.Level)
-                {
-                    character = null;
-                    return DbCreateStatus.Locked;
-                }
-            }
+            // Every class is open from the start: the classes' <UnlockLevel> requirements
+            // (level another class first) aren't checked.
 
             var newId = (int)_db.HashIncrement(acc.Key, "nextCharId");
             var newCharacters = _resources.Settings.NewCharacters;
@@ -509,7 +498,7 @@ namespace Shared.database
             return DbGuildCreateStatus.OK;
         }
 
-        public void Death(XmlData dat, DbAccount acc, DbChar character, FameStats stats, string killer)
+        public void Death(XmlData dat, DbAccount acc, DbChar character, FameStats stats, string killer, string world = null)
         {
             character.Dead = true;
 
@@ -548,7 +537,25 @@ namespace Shared.database
 
             if (!acc.Admin)
                 DbLegend.Insert(_db, acc.AccountId, character.CharId, finalFame);
+
+            DbRecentDeaths.Insert(_db, new DbRecentDeath
+            {
+                AccountId = acc.AccountId,
+                CharId = character.CharId,
+                Name = acc.Name,
+                ObjectType = character.ObjectType,
+                Skin = character.Skin,
+                Tex1 = character.Tex1,
+                Tex2 = character.Tex2,
+                Level = character.Level,
+                TotalFame = finalFame,
+                Killer = killer,
+                Time = DateTime.UtcNow.ToUnixTimestamp(),
+                World = world
+            });
         }
+
+        public DbRecentDeath[] GetRecentDeaths(int count) => DbRecentDeaths.Get(_db, count);
 
         public void DeleteCharacter(DbAccount acc, int charId)
         {

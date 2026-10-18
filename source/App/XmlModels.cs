@@ -472,12 +472,8 @@ namespace App
 
         public static ClassAvailability FromDb(CoreService core, Database db, DbAccount acc)
         {
-            var classes = core._classAvailability.Keys.ToDictionary(id => id, id => core._classAvailability[id]);
-
-            var cs = db.ReadClassStats(acc);
-            foreach (string c in cs.AllKeys
-                .Select(key => core._classes[(ushort)(int)key]))
-                classes[c] = "unrestricted";
+            // Every class is open from the start, with no level needed in another.
+            var classes = core._classAvailability.Keys.ToDictionary(id => id, id => "unrestricted");
 
             // admin-only classes are hidden from everyone else
             if (!acc.Admin)

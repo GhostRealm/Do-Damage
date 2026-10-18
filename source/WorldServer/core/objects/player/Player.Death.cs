@@ -112,7 +112,7 @@ namespace WorldServer.core.objects
             }
 
             SaveToCharacter();
-            GameServer.Database.Death(GameServer.Resources.GameData, Client.Account, Client.Character, FameCounter.Stats, killer);
+            GameServer.Database.Death(GameServer.Resources.GameData, Client.Account, Client.Character, FameCounter.Stats, killer, World.GetDisplayName());
 
             GenerateGravestone();
             AnnounceDeath(killer);

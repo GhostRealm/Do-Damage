@@ -14,6 +14,10 @@ version number itself is in `client-rs/Cargo.toml`.
 - The Support Bot's dungeon portal closes once its dungeon has been cleared, and the bot says
   so. If nobody clears it, it's still replaced by a new dungeon after ten minutes. Players
   already inside a dungeon are never sent out when its portal closes.
+- The Legends screen has a Recent Deaths tab: the last 20 characters to die on the server,
+  newest first, with their level, fame, what killed them, where and how long ago. Click one to
+  see how its fame was counted.
+- Every class can be played from the start: you no longer need to level another class first.
 
 ## 1.2.6 (2026-10-18)
 - The Support Bot in the Nexus now says how many XP gifts are left and when the next ones come,

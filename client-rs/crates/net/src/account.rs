@@ -215,6 +215,54 @@ pub fn parse_fame_list(xml: &str) -> Result<Vec<Legend>, String> {
         .collect())
 }
 
+/// One line of `/fame/recent`: a death on the server, newest first.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RecentDeath {
+    pub account_id: i32,
+    pub char_id: i32,
+    pub name: String,
+    pub object_type: u16,
+    pub tex1: i32,
+    pub tex2: i32,
+    pub skin: i32,
+    pub level: i32,
+    pub total_fame: i32,
+    pub killer: String,
+    pub world: String,
+    /// Seconds before the server answered.
+    pub ago: i64,
+}
+
+/// `/fame/recent`.
+pub fn parse_recent_deaths(xml: &str) -> Result<Vec<RecentDeath>, String> {
+    if let Some(e) = error_text(xml) {
+        return Err(e);
+    }
+    let doc = roxmltree::Document::parse(xml).map_err(|e| e.to_string())?;
+    let root = doc.root_element();
+    Ok(root
+        .children()
+        .filter(|c| c.has_tag_name("Death"))
+        .map(|e| {
+            let int = |n: &str| child_text(e, n).and_then(parse_int).unwrap_or(0);
+            RecentDeath {
+                account_id: e.attribute("accountId").and_then(parse_int).unwrap_or(0) as i32,
+                char_id: e.attribute("charId").and_then(parse_int).unwrap_or(0) as i32,
+                name: child_text(e, "Name").unwrap_or("").to_owned(),
+                object_type: int("ObjectType") as u16,
+                tex1: int("Tex1") as i32,
+                tex2: int("Tex2") as i32,
+                skin: int("Texture") as i32,
+                level: int("Level") as i32,
+                total_fame: int("TotalFame") as i32,
+                killer: child_text(e, "Killer").unwrap_or("").to_owned(),
+                world: child_text(e, "World").unwrap_or("").to_owned(),
+                ago: int("Ago"),
+            }
+        })
+        .collect())
+}
+
 /// `/char/fame`: how a dead character's fame was counted.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct FameSummary {
@@ -406,6 +454,19 @@ mod tests {
         assert_eq!(list.news[0].death_char_id(), Some(7));
         assert_eq!(list.news[0].date, 1_700_000_000);
         assert_eq!(list.news[1].death_char_id(), None);
+    }
+
+    #[test]
+    fn recent_deaths() {
+        let xml = r#"<RecentDeaths><Death accountId="1" charId="9"><Name>Tester</Name><ObjectType>782</ObjectType>
+            <Texture>0</Texture><Tex1>0</Tex1><Tex2>0</Tex2><Level>12</Level><TotalFame>40</TotalFame>
+            <Killer>Pirate</Killer><World>Realm</World><Time>1700000000</Time><Ago>95</Ago></Death>
+            <Death accountId="2" charId="3"><Name>B</Name><Killer></Killer></Death></RecentDeaths>"#;
+        let d = parse_recent_deaths(xml).unwrap();
+        assert_eq!(d.len(), 2);
+        assert_eq!((d[0].account_id, d[0].char_id, d[0].object_type, d[0].level, d[0].total_fame), (1, 9, 782, 12, 40));
+        assert_eq!((d[0].killer.as_str(), d[0].world.as_str(), d[0].ago), ("Pirate", "Realm", 95));
+        assert_eq!((d[1].name.as_str(), d[1].killer.as_str()), ("B", ""));
     }
 
     #[test]
