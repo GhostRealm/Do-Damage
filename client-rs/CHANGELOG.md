@@ -15,6 +15,10 @@ version number itself is in `client-rs/Cargo.toml`.
 - The treasure chest at the end of the Puppet Master's Theatre opens faster: it has half the
   health it had and much less armour, so it takes less than half as long to break open. It
   drops the same loot.
+- Pets' shots are drawn smaller and see-through, so a boss pet's bullets no longer cover the
+  screen, and other players' pets' shots are fainter than your own. They hit just as hard as
+  before. Options, Visuals, "Pets' shots" switches between Normal (as before), Subtle (the new
+  default) and Hidden.
 
 ## 1.2.7 (2026-10-18)
 - The website has a wiki (dodmg.com/wiki): how to get started, how to get stronger, the Oryx

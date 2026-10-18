@@ -3,7 +3,7 @@
 
 use crate::condition::{self, has};
 use crate::{World, NO_TILE};
-use bsk_data::{GameData, ProjectileDesc};
+use bsk_data::{GameData, ObjectClass, ProjectileDesc};
 use std::collections::HashSet;
 use std::f64::consts::PI;
 
@@ -74,6 +74,8 @@ pub struct Impact {
     pub look: String,
     pub angle: f64,
     pub speed: i32,
+    /// Whose pet fired it, for a pet's shot (drawn faintly, as the options say).
+    pub pet_owner: Option<i32>,
 }
 
 /// `Trig.boundToPI`.
@@ -176,6 +178,12 @@ impl World {
     /// The projectile description for a projectile, from its container.
     pub fn projectile_desc<'a>(&self, p: &Projectile, data: &'a GameData) -> Option<&'a ProjectileDesc> {
         data.objects.get(&p.container_type)?.projectiles.get(&p.bullet_type)
+    }
+
+    /// Whether a pet (or an ally) fired it: its shots are its owner's, fired from the pet (a
+    /// Character), where a player's come from a weapon or ability.
+    pub fn pet_shot(&self, p: &Projectile, data: &GameData) -> bool {
+        !p.damages_players && data.objects.get(&p.container_type).is_some_and(|c| c.class == ObjectClass::Character)
     }
 
     pub fn add_projectile(&mut self, p: Projectile) {
@@ -315,7 +323,8 @@ impl World {
                     if p.damages_players {
                         hits.push(Hit::Other { time, bullet_id: p.bullet_id, owner_id: p.owner_id, target_id: obstacle.id });
                     } else {
-                        self.impacts.push(Impact { x, y, target: None, kill: false, look: desc.object_id.clone(), angle: p.angle, speed: desc.speed });
+                        let pet_owner = self.pet_shot(p, data).then_some(p.owner_id);
+                        self.impacts.push(Impact { x, y, target: None, kill: false, look: desc.object_id.clone(), angle: p.angle, speed: desc.speed, pet_owner });
                     }
                     return false;
                 }
@@ -327,7 +336,8 @@ impl World {
         let tdesc = data.objects.get(&target.object_type);
         let target_is_enemy = tdesc.is_some_and(|d| d.enemy);
         let send = (me.is_some() && p.damages_players) || (target_is_enemy && Some(p.owner_id) == me);
-        let impact = Impact { x, y, target: Some(target_id), kill: false, look: desc.object_id.clone(), angle: p.angle, speed: desc.speed };
+        let pet_owner = self.pet_shot(p, data).then_some(p.owner_id);
+        let impact = Impact { x, y, target: Some(target_id), kill: false, look: desc.object_id.clone(), angle: p.angle, speed: desc.speed, pet_owner };
         self.impacts.push(impact);
         if send {
             let defense = target.stat_int(STAT_DEFENSE).unwrap_or_else(|| tdesc.map_or(0, |d| d.xml.int("Defense", 0)));

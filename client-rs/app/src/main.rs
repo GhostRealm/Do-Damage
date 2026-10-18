@@ -1543,6 +1543,7 @@ impl App {
             bubbles: self.settings.bubbles,
             ally_shots: self.settings.ally_shots,
             pet_shots: self.settings.pet_shots,
+            pet_shot_look: self.settings.pet_shot_look,
             player_alpha: self.settings.player_alpha,
             pet_alpha: self.settings.pet_alpha,
             damage_numbers: self.settings.damage_numbers,
@@ -1743,6 +1744,7 @@ impl App {
             }
             game.particles.disabled = !self.settings.particles;
             game.particles.hide_pets = !self.settings.pet_effects;
+            game.particles.pet_shots = (self.settings.pet_shot_look, self.settings.pet_shots);
             // Options' "Return home": out to the main menu.
             if std::mem::take(&mut self.options_ui.go_home) {
                 self.leave_game(None);

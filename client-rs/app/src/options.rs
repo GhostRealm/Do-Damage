@@ -186,6 +186,46 @@ const VISUALS: [(Toggle, &str); 9] = [
     (Toggle::DamageNumbers, "Damage numbers"),
 ];
 
+/// How pets' shots (yours and other players') are drawn. Their hits and damage are the same
+/// whichever: only the look changes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum PetShots {
+    /// As big and as solid as the pet's XML makes them (a boss pet's are its boss's).
+    Normal,
+    /// Smaller and see-through, so they don't hide the fight.
+    #[default]
+    Subtle,
+    Hidden,
+}
+
+impl PetShots {
+    /// In the slider's order, left to right.
+    const ALL: [PetShots; 3] = [PetShots::Hidden, PetShots::Subtle, PetShots::Normal];
+
+    fn name(self) -> &'static str {
+        match self {
+            PetShots::Normal => "Normal",
+            PetShots::Subtle => "Subtle",
+            PetShots::Hidden => "Hidden",
+        }
+    }
+
+    fn from_name(name: &str) -> Option<Self> {
+        PetShots::ALL.into_iter().find(|p| p.name().eq_ignore_ascii_case(name))
+    }
+
+    /// How big (times their own size) and how opaque a pet's shots are drawn: other players'
+    /// pets' fainter than your own.
+    pub fn look(self, mine: bool) -> (f32, f32) {
+        match self {
+            PetShots::Normal => (1.0, 1.0),
+            PetShots::Subtle if mine => (0.6, 0.55),
+            PetShots::Subtle => (0.6, 0.35),
+            PetShots::Hidden => (0.0, 0.0),
+        }
+    }
+}
+
 /// The camera and the display.
 const GRAPHICS: [(Toggle, &str); 4] = [
     (Toggle::Rotation, "Camera rotation"),
@@ -208,6 +248,8 @@ pub struct Settings {
     /// Other players' pets' projectiles, and their pets' particle effects.
     pub pet_shots: bool,
     pub pet_effects: bool,
+    /// How every pet's shots look.
+    pub pet_shot_look: PetShots,
     /// A crosshair at the mouse over the world, instead of the pointer.
     pub crosshair: bool,
     /// How opaque other players, and other players' pets, are drawn (0 to 1).
@@ -257,6 +299,7 @@ impl Default for Settings {
             ally_shots: true,
             pet_shots: true,
             pet_effects: true,
+            pet_shot_look: PetShots::Subtle,
             crosshair: true,
             player_alpha: 1.0,
             pet_alpha: 1.0,
@@ -356,6 +399,7 @@ impl Settings {
         out += &format!("worldZoom={}\n", self.zoom);
         out += &format!("playerOpacity={}\npetOpacity={}\n", self.player_alpha, self.pet_alpha);
         out += &format!("maxFps={}\n", self.max_fps);
+        out += &format!("petShotLook={}\n", self.pet_shot_look.name());
         if let Some(a) = self.camera_angle {
             out += &format!("cameraAngle={a}\n");
         }
@@ -401,6 +445,7 @@ impl Settings {
                 "crosshair" => s.crosshair = on,
                 "playerOpacity" => s.player_alpha = vol().unwrap_or(1.0),
                 "petOpacity" => s.pet_alpha = vol().unwrap_or(1.0),
+                "petShotLook" => s.pet_shot_look = PetShots::from_name(value).unwrap_or_default(),
                 "damageNumbers" => s.damage_numbers = on,
                 "allowRotation" => s.rotation = on,
                 "cameraCentered" => s.centered = on,
@@ -457,6 +502,7 @@ enum Slider {
     MaxFps,
     PlayerAlpha,
     PetAlpha,
+    PetShots,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -504,6 +550,7 @@ fn set_slider(slider: Slider, track: [f32; 4], x: f64, settings: &mut Settings) 
         Slider::PlayerAlpha => settings.player_alpha = v,
         Slider::PetAlpha => settings.pet_alpha = v,
         Slider::MaxFps => settings.max_fps = MAX_FPS[(f * (MAX_FPS.len() - 1) as f32).round() as usize],
+        Slider::PetShots => settings.pet_shot_look = PetShots::ALL[(f * (PetShots::ALL.len() - 1) as f32).round() as usize],
     }
 }
 
@@ -552,6 +599,7 @@ impl OptionsUi {
                         }
                         settings.player_alpha = d.player_alpha;
                         settings.pet_alpha = d.pet_alpha;
+                        settings.pet_shot_look = d.pet_shot_look;
                     }
                     Tab::Sound => settings.sound = d.sound,
                 }
@@ -691,9 +739,12 @@ impl OptionsUi {
                     let (sv, mv) = (settings.sound.sfx_volume, settings.sound.music_volume);
                     vec![(Slider::Sfx, "Effects volume", sv, pct(sv)), (Slider::Music, "Music volume", mv, pct(mv))]
                 } else if self.tab == Tab::Visuals {
+                    let look = settings.pet_shot_look;
+                    let lv = PetShots::ALL.iter().position(|&p| p == look).unwrap_or(1) as f32 / (PetShots::ALL.len() - 1) as f32;
                     vec![
                         (Slider::PlayerAlpha, "Other players", settings.player_alpha, pct(settings.player_alpha)),
                         (Slider::PetAlpha, "Other players' pets", settings.pet_alpha, pct(settings.pet_alpha)),
+                        (Slider::PetShots, "Pets' shots", lv, look.name().to_owned()),
                     ]
                 } else {
                     // Lower shows more of the world (the mouse wheel over the world does it too).
@@ -760,6 +811,11 @@ mod tests {
         assert!(!ui.release());
         set_slider(Slider::MaxFps, track, 300.0, &mut s);
         assert_eq!(s.max_fps, *MAX_FPS.last().unwrap());
+        assert_eq!(s.pet_shot_look, PetShots::Subtle);
+        set_slider(Slider::PetShots, track, 100.0, &mut s);
+        assert_eq!(s.pet_shot_look, PetShots::Hidden);
+        set_slider(Slider::PetShots, track, 300.0, &mut s);
+        assert_eq!(s.pet_shot_look, PetShots::Normal);
     }
 
     #[test]
@@ -780,6 +836,7 @@ mod tests {
         s.crosshair = false;
         s.player_alpha = 0.35;
         s.pet_alpha = 0.0;
+        s.pet_shot_look = PetShots::Hidden;
         let back = Settings::from_text(&s.to_text());
         assert_eq!(back, s);
         // Lines another version wrote stay, and its keys don't take a key this one gives.

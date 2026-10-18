@@ -168,6 +168,8 @@ pub struct Show {
     pub ally_shots: bool,
     /// Other players' pets' projectiles.
     pub pet_shots: bool,
+    /// How every pet's projectiles look.
+    pub pet_shot_look: crate::options::PetShots,
     /// How opaque other players and other players' pets are.
     pub player_alpha: f32,
     pub pet_alpha: f32,
@@ -436,9 +438,7 @@ pub fn draw(scene: &Scene, renderer: &mut Renderer, redrawer: &mut Redrawer, gro
         if ally && !scene.show.ally_shots {
             continue;
         }
-        // A pet's shots are its owner's, fired from the pet (a Character, where a player's
-        // come from a weapon or ability).
-        if ally && !scene.show.pet_shots && scene.data.objects.get(&p.container_type).is_some_and(|c| c.class == ObjectClass::Character) {
+        if world.pet_shot(p, scene.data) && ((ally && !scene.show.pet_shots) || scene.show.pet_shot_look == crate::options::PetShots::Hidden) {
             continue;
         }
         if (p.x - cam.x).abs() <= radius && (p.y - cam.y).abs() <= radius {
@@ -750,13 +750,21 @@ fn draw_projectile(scene: &Scene, renderer: &mut Renderer, redrawer: &mut Redraw
     if src.w >= 16 {
         size = (size as f64 / (src.w as f64 / 8.0)) as i32;
     }
+    // Pets' shots (a boss pet's are its boss's) smaller and see-through, as the options say:
+    // never as solid as a monster's, so they don't hide the fight or pass for a danger.
+    let mut tint = Tint::NONE;
+    if scene.world.pet_shot(p, scene.data) {
+        let (scale, alpha) = scene.show.pet_shot_look.look(Some(p.owner_id) == scene.world.me);
+        size = ((size as f32 * scale).round() as i32).max(1);
+        tint.mul[3] = alpha;
+    }
     let Some(sprite) = redrawer.get_padded(scene.sprites, renderer, src, false, size, None, true) else { return };
     let spin = if look_desc.rotation == 0.0 { 0.0 } else { scene.time as f64 / look_desc.rotation };
     let angle = p.angle - cam.angle + look_desc.angle_correction + spin;
     let k = (cam.scale / TILE_PX) as f32;
     let [px, py] = cam.to_screen(p.x, p.y, p.z);
     let quad = Quad::rotated(px, py, sprite.w as f32 * k, sprite.h as f32 * k, angle as f32);
-    renderer.sprite(sprite.rect, quad, Tint::NONE);
+    renderer.sprite(sprite.rect, quad, tint);
 }
 
 /// `Object3D.draw`: the model turned by the object's Rotation (degrees) and placed at it; faces

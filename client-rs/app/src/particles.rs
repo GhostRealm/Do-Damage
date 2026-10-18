@@ -64,11 +64,13 @@ struct Particle {
     left: i32,
     motion: Motion,
     image: Option<Image>,
+    /// How opaque it's drawn (a pet's shot's sparks are as faint as the shot).
+    alpha: f32,
 }
 
 impl Particle {
     fn new(x: f64, y: f64, z: f64, color: u32, size: f64, life: i32, motion: Motion) -> Self {
-        Particle { x, y, z, vx: 0.0, vy: 0.0, vz: 0.0, color, size, life, left: life, motion, image: None }
+        Particle { x, y, z, vx: 0.0, vy: 0.0, vz: 0.0, color, size, life, left: life, motion, image: None, alpha: 1.0 }
     }
 
     fn with_image(mut self, image: Option<Image>) -> Self {
@@ -97,6 +99,8 @@ struct Pending {
     impact: Impact,
     /// The struck object's type and size, if it was an object.
     target: Option<(u16, i32)>,
+    /// How opaque its sparks are.
+    alpha: f32,
 }
 
 /// Every live particle, and the effects on objects and the camera.
@@ -114,6 +118,8 @@ pub struct Particles {
     pub disabled: bool,
     /// Options: other players' pets' effects off.
     pub hide_pets: bool,
+    /// Options: how pets' shots look, and whether other players' pets' show.
+    pub pet_shots: (crate::options::PetShots, bool),
     /// The last heal burst (`ShowEffect` 1): when, its colour, and its particles in `list`. A
     /// pet's heal or strike sends one beside the line from the pet, so it goes with that line.
     last_burst: Option<(i32, u32, std::ops::Range<usize>)>,
@@ -209,20 +215,28 @@ impl Particles {
             if impact.target.is_some() && target.is_none() {
                 continue;
             }
-            self.pending.push(Pending { impact, target });
+            let alpha = match impact.pet_owner {
+                Some(owner) if Some(owner) == world.me => self.pet_shots.0.look(true).1,
+                Some(_) if self.pet_shots.1 => self.pet_shots.0.look(false).1,
+                Some(_) => 0.0,
+                None => 1.0,
+            };
+            if alpha > 0.0 {
+                self.pending.push(Pending { impact, target, alpha });
+            }
         }
     }
 
     /// `Damage` from the server for someone else's hit: an explosion of the target's colours.
     pub fn damaged(&mut self, world: &World, target_id: i32, kill: bool) {
         let Some(o) = world.objects.get(&target_id) else { return };
-        let impact = Impact { x: o.x, y: o.y, target: Some(target_id), kill, look: String::new(), angle: 0.0, speed: 0 };
-        self.pending.push(Pending { impact, target: Some((o.object_type, o.stat_int(2).unwrap_or(100))) });
+        let impact = Impact { x: o.x, y: o.y, target: Some(target_id), kill, look: String::new(), angle: 0.0, speed: 0, pet_owner: None };
+        self.pending.push(Pending { impact, target: Some((o.object_type, o.stat_int(2).unwrap_or(100))), alpha: 1.0 });
     }
 
     /// Turn the hits waiting for their colours into sparks (`HitEffect`, `ExplosionEffect`).
     pub fn realize(&mut self, sprites: &Sprites, data: &GameData) {
-        for Pending { impact, target } in std::mem::take(&mut self.pending) {
+        for Pending { impact, target, alpha } in std::mem::take(&mut self.pending) {
             let (colors, size, count) = match target {
                 Some((t, size)) => (self.blood(sprites, data, t), size as f64, if impact.kill { 30 } else { 10 }),
                 None => {
@@ -244,7 +258,8 @@ impl Particles {
                     let s = impact.speed as f64 / 600.0;
                     (s * (impact.angle + PI).cos() + (self.random() - 0.5) * 0.4, s * (impact.angle + PI).sin() + (self.random() - 0.5) * 0.4)
                 };
-                let p = Particle::new(impact.x, impact.y, 0.5, color, size, life, Motion::Plain).moving(vx * 0.008, vy * 0.008, 0.0);
+                let mut p = Particle::new(impact.x, impact.y, 0.5, color, size, life, Motion::Plain).moving(vx * 0.008, vy * 0.008, 0.0);
+                p.alpha = alpha;
                 self.add(p);
             }
         }
@@ -811,9 +826,9 @@ impl Particles {
             let [sx, sy] = cam.to_screen(p.x, p.y, p.z);
             let edge = (1.0 * k).max(1.0) as f32;
             let half = (side / 2.0) as f32;
-            renderer.fill(sx - half - edge, sy - half - edge, 2.0 * (half + edge), 2.0 * (half + edge), 0x000000, 0.6);
+            renderer.fill(sx - half - edge, sy - half - edge, 2.0 * (half + edge), 2.0 * (half + edge), 0x000000, 0.6 * p.alpha);
             if side > 0.0 {
-                renderer.fill(sx - half, sy - half, 2.0 * half, 2.0 * half, p.color, 1.0);
+                renderer.fill(sx - half, sy - half, 2.0 * half, 2.0 * half, p.color, p.alpha);
             }
         }
     }
