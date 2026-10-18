@@ -1,5 +1,5 @@
 """Builds the website players land on (website/) into build/site: the home page with the server
-status, the downloads and the newest changes, and the full changelog page.
+status, the downloads and the newest changes, the full changelog page and the wiki.
 
     python tools/build_site.py [--name "Do Damage"] [--out build/site]
 
@@ -11,6 +11,8 @@ status, the downloads and the newest changes, and the full changelog page.
 - Everything else in website/ (style.css, site.js, favicon.svg, and the gallery's screenshots/) is
   copied as it is. The sprites are drawn by site.js; the screenshots are WebP files taken with the
   Rust client's --shot on a test stack: <name>.webp at 1600x900 and <name>-small.webp at 640x360.
+- website/wiki/ is the wiki's guides, which tools/build_wiki.py builds into wiki/ with the
+  sections it generates from the game's data (see its docstring).
 
 On the VPS, Caddy serves the result at the site's root, with the browser client at /play/ and the
 gateway's /api and /ws beside it (deploy/deploy.py writes the Caddyfile).
@@ -21,6 +23,8 @@ import html
 import os
 import re
 import shutil
+
+import build_wiki
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "website")
@@ -119,6 +123,8 @@ def main():
     }
     for name in os.listdir(SRC):
         src = os.path.join(SRC, name)
+        if name == "wiki":
+            continue  # build_wiki below
         if os.path.isdir(src):
             shutil.copytree(src, os.path.join(out, name))
         elif name.endswith(".html"):
@@ -129,6 +135,7 @@ def main():
                 f.write(text)
         else:
             shutil.copy2(src, os.path.join(out, name))
+    build_wiki.build(out, values)
     print("site: %s (version %s, %d releases)" % (os.path.relpath(out, ROOT), version, len(rel)))
 
 

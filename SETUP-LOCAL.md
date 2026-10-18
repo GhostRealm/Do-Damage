@@ -114,6 +114,14 @@ traffic are encrypted (see "Encrypted connections" below). Older desktop clients
 - **What it shows:** the home page with the server's live player count (from `/api/app/serverList`),
   the downloads, the controls and the two newest versions from `client-rs/CHANGELOG.md`, plus a
   full changelog page. The game's name on it is `site_name` in the VPS config.
+- **Wiki** (`/wiki/`, `tools/build_wiki.py`, run by `build_site.py`): guides for players in
+  `website/wiki/*.md`, with sections generated from the game's data by `tools/wiki_data.py` (the
+  dungeon list from `Dungeons.xml`, the portals, keys and behaviours' drops; the classes and what
+  `/gear` gives each; the player commands; the Oryx chain and incantations; Bazaar prices; pets;
+  realm events) and numbers from the code (`{{v:...}}`: account limits, `/gear` limits, the
+  Support Bot's timers). Rebuild the site after a content change and the wiki follows. A new
+  player command needs its words in `COMMAND_HELP` (the build names any that lack them); a boss a
+  script spawns, which its dungeon's map doesn't place, goes in `BOSS_OVERRIDE`.
 - **Screenshots:** the gallery's pictures are in `website/screenshots/` (`<name>.webp` at 1600x900,
   `<name>-small.webp` at 640x360). Take new ones with the Rust client's `--shot` on an isolated
   stack, with `--credentials` and a test character renamed there, so no real login or player shows.
