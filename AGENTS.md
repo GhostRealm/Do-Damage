@@ -90,8 +90,12 @@ it asks first; never run test copies under the live process names (`redis-server
 
 - `main` is the working branch (`local` is older and no longer used). Sessions work in worktrees
   under `.claude/worktrees/` and bring each finished piece into `main` as they go:
-  `git -C <main checkout> merge --ff-only <branch>`, after merging `main` in first if it moved.
-  A hook stops edits into the main checkout from a worktree session.
+  `git -C <main checkout> merge --ff-only <branch>`. A hook stops edits into the main checkout
+  from a worktree session.
+- **No merge commits: `main`'s history stays linear.** If `main` moved while you worked, rebase
+  your branch onto it (`git rebase main`) instead of merging `main` in, then fast-forward `main`
+  as above. Never `git merge` a branch into `main` or `main` into a branch, and don't rewrite
+  commits already pushed to `origin` unless the owner asks.
 - Another session may be editing the same tree. Stage and commit explicit paths only (never
   `git add -A` or `git commit -a`), and check `git status` for changes that aren't yours.
 - `core.autocrlf` is on: the repository stores LF, while many working files are CRLF. Scripts
