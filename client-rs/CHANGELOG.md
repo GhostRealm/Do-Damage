@@ -8,6 +8,31 @@ version (`python tools/build_client_rs.py --publish`) needs a section for that v
 refuses while an `Unreleased` one is left, so rename it to `## <version> (<date>)` then. The
 version number itself is in `client-rs/Cargo.toml`.
 
+## 1.2.5 (2026-10-18)
+- The damage numbers over monsters are right again. After using an ability while firing (a
+  quiver or shield), every number the game showed was off for the rest of your stay in that
+  world, and you could see monsters "die" that weren't dead. Ability shots fired while you're
+  shooting, and the shots right after them, now also do their damage; they were sometimes
+  ignored.
+- Fixed monsters that were sometimes left alive after your shot looked like it killed them:
+  your shots went straight through them, they stopped shooting, and only abilities could finish
+  them off. They can now be shot again a moment later.
+- Item tooltips and class descriptions break their lines and paragraphs properly, instead of
+  showing stray "\n" marks in the text (a crate's list of rewards is one item per line again).
+
+## 1.2.4 (2026-10-17)
+- Enchanted Keys now give the Mystery ST Crate they promise when you open their dungeon, and
+  the crate gives you one of the items it lists. Mystery Dyes from the Nexus shop now give a
+  dye, and the Mystery ST Chest an ST item. Items the game can't use yet now stay in your
+  inventory instead of disappearing.
+- Server updates no longer disconnect anyone, in the browser or the desktop game: you move to
+  the updated server the next time you change worlds.
+- If your connection drops while you play, the game now takes you back to the Nexus by itself
+  instead of sending you to the character list (it keeps trying for about two minutes).
+- The monsters that got their behaviour in 1.2.3 now drop loot to match: the heroes (Red Demon,
+  Phoenix, Oasis Giant, Ghost King, Deathmage) tiered weapons, armor, rings, abilities and
+  potions, and their minions potions and the odd low-tier item.
+
 ## 1.2.3 (2026-10-17)
 - Monsters that never had any behaviour now move, attack and taunt: the Red Demon, the Phoenix
   Lord (which turns into an egg when it dies), the Lich, the Ent Ancient, the Ghost King and the

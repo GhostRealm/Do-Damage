@@ -49,6 +49,7 @@ namespace WorldServer.core.net.handlers
             if (newBulletId != bulletId && client.Account.Admin == false) // Jeśli nie jesteś adminem, blokuj
             {
                 Log.Warn($"{player.Name} ({player.ObjectDesc.DisplayId ?? player.ObjectDesc.IdName}) has desynced. [bID: {bulletId}, nbID: {newBulletId}");
+                player.SkipShotRoll(item);
                 return;
             }
 
@@ -60,23 +61,26 @@ namespace WorldServer.core.net.handlers
             }
 
             // Rate of fire and projectile count checks; admins are exempt, as they can fire
-            // items from any inventory slot (see searchRange above).
+            // items from any inventory slot (see searchRange above). A refused shot still uses up
+            // the damage roll the client made for it (SkipShotRoll).
             if (!client.Account.Admin)
             {
-                if (!player.IsValidShootTime(time, item.RateOfFire))
+                if (!player.IsValidShootTime(time, item, slot))
                 {
 #if DEBUG
                     Log.Warn($"Invalid shoot time: Time: {time} Rof: {item.RateOfFire}");
 #endif
+                    player.SkipShotRoll(item);
                     return;
                 }
 
-                if (!player.IsValidNumShots(time, item))
+                if (!player.IsValidNumShots(time, item, slot))
                 {
 #if DEBUG
                     Log.Warn($"Invalid number of shots: Real NumProjectiles: {item.NumProjectiles}");
 #endif
                     //client.Disconnect("Invalid numver of shots detected", true);
+                    player.SkipShotRoll(item);
                     return;
                 }
             }

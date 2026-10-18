@@ -9,27 +9,57 @@ namespace WorldServer.core.objects
     partial class Player
     {
         private int LastShootTime;
+        private int? LastAbilityShootTime;
         private Dictionary<int, int> ProjectileCount = new Dictionary<int, int>();
-        public bool IsValidShootTime(int time, double rateOfFire)
+        private Dictionary<int, int> AbilityProjectileCount = new Dictionary<int, int>();
+
+        // The weapon (slot 0) and the ability (slot 1) are timed apart, as the client times them:
+        // checked against the weapon's last shot, an ability's shots were refused while firing,
+        // and so were the weapon's next shots after it.
+        public bool IsValidShootTime(int time, Item item, int slot)
         {
+            if (slot == 1)
+            {
+                // The client waits out the ability's cooldown between uses.
+                if (LastAbilityShootTime == time)
+                    return true;
+                if (LastAbilityShootTime is int last && time < last + (int)(item.Cooldown * 1000))
+                    return false;
+                LastAbilityShootTime = time;
+                return true;
+            }
+
             if (LastShootTime == time)
                 return true;
-            var attackPeriod = (int)(1 / Stats.GetAttackFrequency() * 1 / rateOfFire);
+            var attackPeriod = (int)(1 / Stats.GetAttackFrequency() * 1 / item.RateOfFire);
             if (time < LastShootTime + attackPeriod)
                 return false;
             LastShootTime = time;
             return true;
         }
 
-        public bool IsValidNumShots(int time, Item item)
+        public bool IsValidNumShots(int time, Item item, int slot)
         {
-            foreach (var key in ProjectileCount.Keys.Where(k => k < time - 1000).ToList())
-                ProjectileCount.Remove(key);
+            var counts = slot == 1 ? AbilityProjectileCount : ProjectileCount;
+            foreach (var key in counts.Keys.Where(k => k < time - 1000).ToList())
+                counts.Remove(key);
 
-            if (!ProjectileCount.ContainsKey(time))
-                ProjectileCount[time] = 0;
+            if (!counts.ContainsKey(time))
+                counts[time] = 0;
 
-            return ++ProjectileCount[time] <= item.NumProjectiles;
+            return ++counts[time] <= item.NumProjectiles;
+        }
+
+        // The client rolls each shot's damage from the same sequence as Client.Random before the
+        // server takes or refuses the shot, so a refused shot still uses up its roll. Otherwise
+        // every roll after it is out of step: the client shows the wrong damage and predicts
+        // kills that don't happen.
+        public void SkipShotRoll(Item item)
+        {
+            if (item.Projectiles == null || item.Projectiles.Length == 0)
+                return;
+            var desc = item.Projectiles[0];
+            Client.Random.NextIntRange((uint)desc.MinDamage, (uint)desc.MaxDamage);
         }
 
     }

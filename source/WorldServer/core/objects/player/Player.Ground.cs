@@ -60,17 +60,24 @@ namespace WorldServer.core.objects
 
         public void ForceGroundHit(TickTime time, Position pos, int timeHit)
         {
-            if (World == null || World.Map == null || HasConditionEffect(ConditionEffectIndex.Paused) || HasConditionEffect(ConditionEffectIndex.Invincible))
+            if (World == null || World.Map == null)
                 return;
 
             var tile = World.Map[(int)pos.X, (int)pos.Y];
+            if (tile == null)
+                return;
             var objDesc = tile.ObjType == 0 ? null : GameServer.Resources.GameData.ObjectDescs[tile.ObjType];
             var tileDesc = GameServer.Resources.GameData.Tiles[tile.TileId];
 
+            // The client rolled this damage from the sequence it shares with Client.Random, so the
+            // roll is used up even when the hit is refused, as a refused shot's is (SkipShotRoll).
+            int dmg = (int)Client.Random.NextIntRange((uint)tileDesc.MinDamage, (uint)tileDesc.MaxDamage);
+
+            if (HasConditionEffect(ConditionEffectIndex.Paused) || HasConditionEffect(ConditionEffectIndex.Invincible))
+                return;
+
             if (tileDesc.Damaging && (objDesc == null || !objDesc.ProtectFromGroundDamage))
             {
-                int dmg = (int)Client.Random.NextIntRange((uint)tileDesc.MinDamage, (uint)tileDesc.MaxDamage);
-
                 Health -= dmg;
 
                 if (Health <= 0)
@@ -113,7 +120,9 @@ namespace WorldServer.core.objects
 
                 if (tileDesc.Damaging && (objDesc == null || !objDesc.ProtectFromGroundDamage))
                 {
-                    int dmg = (int)Client.Random.NextIntRange((uint)tileDesc.MinDamage, (uint)tileDesc.MaxDamage);
+                    // Not Client.Random: the client makes no roll for this hit, and one drawn from its
+                    // sequence would put every later roll out of step with the client's.
+                    int dmg = Random.Shared.Next(tileDesc.MinDamage, Math.Max(tileDesc.MinDamage, tileDesc.MaxDamage));
 
                     Health -= dmg;
 

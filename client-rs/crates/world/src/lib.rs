@@ -58,8 +58,9 @@ pub struct GameObj {
     /// When it last attacked and toward which world angle (for the attack frames).
     pub attack_start: i32,
     pub attack_angle: f64,
-    /// Killed by one of our shots, before the server says so.
+    /// Killed by one of our shots, before the server says so, and when (the projectile clock).
     pub dead: bool,
+    pub dead_at: i32,
     /// Its `<Animation>` state, and the (animation, frame) showing now.
     animations: bsk_data::Animations,
     pub anim_frame: Option<(usize, usize)>,
@@ -249,6 +250,7 @@ impl World {
             attack_start: i32::MIN / 2,
             attack_angle: 0.0,
             dead: false,
+            dead_at: 0,
             animations: Default::default(),
             anim_frame: None,
         };

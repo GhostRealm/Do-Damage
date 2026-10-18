@@ -247,3 +247,36 @@ fn a_steady_walker_never_stops_or_backs_up_when_ticks_come_late() {
         last_x = x;
     }
 }
+
+#[test]
+fn a_kill_the_server_never_confirms_is_taken_back() {
+    let mut d = data();
+    d.add_objects(
+        r#"<Objects>
+            <Object type="0x30" id="Pirate"><Class>Character</Class><Enemy/></Object>
+            <Object type="0x40" id="Slasher"><Projectile id="0"><ObjectId>Blade</ObjectId><Speed>100</Speed><LifetimeMS>1000</LifetimeMS><Damage>10</Damage></Projectile></Object>
+        </Objects>"#,
+    )
+    .unwrap();
+    let mut w = world(&d);
+    // A monster with 10 health two tiles north of us; a 10-damage shot looks like a kill.
+    let mut pirate = obj(3, 0x30, 5.5, 3.5, 0);
+    pirate.status.stats = vec![StatData { id: 1, value: StatValue::Int(10) }].into();
+    w.apply_update(&Update { new_objs: vec![pirate].into(), ..Default::default() }, &d, 0);
+    let shoot = |w: &mut World, id: i32, at: i32| {
+        w.add_projectile(combat::Projectile::new(2, id, 0x40, 0, -std::f64::consts::FRAC_PI_2, at, 5.5, 5.5, 1.0, 10, false));
+        let mut hits = Vec::new();
+        for t in (at..at + 400).step_by(10) {
+            hits.extend(w.update_projectiles(t, &d));
+        }
+        hits
+    };
+    let hits = shoot(&mut w, 1, 0);
+    assert!(matches!(hits[..], [combat::Hit::Enemy { target_id: 3, kill: true, .. }]), "{hits:?}");
+    assert!(w.objects[&3].dead);
+    // While we wait for the server to remove it, shots pass through it.
+    assert!(shoot(&mut w, 2, 500).is_empty());
+    // The server never removed it (it dealt less than we thought): it can be shot again.
+    let hits = shoot(&mut w, 3, 1500);
+    assert!(matches!(hits[..], [combat::Hit::Enemy { target_id: 3, .. }]), "{hits:?}");
+}

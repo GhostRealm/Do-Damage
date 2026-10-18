@@ -13,6 +13,11 @@ const MIN_ATTACK_MULT: f64 = 0.5;
 const MAX_ATTACK_MULT: f64 = 2.0;
 /// `GameObject.radius_`: every object is hit within half a tile.
 const HIT_RADIUS: f64 = 0.5;
+/// How long a monster we think our shot killed waits for the server to remove it. The server
+/// can deal less than we reckoned (it turned invulnerable or healed before the shot arrived, its
+/// damage roll differs from ours, or it works out defense differently); kept marked dead, it
+/// could no longer be shot and its own shots were dropped, so after this it's a target again.
+const UNCONFIRMED_KILL_MS: i32 = 1000;
 
 const STAT_HP: u8 = 1;
 const STAT_INVENTORY_0: u8 = 8;
@@ -230,9 +235,12 @@ impl World {
     }
 
     /// The shots of an ability that has `<Activate>Shoot</Activate>` (`Player.useAltWeapon`):
-    /// the item's projectiles, without the attack multiplier.
+    /// the item's projectiles. The AIR client leaves out the attack multiplier here, but the
+    /// server (`Player.PlayerShoot`) applies it to every shot, so we do too.
     pub fn shoot_ability(&mut self, time: i32, item_type: i32, angle: f64, last_move: i32, data: &GameData) -> Vec<Projectile> {
-        self.do_shoot(time, item_type, angle, 1.0, last_move, data)
+        let Some(player) = self.player() else { return vec![] };
+        let att_mult = self.attack_multiplier(player.stat_int(STAT_ATTACK).unwrap_or(0), player.conditions());
+        self.do_shoot(time, item_type, angle, att_mult, last_move, data)
     }
 
     /// `Player.doShoot`: the item's projectiles fanned around `angle`, each rolling its damage.
@@ -269,6 +277,11 @@ impl World {
     /// Move every projectile to `time`; drop the finished ones; report hits. Also ground damage.
     pub fn update_projectiles(&mut self, time: i32, data: &GameData) -> Vec<Hit> {
         let mut hits = Vec::new();
+        for o in self.objects.values_mut() {
+            if o.dead && time - o.dead_at > UNCONFIRMED_KILL_MS {
+                o.dead = false;
+            }
+        }
         let mut projectiles = std::mem::take(&mut self.projectiles);
         projectiles.retain_mut(|p| self.step_projectile(p, time, data, &mut hits));
         self.projectiles = projectiles;
@@ -330,6 +343,7 @@ impl World {
                 if dead {
                     if let Some(t) = self.objects.get_mut(&target_id) {
                         t.dead = true;
+                        t.dead_at = time;
                     }
                 }
             } else if !desc.multi_hit {

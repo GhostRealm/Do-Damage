@@ -219,14 +219,16 @@ namespace WorldServer.core.objects
                     TargetId = entity.Id,
                     Effects = 0,
                     DamageAmount = dmg,
-                    Kill = entity.Health < 0,
+                    Kill = entity.Health <= 0,
                     BulletId = bulletId,
                     ObjectId = Id
                 }, entity, this);
 
                 entity.DamageCounter.HitBy(this, dmg);
 
-                if (entity.Health < 0)
+                // At 0 health, as in Enemy.Damage: the client counts a shot that leaves it at 0 as
+                // a kill and stops hitting it.
+                if (entity.Health <= 0)
                 {
                     entity.Death(ref tickTime);
                     if (entity.ObjectDesc.BlocksSight)

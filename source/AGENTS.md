@@ -40,12 +40,16 @@ dotnet build source\WorldServer\WorldServer.csproj -c Debug -o build\wscheck   #
   logs "Tick stats" (`core/worlds/TickProfile.cs`): its ticks' work, the gaps between them (what
   players feel), the time per part of the tick, and the garbage collections. Measure with those.
 - **Deploying a server change:** `python deploy\deploy.py` from the main checkout (ask the owner
-  first: it changes what players run). A new world server goes in with a rolling deploy and kicks
-  nobody (see "Rolling deploys" below); a changed account server restarts, which pauses logins for
-  a few seconds. A message change ships with the client, as before.
+  first: it changes what players run). Nothing it does kicks anyone: a new world server goes in
+  with a rolling deploy (see "Rolling deploys" below); a changed account server restarts, which
+  pauses sign-ins for a few seconds (in-game players are on the world servers, and the gateway
+  holds https account requests until it's back); a new gateway starts in a free slot while the old
+  one hands over (SETUP-LOCAL.md, "Deploys that kick nobody"). A message change ships with the
+  client, as before.
 - **On the VPS:** logs are in `/opt/bsk/build/live/<slot>/logs/wServer/`,
-  `/opt/bsk/app/logs/` and the journal (`journalctl -u bsk-world`); Redis is `redis-cli -p 6379`
-  there. `python deploy\deploy.py --status` shows the services and the world server slots.
+  `/opt/bsk/app/logs/` and the journal (`journalctl -u bsk-world`, `-u 'bsk-gateway@*'`); Redis is
+  `redis-cli -p 6379` there. `python deploy\deploy.py --status` shows the services, the world
+  server slots and the gateway slots.
 - **Stopping a world server** saves everyone on Ctrl+C (Windows) or SIGTERM (Linux): `GameServer.Stop`
   ends the loop and `ConnectionListener.Shutdown` disconnects each player, which saves them.
   A forced kill (`taskkill /F`, which `rolling_restart.py stop` uses on Windows) skips that.
@@ -118,7 +122,10 @@ dotnet build source\WorldServer\WorldServer.csproj -c Debug -o build\wscheck   #
   `<Enemy/>` (like the herding sheep) would stay in the list.
 - **Merchants:** they return to any `IMerchantWorld` (the nexus or the Doomed shop).
 - **Shooting:** in `PlayerShootHandler.cs`, the rate-of-fire and projectile-count checks apply
-  only to players who aren't admins.
+  only to players who aren't admins; the ability slot is timed by its `Cooldown`, apart from the
+  weapon. The client rolls each shot's and ground hit's damage from the sequence it shares with
+  `Client.Random` before the server decides, so anything that refuses one must still use up its
+  roll (`Player.SkipShotRoll`), and the server's own rolls must not come from `Client.Random`.
 
 ## Behaviours (monsters)
 
@@ -183,6 +190,6 @@ Fix problems in the scripts and regenerate; don't edit these files by hand. Type
 0xDFFF are kept stable in `tools/doomed/types.json`, because characters store items by type code:
 never renumber them.
 
-Behaviour that isn't generated: `DoomedRuntime.cs`, `core/worlds/impl/doomed/DoomedWorlds.cs` (arenas, zombies,
+Behaviour that isn't generated: `DoomedRuntime.cs`, `DoomedExtraLoot.cs` (loot added to monsters whose Doomed Realms loot is missing or thin), `core/worlds/impl/doomed/DoomedWorlds.cs` (arenas, zombies,
 herding, shop), `DoomedRealmsCommands.cs`, `DoomedEconomyCommands.cs`, `Player.UseItem.Doomed.cs`
 (class abilities) and `Halo.cs`. Doomed Realms' slot types 26 and 28 are 126 and 128 here.
