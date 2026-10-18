@@ -13,7 +13,7 @@ version number itself is in `client-rs/Cargo.toml`.
   chain and its incantations, every dungeon with where its portal or key comes from, how hard it
   is and what it drops, items, pets, every class with what /gear gives it, all the commands, and
   answers to common questions. Search it from the box at the top of the sidebar.
-- /gear also gives you an XP Booster (double experience until level 20 or death) and a Loot Drop
+- /gear also gives you an XP Booster (50% more experience until level 20 or death) and a Loot Drop
   Potion (more loot for 30 minutes), into your backpack.
 - The Support Bot's dungeon portal closes once its dungeon has been cleared, and the bot says
   so. If nobody clears it, it's still replaced by a new dungeon after ten minutes. Players

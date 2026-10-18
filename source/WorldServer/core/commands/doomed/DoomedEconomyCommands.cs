@@ -434,7 +434,7 @@ namespace WorldServer.core.commands.doomed
     // upgrades: a slot whose item is as good or better keeps it, and the items it replaces move to
     // the backpack, so it needs room for them. A character can't take it twice (the claim is in
     // Redis, GEAR_CLAIMS), so farming it means levelling nothing and making a new character each time.
-    // With it come an XP Booster (2x experience until level 20 or death) and a Loot Drop Potion
+    // With it come an XP Booster (50% more experience until level 20 or death) and a Loot Drop Potion
     // (more drops for 30 minutes), both soulbound, into the backpack (BOOSTERS).
     internal class GearCommand : Command
     {
