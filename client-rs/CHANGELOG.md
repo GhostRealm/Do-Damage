@@ -9,6 +9,15 @@ refuses while an `Unreleased` one is left, so rename it to `## <version> (<date>
 version number itself is in `client-rs/Cargo.toml`.
 
 ## Unreleased
+- Everyone can type /gear now for a set of starter gear for their class (a tier 7 weapon, tier 8
+  armor, a tier 4 ability and ring). It works once per character, in the Nexus, below level 20,
+  and only upgrades: better items you're wearing stay, and the ones it replaces go to your
+  backpack, so keep a few slots free.
+- A Support Bot stands by the Nexus spawn with tips for new players: /gear, /godlands, the
+  realm, your vault, the shops and more. Every ten minutes it puts out 100 XP gifts around the
+  spawn to shoot for experience; a new batch only comes once every gift of the last one is gone.
+- /godlands works from anywhere now: outside a realm it takes you to a realm and drops you
+  straight into its Godlands.
 - The website has screenshots from the game: a realm fight in the Godlands, two dungeons, the
   Nexus, the character list and Oryx in the Wine Cellar. Click one to see it full size.
 

@@ -45,6 +45,9 @@ namespace WorldServer.core.worlds.impl
 
         private const ushort VAULT_CHEST = 0x0504;
 
+        // the Support Bot by the spawn, with its /gear tips and XP gifts
+        private NexusGuide _guide;
+
         public NexusWorld(GameServer gameServer, int id, WorldResource resource) 
             : base(gameServer, id, resource)
         {
@@ -64,6 +67,8 @@ namespace WorldServer.core.worlds.impl
             base.Init();
             LinkVaultChests();
             doomed.DoomedWorlds.AddNexusPortals(this);
+            _guide = new NexusGuide(this);
+            _guide.Init();
         }
 
         // The map's shared vault chests keep their items in Redis, one record per tile.
@@ -81,6 +86,7 @@ namespace WorldServer.core.worlds.impl
             HealByFountains(ref time);
             HandleMerchants(ref time);
             PortalMonitor.Update(ref time);
+            _guide?.Update(ref time);
             base.UpdateLogic(ref time);
         }
 

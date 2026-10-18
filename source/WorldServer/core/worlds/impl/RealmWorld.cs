@@ -35,6 +35,10 @@ namespace WorldServer.core.worlds.impl
 
             RealmManager.Update(ref time);
             base.UpdateLogic(ref time);
+
+            // players who typed /godlands outside the realm land in the godlands once they're in
+            foreach (var player in Players.Values)
+                commands.player.GodlandsCommand.Arrived(player, time);
         }
 
         public void EnemyKilled(Enemy enemy, Player killer)

@@ -6,7 +6,9 @@ using Shared;
 using Shared.resources;
 using StackExchange.Redis;
 using WorldServer.core.objects;
+using WorldServer.core.objects.inventory;
 using WorldServer.core.worlds;
+using WorldServer.core.worlds.impl;
 using WorldServer.core.worlds.impl.doomed;
 
 // More commands ported from the Doomed Realms server (wserver/realm/commands): the forge, selling
@@ -421,40 +423,106 @@ namespace WorldServer.core.commands.doomed
 
     #endregion
 
-    #region Supporter
+    #region Everyone
 
     // starter gear of the player's class: a mid tier item of each equipment slot, about half way up
     // its regular tiers (T7 weapon, T8 armor, T4 ability and ring). The regular tiers are the run of
-    // consecutive tiers from the lowest, so special items with odd tiers (20, 22, 53) don't count.
+    // consecutive tiers from the lowest, so special items with odd tiers (20, 22, 53) don't count,
+    // and nothing above MAX_TIER is ever given.
+    //
+    // Everyone can use it, once per character, in the Nexus, below level MAX_LEVEL. It only
+    // upgrades: a slot whose item is as good or better keeps it, and the items it replaces move to
+    // the backpack, so it needs room for them. A character can't take it twice (the claim is in
+    // Redis, GEAR_CLAIMS), so farming it means levelling nothing and making a new character each time.
     internal class GearCommand : Command
     {
-        public override RankingType RankRequirement => RankingType.Supporter;
+        public const int MAX_LEVEL = 20;
+        private const int MAX_TIER = 8;
+        private const string GEAR_CLAIMS = "doomed.gearClaimed";   // set of "<account id>.<character id>"
+
         public override string CommandName => "gear";
+
+        // /set (admins) equips the same gear anywhere, any number of times
+        protected virtual bool Limited => true;
 
         protected override bool Process(Player player, TickTime time, string args)
         {
-            var items = player.GameServer.Resources.GameData.Items.Values;
-            var given = new List<string>();
+            if (Limited)
+            {
+                if (!(player.World is NexusWorld))
+                {
+                    player.SendError("/gear only works in the Nexus.");
+                    return false;
+                }
+                if (player.Level >= MAX_LEVEL)
+                {
+                    player.SendError($"/gear is starter gear, for characters below level {MAX_LEVEL}.");
+                    return false;
+                }
+                if (player.GameServer.Database.Conn.SetContains(GEAR_CLAIMS, ClaimKey(player)))
+                {
+                    player.SendError("This character has already had its starter gear (once per character).");
+                    return false;
+                }
+            }
+
+            var upgrades = new List<(int Slot, Item Item)>();
             for (var i = 0; i < 4; i++)
             {
-                var slotType = player.SlotTypes[i];
-                var candidates = items.Where(it => it.SlotType == slotType && it.Tier >= 0 && !it.Consumable).ToList();
-                if (candidates.Count == 0)
+                var best = StarterItem(player, player.SlotTypes[i]);
+                var current = player.Inventory[i];
+                // untiered items (UTs) and items as good or better stay
+                if (best == null || (Limited && current != null && (current.Tier < 0 || current.Tier >= best.Tier)))
                     continue;
-                var tiers = candidates.Select(it => it.Tier).ToHashSet();
-                var top = tiers.Min();
-                while (tiers.Contains(top + 1))
-                    top++;
-                var target = top / 2;
-                var best = candidates.Where(it => it.Tier <= target)
-                    .OrderByDescending(it => it.Tier).ThenBy(it => it.ObjectType).FirstOrDefault();
-                if (best == null)
-                    continue;
-                player.Inventory[i] = best;
-                given.Add(string.IsNullOrEmpty(best.DisplayName) ? best.ObjectId : best.DisplayName);
+                upgrades.Add((i, best));
             }
-            player.SendInfo(given.Count == 0 ? "No gear found for your class." : "Equipped: " + string.Join(", ", given));
-            return given.Count > 0;
+            if (upgrades.Count == 0)
+            {
+                player.SendInfo(Limited ? "Your gear is already as good as the starter gear." : "No gear found for your class.");
+                return false;
+            }
+
+            // the replaced items go to the backpack
+            var replaced = Limited ? upgrades.Select(u => player.Inventory[u.Slot]).Where(it => it != null).ToList() : new List<Item>();
+            var lastSlot = player.HasBackpack ? player.Inventory.Length : InventoryConstants.NUM_EQUIPMENT_SLOTS + InventoryConstants.NUM_INVENTORY_SLOTS;
+            var free = Enumerable.Range(InventoryConstants.NUM_EQUIPMENT_SLOTS, lastSlot - InventoryConstants.NUM_EQUIPMENT_SLOTS)
+                .Where(s => player.Inventory[s] == null).ToList();
+            if (replaced.Count > free.Count)
+            {
+                player.SendError($"Make room in your inventory first: /gear needs {replaced.Count} free slots for the items it replaces.");
+                return false;
+            }
+            if (Limited && !player.GameServer.Database.Conn.SetAdd(GEAR_CLAIMS, ClaimKey(player)))
+            {
+                player.SendError("This character has already had its starter gear (once per character).");
+                return false;
+            }
+
+            for (var r = 0; r < replaced.Count; r++)
+                player.Inventory[free[r]] = replaced[r];
+            foreach (var (slot, item) in upgrades)
+                player.Inventory[slot] = item;
+
+            var names = string.Join(", ", upgrades.Select(u => string.IsNullOrEmpty(u.Item.DisplayName) ? u.Item.ObjectId : u.Item.DisplayName));
+            player.SendInfo(Limited ? $"Equipped: {names}. Starter gear is once per character." : "Equipped: " + names);
+            return true;
+        }
+
+        private static string ClaimKey(Player player) => $"{player.AccountId}.{player.Client.Character.CharId}";
+
+        private static Item StarterItem(Player player, int slotType)
+        {
+            var candidates = player.GameServer.Resources.GameData.Items.Values
+                .Where(it => it.SlotType == slotType && it.Tier >= 0 && !it.Consumable).ToList();
+            if (candidates.Count == 0)
+                return null;
+            var tiers = candidates.Select(it => it.Tier).ToHashSet();
+            var top = tiers.Min();
+            while (tiers.Contains(top + 1))
+                top++;
+            var target = Math.Min(top / 2, MAX_TIER);
+            return candidates.Where(it => it.Tier <= target)
+                .OrderByDescending(it => it.Tier).ThenBy(it => it.ObjectType).FirstOrDefault();
         }
     }
 
@@ -466,6 +534,7 @@ namespace WorldServer.core.commands.doomed
     {
         public override RankingType RankRequirement => RankingType.Admin;
         public override string CommandName => "set";
+        protected override bool Limited => false;
     }
 
     internal class GiveEffCommand : Command

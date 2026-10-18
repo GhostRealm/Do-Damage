@@ -690,17 +690,30 @@ namespace WorldServer.core.commands.player
         }
     }
 
+    // In a realm, a jump to a random spot in its godlands. Anywhere else (the Nexus, a dungeon), a
+    // trip to the busiest realm, landing in its godlands (RealmWorld picks up PendingArrivals).
     internal class GodlandsCommand : Command
     {
         public override string CommandName => "godlands";
         public override string Alias => "glands";
 
+        // accounts on their way to a realm's godlands, and until when the trip counts
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, DateTime> PendingArrivals = new System.Collections.Concurrent.ConcurrentDictionary<int, DateTime>();
+
         protected override bool Process(Player player, TickTime time, string args)
         {
             if (!(player.World is RealmWorld))
             {
-                player.SendError("This command requires you to be in realm first.");
-                return false;
+                var realm = player.GameServer.WorldManager.GetRealms().Where(w => !w.IsPlayersMax())
+                    .OrderByDescending(w => w.Players.Count).FirstOrDefault();
+                if (realm == null)
+                {
+                    player.SendError("No realm is open right now.");
+                    return false;
+                }
+                PendingArrivals[player.AccountId] = DateTime.UtcNow.AddMinutes(1);
+                player.Reconnect(realm);
+                return true;
             }
 
             if (!player.CanTeleport())
@@ -708,26 +721,36 @@ namespace WorldServer.core.commands.player
                 player.SendError("Too soon to teleport again!");
                 return false;
             }
-            else
-            {
-                player.ApplyConditionEffect(ConditionEffectIndex.Invulnerable, 3000);
-                player.ApplyConditionEffect(ConditionEffectIndex.Invisible, 3000);
-                player.ApplyConditionEffect(ConditionEffectIndex.Stunned, 3000);
 
-                var world = player.World;
-
-                var pt = new IntPoint();
-                do
-                {
-                    pt.X = Random.Shared.Next(0, world.Map.Width);
-                    pt.Y = Random.Shared.Next(0, world.Map.Height);
-                }
-                while (world.Map[pt.X, pt.Y].Terrain != TerrainType.Mountains || !world.IsPassable(pt.X, pt.Y, true) || world.AnyPlayerNearby(pt.X, pt.Y, 5));
-
-                player.TeleportPosition(time, pt.X, pt.Y);
-            }
-
+            ToGodlands(player, time, false);
             return true;
+        }
+
+        // a player who asked for the godlands from outside the realm has just arrived in it
+        public static void Arrived(Player player, TickTime time)
+        {
+            if (PendingArrivals.IsEmpty || !PendingArrivals.TryRemove(player.AccountId, out var until) || until < DateTime.UtcNow)
+                return;
+            ToGodlands(player, time, true);
+        }
+
+        private static void ToGodlands(Player player, TickTime time, bool ignoreRestrictions)
+        {
+            player.ApplyConditionEffect(ConditionEffectIndex.Invulnerable, 3000);
+            player.ApplyConditionEffect(ConditionEffectIndex.Invisible, 3000);
+            player.ApplyConditionEffect(ConditionEffectIndex.Stunned, 3000);
+
+            var world = player.World;
+
+            var pt = new IntPoint();
+            do
+            {
+                pt.X = Random.Shared.Next(0, world.Map.Width);
+                pt.Y = Random.Shared.Next(0, world.Map.Height);
+            }
+            while (world.Map[pt.X, pt.Y].Terrain != TerrainType.Mountains || !world.IsPassable(pt.X, pt.Y, true) || world.AnyPlayerNearby(pt.X, pt.Y, 5));
+
+            player.TeleportPosition(time, pt.X, pt.Y, ignoreRestrictions);
         }
     }
 
