@@ -44,6 +44,8 @@ namespace WorldServer.core.worlds
         public bool Deleted { get; protected set; }
         public bool DisableShooting { get; set; }
         public bool DisableAbilities { get; set; }
+        // a lethal hit here sends the player to the Nexus instead of killing them (arenas)
+        public bool DefeatToNexus { get; protected set; }
         private long Lifetime { get; set; }
 
         public bool isWeekend { get; set; } = false;
@@ -95,6 +97,7 @@ namespace WorldServer.core.worlds
             AllowTeleport = resource.AllowTeleport;
             DisableShooting = resource.DisableShooting;
             DisableAbilities = resource.DisableAbilities;
+            DefeatToNexus = resource.DefeatToNexus;
             CreateInstance = resource.CreateInstance;
 
             IsRealm = false;

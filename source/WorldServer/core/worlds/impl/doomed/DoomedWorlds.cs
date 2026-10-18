@@ -178,7 +178,11 @@ namespace WorldServer.core.worlds.impl.doomed
         public int Wave { get; private set; }
 
         public DoomedBattleArena(GameServer gameServer, int id, WorldResource resource, World parent, bool paid)
-            : base(gameServer, id, resource, parent) => _paid = paid;
+            : base(gameServer, id, resource, parent)
+        {
+            _paid = paid;
+            DefeatToNexus = true; // its world XML is generated (port_doomed_worlds.py)
+        }
 
         public override bool Joinable => !_started;
         public IEnumerable<string> PlayerNames => Players.Values.Select(p => p.Name);

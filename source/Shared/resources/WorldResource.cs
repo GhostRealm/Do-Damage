@@ -34,6 +34,7 @@ namespace Shared.resources
         public readonly bool DisableShooting;
         public readonly bool DisableAbilities;
         public readonly bool CreateInstance;
+        public readonly bool DefeatToNexus;
 
         public WorldResource(XElement elem)
         {
@@ -52,6 +53,7 @@ namespace Shared.resources
             DisableShooting = elem.HasElement("DisableShooting");
             DisableAbilities = elem.HasElement("DisableAbilities");
             CreateInstance = elem.HasElement("CreateInstance");
+            DefeatToNexus = elem.HasElement("DefeatToNexus");
 
             MapJM = new List<string>();
             foreach (var map in elem.Elements("MapJM"))

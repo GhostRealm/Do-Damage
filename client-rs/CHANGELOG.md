@@ -8,6 +8,11 @@ version (`python tools/build_client_rs.py --publish`) needs a section for that v
 refuses while an `Unreleased` one is left, so rename it to `## <version> (<date>)` then. The
 version number itself is in `client-rs/Cargo.toml`.
 
+## Unreleased
+- Losing in an arena no longer kills your character. In the Battle Arena, the Free Battle Arena,
+  the /arena arena and the Admin Arena, a hit that would kill you sends you back to the Nexus at
+  full health instead, with your gear and fame. There's no grave, and it doesn't count as a death.
+
 ## 1.2.7 (2026-10-18)
 - The website has a wiki (dodmg.com/wiki): how to get started, how to get stronger, the Oryx
   chain and its incantations, every dungeon with where its portal or key comes from, how hard it

@@ -1,4 +1,5 @@
-﻿using Shared.database.party;
+﻿using WorldServer.utils;
+using Shared.database.party;
 using Shared.resources;
 using System.Linq;
 using WorldServer.core.worlds;
@@ -97,7 +98,10 @@ namespace WorldServer.core.objects
 
             if (HandleTestWorld())
                 return;
-            
+
+            if (HandleDefeat(killer))
+                return;
+
             if (rekt)
             {
                 GenerateGravestone(true);
@@ -126,6 +130,18 @@ namespace WorldServer.core.objects
             if (World is not TestWorld)
                 return false;
             GenerateGravestone();
+            ReconnectToNexus();
+            return true;
+        }
+
+        // in a world that sends the defeated to the Nexus (arenas): the character, its gear and
+        // fame stay, with no grave, death record or announcement
+        private bool HandleDefeat(string killer)
+        {
+            if (!World.DefeatToNexus)
+                return false;
+            StaticLogger.Instance.Info($"{Name} was defeated by {killer} in {World.IdName} and sent to the Nexus");
+            SendInfo("You were defeated in the arena and sent back to the Nexus.");
             ReconnectToNexus();
             return true;
         }

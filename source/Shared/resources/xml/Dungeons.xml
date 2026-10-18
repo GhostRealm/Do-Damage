@@ -399,6 +399,7 @@
 		<Height>256</Height>
 		<MapJM>Dungeons/Admin Arena.jm</MapJM>
 		<VisibilityType>1</VisibilityType>
+		<DefeatToNexus/>
 		<Dungeon/>
 	</World>
 </Worlds>
