@@ -18,6 +18,7 @@
   <header class="bar">
     <a class="logo" href="./"><i class="sprite" data-sprite="crown" data-px="2"></i><span>{{NAME}}</span></a>
     <nav class="links">
+      <a href="#screens">Screenshots</a>
       <a href="#descent">The descent</a>
       <a href="#realm">The realm</a>
       <a href="#get">Get the game</a>
@@ -40,7 +41,60 @@
         </div>
         <p class="fine" id="play-note">No install. Chrome, Edge, Firefox or Safari, with a keyboard and mouse.</p>
       </div>
-      <a class="scroll-cue" href="#descent" aria-label="Scroll down"><span></span></a>
+      <a class="scroll-cue" href="#screens" aria-label="Scroll down"><span></span></a>
+    </section>
+
+    <!-- Screenshots from the game (website/screenshots/); site.js opens them in a lightbox -->
+    <section class="block" id="screens">
+      <header class="block-head">
+        <p class="eyebrow">In the game</p>
+        <h2>See it before you play</h2>
+        <p class="sub">Straight from the client, as it looks in your browser or on the desktop.</p>
+      </header>
+      <ul class="gallery">
+        <li class="shot feature">
+          <a href="screenshots/oryx.webp?v={{BUILD}}">
+            <img src="screenshots/oryx-small.webp?v={{BUILD}}" srcset="screenshots/oryx-small.webp?v={{BUILD}} 640w, screenshots/oryx.webp?v={{BUILD}} 1600w" sizes="(max-width: 640px) 100vw, (max-width: 1120px) 66vw, 740px" width="1600" height="900" loading="lazy" decoding="async"
+              alt="A Mechanic fights Oryx the Mad God in the Wine Cellar, surrounded by his guards and a storm of coloured shots, with his health bar at the top of the screen.">
+          </a>
+          <p class="cap"><strong>Oryx the Mad God</strong> The Wine Cellar, stage three of the descent.</p>
+        </li>
+        <li class="shot">
+          <a href="screenshots/godlands.webp?v={{BUILD}}">
+            <img src="screenshots/godlands-small.webp?v={{BUILD}}" width="640" height="360" loading="lazy" decoding="async"
+              alt="In the realm's grey Godlands a player trades shots with a Medusa, a Ghost God and the Avatar of the Forgotten King's skulls.">
+          </a>
+          <p class="cap"><strong>The Godlands</strong> Gods everywhere, the realm's boss on the bar.</p>
+        </li>
+        <li class="shot">
+          <a href="screenshots/cnidarian-reef.webp?v={{BUILD}}">
+            <img src="screenshots/cnidarian-reef-small.webp?v={{BUILD}}" width="640" height="360" loading="lazy" decoding="async"
+              alt="A deep blue underwater arena ringed with coral, where the Royal Cnidarian and its jellyfish fire rings of shots.">
+          </a>
+          <p class="cap"><strong>Cnidarian Reef</strong> One of the dozens of dungeons.</p>
+        </li>
+        <li class="shot">
+          <a href="screenshots/fungal-cavern.webp?v={{BUILD}}">
+            <img src="screenshots/fungal-cavern-small.webp?v={{BUILD}}" width="640" height="360" loading="lazy" decoding="async"
+              alt="A blue cave with glowing green moss, crowded with mushroom monsters and crystals.">
+          </a>
+          <p class="cap"><strong>Fungal Cavern</strong> Mushrooms that shoot back.</p>
+        </li>
+        <li class="shot">
+          <a href="screenshots/nexus.webp?v={{BUILD}}">
+            <img src="screenshots/nexus-small.webp?v={{BUILD}}" width="640" height="360" loading="lazy" decoding="async"
+              alt="The Nexus at Halloween, a purple plaza with pumpkins, braziers and fountains, with an item tooltip open over the inventory.">
+          </a>
+          <p class="cap"><strong>The Nexus</strong> Home between runs. Hover any item to see its stats.</p>
+        </li>
+        <li class="shot">
+          <a href="screenshots/characters.webp?v={{BUILD}}">
+            <img src="screenshots/characters-small.webp?v={{BUILD}}" width="640" height="360" loading="lazy" decoding="async"
+              alt="The character select screen: a Mechanic and a Wizard with their gear, over a night sky and a castle skyline.">
+          </a>
+          <p class="cap"><strong>Your characters</strong> Pick a class and head in.</p>
+        </li>
+      </ul>
     </section>
 
     <!-- The Oryx chain as a path down six stages -->

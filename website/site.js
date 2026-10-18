@@ -449,6 +449,86 @@
     if (still) frame(0); else requestAnimationFrame(frame);
   }
 
+  // --- Screenshots: a lightbox over the page, with arrows, keys and swipes ---------------------
+  // Each .shot links to its full size picture, so without the script a click still opens it.
+  function gallery(shots) {
+    if (!shots.length || typeof HTMLDialogElement !== "function") return;
+    var items = shots.map(function (li) {
+      var cap = li.querySelector(".cap");
+      return {
+        link: li.querySelector("a"),
+        alt: li.querySelector("img").alt,
+        title: cap ? cap.querySelector("strong").textContent : "",
+        text: cap ? cap.lastChild.textContent.trim() : ""
+      };
+    });
+
+    var box = document.createElement("dialog");
+    box.className = "lightbox";
+    box.setAttribute("aria-label", "Screenshot");
+    box.innerHTML =
+      '<figure><img alt=""></figure>' +
+      '<p class="lb-cap"><strong></strong><span></span><span class="lb-count"></span></p>' +
+      '<button class="lb-btn lb-close" type="button" aria-label="Close">×</button>' +
+      '<button class="lb-btn lb-prev" type="button" aria-label="Previous screenshot">‹</button>' +
+      '<button class="lb-btn lb-next" type="button" aria-label="Next screenshot">›</button>';
+    document.body.appendChild(box);
+    var img = box.querySelector("img");
+    var capTitle = box.querySelector(".lb-cap strong");
+    var capText = box.querySelector(".lb-cap span");
+    var count = box.querySelector(".lb-count");
+    var at = 0;
+
+    function show(i) {
+      at = (i + items.length) % items.length;
+      var it = items[at];
+      img.removeAttribute("src"); // else the last picture shows under the new caption while this one loads
+      img.src = it.link.href;
+      img.alt = it.alt;
+      capTitle.textContent = it.title;
+      capText.textContent = it.text;
+      count.textContent = (at + 1) + " / " + items.length;
+      // the next one is likely wanted soon
+      new Image().src = items[(at + 1) % items.length].link.href;
+    }
+    function close() { box.close(); }
+
+    items.forEach(function (it, i) {
+      it.link.addEventListener("click", function (e) {
+        if (e.ctrlKey || e.metaKey || e.shiftKey || e.button) return; // a new tab, as asked
+        e.preventDefault();
+        show(i);
+        box.showModal();
+        document.body.classList.add("lb-open");
+      });
+    });
+    box.addEventListener("close", function () {
+      document.body.classList.remove("lb-open");
+      items[at].link.focus();
+    });
+    box.querySelector(".lb-close").addEventListener("click", close);
+    box.querySelector(".lb-prev").addEventListener("click", function () { show(at - 1); });
+    box.querySelector(".lb-next").addEventListener("click", function () { show(at + 1); });
+    // a click on the dark around the picture closes it
+    box.addEventListener("click", function (e) {
+      if (e.target === box || e.target.tagName === "FIGURE") close();
+    });
+    box.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowLeft") show(at - 1);
+      else if (e.key === "ArrowRight") show(at + 1);
+    });
+    var touchX = null;
+    box.addEventListener("touchstart", function (e) { touchX = e.touches[0].clientX; }, { passive: true });
+    box.addEventListener("touchend", function (e) {
+      if (touchX === null) return;
+      var dx = e.changedTouches[0].clientX - touchX;
+      touchX = null;
+      if (Math.abs(dx) > 50) show(at + (dx < 0 ? 1 : -1));
+    });
+  }
+
+  gallery(Array.prototype.slice.call(document.querySelectorAll(".gallery .shot")));
+
   // For tests: window.bskSite.parseServers(xml)
   window.bskSite = { parseServers: parseServers, showStatus: showStatus };
 })();

@@ -8,6 +8,10 @@ version (`python tools/build_client_rs.py --publish`) needs a section for that v
 refuses while an `Unreleased` one is left, so rename it to `## <version> (<date>)` then. The
 version number itself is in `client-rs/Cargo.toml`.
 
+## Unreleased
+- The website has screenshots from the game: a realm fight in the Godlands, two dungeons, the
+  Nexus, the character list and Oryx in the Wine Cellar. Click one to see it full size.
+
 ## 1.2.5 (2026-10-18)
 - The damage numbers over monsters are right again. After using an ability while firing (a
   quiver or shield), every number the game showed was off for the rest of your stay in that

@@ -114,6 +114,9 @@ traffic are encrypted (see "Encrypted connections" below). Older desktop clients
 - **What it shows:** the home page with the server's live player count (from `/api/app/serverList`),
   the downloads, the controls and the two newest versions from `client-rs/CHANGELOG.md`, plus a
   full changelog page. The game's name on it is `site_name` in the VPS config.
+- **Screenshots:** the gallery's pictures are in `website/screenshots/` (`<name>.webp` at 1600x900,
+  `<name>-small.webp` at 640x360). Take new ones with the Rust client's `--shot` on an isolated
+  stack, with `--credentials` and a test character renamed there, so no real login or player shows.
 - **Deploying:** `deploy.py` builds it into the bundle on every deploy.
 - **Downloads:** the site offers the zips in `dist\` (`Do-Damage-<os>.zip`). Build them for
   the VPS first: `python tools\build_client_rs.py --account https://<site>/api --package`.

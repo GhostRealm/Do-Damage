@@ -8,8 +8,9 @@ status, the downloads and the newest changes, and the full changelog page.
 - {{DOWNLOADS}} lists the desktop client zips in dist/ (Do-Damage-<os>.zip, from
   tools/build_client_rs.py --package), which are copied into downloads/. Build them with the
   account server the site's players use (--account http://<public address>:8080).
-- Everything else in website/ (style.css, site.js, favicon.svg) is copied as it is. The pictures
-  are pixel sprites drawn by site.js, so there are no image files to make.
+- Everything else in website/ (style.css, site.js, favicon.svg, and the gallery's screenshots/) is
+  copied as it is. The sprites are drawn by site.js; the screenshots are WebP files taken with the
+  Rust client's --shot on a test stack: <name>.webp at 1600x900 and <name>-small.webp at 640x360.
 
 On the VPS, Caddy serves the result at the site's root, with the browser client at /play/ and the
 gateway's /api and /ws beside it (deploy/deploy.py writes the Caddyfile).
@@ -98,11 +99,15 @@ def main():
     version = rel[0][0] if rel else ""
     dl = downloads(out)
 
-    # ?v= on the stylesheet and script: a new build is never mixed with cached files
+    # ?v= on the stylesheet, script and screenshots: a new build is never mixed with cached files
     h = hashlib.sha1()
-    for name in sorted(os.listdir(SRC)):
-        with open(os.path.join(SRC, name), "rb") as f:
-            h.update(f.read())
+    for folder, dirs, files in sorted(os.walk(SRC)):
+        dirs.sort()
+        for name in sorted(files):
+            path = os.path.join(folder, name)
+            h.update(os.path.relpath(path, SRC).replace(os.sep, "/").encode())
+            with open(path, "rb") as f:
+                h.update(f.read())
     h.update(version.encode())
     values = {
         "NAME": html.escape(args.name),
@@ -114,7 +119,9 @@ def main():
     }
     for name in os.listdir(SRC):
         src = os.path.join(SRC, name)
-        if name.endswith(".html"):
+        if os.path.isdir(src):
+            shutil.copytree(src, os.path.join(out, name))
+        elif name.endswith(".html"):
             with open(src, encoding="utf-8") as f:
                 text = f.read()
             text = re.sub(r"\{\{(\w+)\}\}", lambda m: values[m.group(1)], text)
