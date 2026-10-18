@@ -584,8 +584,12 @@ namespace WorldServer.core.worlds
         // Every dungeon gives a way back to the realm: once its last boss (quest monster) is dead and
         // nothing it dropped was a realm portal, one appears where it died. The check waits two
         // seconds, for bosses that change form and for portals their death behaviours drop.
+        // quest monsters (bosses) killed here: with none left, the dungeon is cleared (NexusGuide)
+        public int QuestKills { get; private set; }
+
         public void BossDied(Enemy boss)
         {
+            QuestKills++;
             if (IsRealm || InstanceType != WorldResourceInstanceType.Dungeon || IdName.Contains("Arena") || IdName.Contains("Zombies"))
                 return;
             var (x, y) = (boss.X, boss.Y);

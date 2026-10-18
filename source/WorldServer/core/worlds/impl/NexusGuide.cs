@@ -4,6 +4,7 @@ using System.Linq;
 using Shared;
 using Shared.resources;
 using WorldServer.core.objects;
+using WorldServer.utils;
 using WorldServer.networking.packets.outgoing;
 
 namespace WorldServer.core.worlds.impl
@@ -15,7 +16,8 @@ namespace WorldServer.core.worlds.impl
     // Doomed Realms' pets, XP Gift from the testing objects: 600 HP, no attacks, the usual kill
     // experience); the bot's pet behaviour is cleared, so it stands still. Halfway between the
     // gift checks, every ten minutes too, it opens a portal to a random dungeon south of the
-    // spawn, which stays until the next one replaces it.
+    // spawn, which stays until the next one replaces it or its dungeon is cleared. Players inside
+    // stay: a dungeon lives while it has players, whatever happens to its portal.
     public sealed class NexusGuide
     {
         private const string BOT = "Support Bot";
@@ -69,6 +71,8 @@ namespace WorldServer.core.worlds.impl
         private float _giftTimer;
         private float _dungeonTimer = GIFT_INTERVAL / 2;
         private Entity _portal;
+        private float _clearedFor;
+        private const float CLEARED_WAIT = 15f;     // seconds with no boss left before a dungeon counts as cleared
         private List<ushort> _dungeons;
         private float _talkTimer = TALK_INTERVAL;
         private float _greetCheck;
@@ -119,6 +123,8 @@ namespace WorldServer.core.worlds.impl
                 OpenDungeon();
             }
 
+            CheckCleared(dt);
+
             _talkTimer -= dt;
             if (_talkTimer <= 0)
             {
@@ -141,6 +147,25 @@ namespace WorldServer.core.worlds.impl
             }
         }
 
+        // the portal's dungeon is cleared once a boss has died there and no boss has been left for
+        // CLEARED_WAIT seconds (a boss that spawns after another dies keeps it open), or it closed
+        // with none left: close the portal
+        private void CheckCleared(float dt)
+        {
+            if (!(_portal is Portal portal) || portal.Dead || !(portal.WorldInstance is World dungeon))
+                return;
+            _clearedFor = dungeon.QuestKills > 0 && dungeon.Quests.Count == 0 ? _clearedFor + dt : 0;
+            // a cleared dungeon whose players have all left (so it closed) doesn't wait
+            if (_clearedFor == 0 || (_clearedFor < CLEARED_WAIT && !dungeon.Deleted))
+                return;
+            _world.LeaveWorld(_portal);
+            var name = portal.PortalDescr.DungeonName ?? portal.ObjectDesc.IdName;
+            StaticLogger.Instance.Info($"Nexus: {name} ({dungeon.Id}) was cleared; its portal closed");
+            if (!name.StartsWith("The "))
+                name = "The " + name;
+            SayNear($"{name} has been cleared, so I closed its portal. The next one opens in {Span(_dungeonTimer)}.");
+        }
+
         // a portal to a random dungeon, in place of the last one
         private void OpenDungeon()
         {
@@ -150,9 +175,11 @@ namespace WorldServer.core.worlds.impl
                 _world.LeaveWorld(_portal);
             var (x, y) = FindSpot(PortalSpot);
             _portal = _world.CreateNewEntity(_dungeons[Random.Shared.Next(_dungeons.Count)], x, y);
+            _clearedFor = 0;
             if (_portal == null)
                 return;
             var name = (_portal.ObjectDesc as PortalDesc)?.DungeonName ?? _portal.ObjectDesc.IdName;
+            StaticLogger.Instance.Info($"Nexus: opened a {name} portal");
             SayNear($"I opened a dungeon portal next to the spawn: {name}! It stays open for {Span(GIFT_INTERVAL)}.");
         }
 

@@ -8,6 +8,11 @@ version (`python tools/build_client_rs.py --publish`) needs a section for that v
 refuses while an `Unreleased` one is left, so rename it to `## <version> (<date>)` then. The
 version number itself is in `client-rs/Cargo.toml`.
 
+## Unreleased
+- The Support Bot's dungeon portal closes once its dungeon has been cleared, and the bot says
+  so. If nobody clears it, it's still replaced by a new dungeon after ten minutes. Players
+  already inside a dungeon are never sent out when its portal closes.
+
 ## 1.2.6 (2026-10-18)
 - The Support Bot in the Nexus now says how many XP gifts are left and when the next ones come,
   between its tips. Every ten minutes, five minutes after the XP gifts, it also opens a portal
