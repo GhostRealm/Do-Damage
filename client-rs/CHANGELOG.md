@@ -9,6 +9,10 @@ refuses while an `Unreleased` one is left, so rename it to `## <version> (<date>
 version number itself is in `client-rs/Cargo.toml`.
 
 ## Unreleased
+- The Support Bot in the Nexus now says how many XP gifts are left and when the next ones come,
+  between its tips. Every ten minutes, five minutes after the XP gifts, it also opens a portal
+  to a random dungeon next to the spawn, open until the next one. It also tells you where to
+  find the game's code on GitHub.
 - Everyone can type /gear now for a set of starter gear for their class (a tier 7 weapon, tier 8
   armor, a tier 4 ability and ring). It works once per character, in the Nexus, below level 20,
   and only upgrades: better items you're wearing stay, and the ones it replaces go to your

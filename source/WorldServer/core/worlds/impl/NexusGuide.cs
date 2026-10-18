@@ -13,7 +13,9 @@ namespace WorldServer.core.worlds.impl
     // around the spawn (an admin's "/spawn 100 xp gift"), a new wave only once every gift of the
     // last one has been shot down. Both are objects the client already knows (Support Bot from
     // Doomed Realms' pets, XP Gift from the testing objects: 600 HP, no attacks, the usual kill
-    // experience); the bot's pet behaviour is cleared, so it stands still.
+    // experience); the bot's pet behaviour is cleared, so it stands still. Halfway between the
+    // gift checks, every ten minutes too, it opens a portal to a random dungeon south of the
+    // spawn, which stays until the next one replaces it.
     public sealed class NexusGuide
     {
         private const string BOT = "Support Bot";
@@ -33,13 +35,24 @@ namespace WorldServer.core.worlds.impl
         private static readonly (float X, float Y) Centre = (48.5f, 42.5f);
         private const float GIFT_MIN_RADIUS = 3.5f;
         private const float GIFT_MAX_RADIUS = 10f;
+        // the dungeon portal: on the path south of the rug, past the Armoire
+        private static readonly (float X, float Y) PortalSpot = (48.5f, 49.5f);
 
-        // tips for new players, said in turn
+        // the dungeons it picks from: those realm monsters drop, and a few more of the same kind
+        private static readonly string[] DungeonPortals =
+        {
+            "Pirate Cave Portal", "Forest Maze Portal", "Spider Den Portal", "Snake Pit Portal", "Glowing Portal",
+            "Undead Lair Portal", "Abyss of Demons Portal", "Toxic Sewers Portal", "Treasure Cave Portal",
+            "Mad Lab Portal", "Manor of the Immortals Portal", "Puppet Theatre Portal", "Haunted Cemetery Portal",
+            "Woodland Labyrinth", "The Crawling Depths", "Candyland Portal", "Ice Cave Portal",
+            "Tomb of the Ancients Portal", "Ocean Trench Portal", "Davy Jones' Locker Portal", "Mountain Temple Portal",
+        };
+
+        // tips for new players, said in turn, each followed by the XP gifts' news (GiftNews)
         private static readonly string[] Lines =
         {
             "New here? Type /gear for free starter gear!",
             "Type /godlands to jump straight to the Godlands, the realm's toughest and richest part. Get some levels first!",
-            "Shoot the XP gifts for experience! I put out more every ten minutes, once they're all gone.",
             "Type /realm to go to a realm, and /nexus to come back here from anywhere.",
             "Stand by the fountains around the spawn to heal.",
             "Type /vault to store items in your vault; they stay safe when a character dies.",
@@ -47,15 +60,20 @@ namespace WorldServer.core.worlds.impl
             "Type /sellfame <slot> to sell items you don't need for fame.",
             "Type /tell <name> <message> to whisper, and /trade <name> to trade.",
             "Type /commands to see every command you can use.",
+            "Do Damage is open source: github.com/Meapy/Do-Damage",
         };
 
         private readonly World _world;
         private Entity _bot;
         private readonly List<Entity> _gifts = new List<Entity>();
         private float _giftTimer;
+        private float _dungeonTimer = GIFT_INTERVAL / 2;
+        private Entity _portal;
+        private List<ushort> _dungeons;
         private float _talkTimer = TALK_INTERVAL;
         private float _greetCheck;
         private int _line;
+        private bool _giftNewsNext;
         private readonly Dictionary<int, float> _greeted = new Dictionary<int, float>();   // player id, time left
         private float _clock;
 
@@ -69,6 +87,13 @@ namespace WorldServer.core.worlds.impl
                 return;
             _bot.SwitchTo(null);    // not the pet that follows its owner
             _bot.ApplyPermanentConditionEffect(ConditionEffectIndex.Invincible);
+
+            // only portals whose dungeon this server has
+            var data = _world.GameServer.Resources.GameData;
+            _dungeons = DungeonPortals
+                .Select(n => data.IdToObjectType.TryGetValue(n, out var t) ? t : (ushort)0)
+                .Where(t => t != 0 && data.Portals.TryGetValue(t, out var d) && d.DungeonName != null && data.GetWorld(d.DungeonName) != null)
+                .ToList();
         }
 
         public void Update(ref TickTime time)
@@ -87,12 +112,25 @@ namespace WorldServer.core.worlds.impl
                     SpawnGifts();
             }
 
+            _dungeonTimer -= dt;
+            if (_dungeonTimer <= 0)
+            {
+                _dungeonTimer = GIFT_INTERVAL;
+                OpenDungeon();
+            }
+
             _talkTimer -= dt;
             if (_talkTimer <= 0)
             {
                 _talkTimer = TALK_INTERVAL;
-                SayNear(Lines[_line]);
-                _line = (_line + 1) % Lines.Length;
+                if (_giftNewsNext)
+                    SayNear(GiftNews());
+                else
+                {
+                    SayNear(Lines[_line]);
+                    _line = (_line + 1) % Lines.Length;
+                }
+                _giftNewsNext = !_giftNewsNext;
             }
 
             _greetCheck -= dt;
@@ -101,6 +139,42 @@ namespace WorldServer.core.worlds.impl
                 _greetCheck = 0.5f;
                 Greet();
             }
+        }
+
+        // a portal to a random dungeon, in place of the last one
+        private void OpenDungeon()
+        {
+            if (_dungeons.Count == 0)
+                return;
+            if (_portal != null && !_portal.Dead)
+                _world.LeaveWorld(_portal);
+            var (x, y) = FindSpot(PortalSpot);
+            _portal = _world.CreateNewEntity(_dungeons[Random.Shared.Next(_dungeons.Count)], x, y);
+            if (_portal == null)
+                return;
+            var name = (_portal.ObjectDesc as PortalDesc)?.DungeonName ?? _portal.ObjectDesc.IdName;
+            SayNear($"I opened a dungeon portal next to the spawn: {name}! It stays open for {Span(GIFT_INTERVAL)}.");
+        }
+
+        // how many gifts are left, and when the next ones come: new gifts come at the next check
+        // (every GIFT_INTERVAL) that finds the last ones all shot down
+        private string GiftNews()
+        {
+            _gifts.RemoveAll(g => g.Dead);
+            var wait = Span(_giftTimer);
+            if (_gifts.Count == 0)
+                return $"All the XP gifts are gone! {GIFT_COUNT} new ones come in {wait}. Next dungeon portal in {Span(_dungeonTimer)}.";
+            var left = _gifts.Count == 1 ? "1 XP gift is" : $"{_gifts.Count} XP gifts are";
+            return $"{left} left around the spawn! Shoot them all in the next {wait} and {GIFT_COUNT} new ones come. Next dungeon portal in {Span(_dungeonTimer)}.";
+        }
+
+        private static string Span(float seconds)
+        {
+            var s = Math.Max(1, (int)MathF.Ceiling(seconds));
+            if (s < 60)
+                return s == 1 ? "1 second" : $"{s} seconds";
+            var m = (s + 30) / 60;
+            return m == 1 ? "1 minute" : $"{m} minutes";
         }
 
         // GIFT_COUNT gifts, each on its own open plaza tile (no object on it) around the rug
@@ -113,7 +187,7 @@ namespace WorldServer.core.worlds.impl
                     var d = MathF.Sqrt((x + 0.5f - Centre.X) * (x + 0.5f - Centre.X) + (y + 0.5f - Centre.Y) * (y + 0.5f - Centre.Y));
                     if (d < GIFT_MIN_RADIUS || d > GIFT_MAX_RADIUS || !_world.Map.Contains(x, y) || _world.Map[x, y].ObjType != 0)
                         continue;
-                    if ((int)BotSpot.X == x && (int)BotSpot.Y == y)
+                    if (((int)BotSpot.X == x && (int)BotSpot.Y == y) || ((int)PortalSpot.X == x && (int)PortalSpot.Y == y))
                         continue;
                     if (_world.IsPassable(x + 0.5, y + 0.5, true))
                         tiles.Add((x, y));
