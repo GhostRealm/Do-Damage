@@ -1,6 +1,6 @@
 # Running betterSkillys on this PC
 
-Runs alongside Doomed Realms (which uses ports 8888, 2050 and 843).
+The live game, Do Damage, runs on a Linux VPS at dodmg.com ("Running on a VPS" below). This part is for a copy on a Windows PC, which runs alongside Doomed Realms (which uses ports 8888, 2050 and 843).
 
 | Part | Port | Started by |
 |---|---|---|
@@ -299,16 +299,17 @@ echo HSET account.2 admin "\x01" | source\Redis\redis-cli.exe
 
 ## Code history
 
-The `local` branch is HaloCelsius/betterSkillys, plus this setup, merged with [Aurusenth/betterSkillys](https://github.com/Aurusenth/betterSkillys) (remote `aurusenth`). Aurusenth adds item tiers and glow, an admin class, the Admin Arena and Shaitan dungeons, Battle for the Nexus, a new nexus and vault, and more.
+The code is [Meapy/Do-Damage](https://github.com/Meapy/Do-Damage), a standalone repository. It began as a fork of HaloCelsius/betterSkillys (itself from runes02/betterSkillys and Slendergo's TK-Reborn), merged with [Aurusenth/betterSkillys](https://github.com/Aurusenth/betterSkillys), which adds item tiers and glow, an admin class, the Admin Arena and Shaitan dungeons, Battle for the Nexus, a new nexus and vault, and more. In `PlayerShootHandler.cs`, the merge keeps HaloCelsius's rate-of-fire and projectile-count checks for players who aren't admins.
 
-To pick up later changes:
+On 2026-10-18 the history was condensed from 1,416 commits to one per milestone, each holding the exact files of the original commit that ended it:
 
-```
-git fetch aurusenth
-git merge aurusenth/main
-```
+- upstream: TK-Reborn's months in 2022, its 2023 cleanup, betterSkillys in 2024, and HaloCelsius's changes to March 2025, with the people who worked on each as co-authors;
+- this setup and the Aurusenth merge, the playable dungeons, the Nexus Bazaar;
+- then one commit per Rust client release, from 1.1.0 on.
 
-In `PlayerShootHandler.cs`, the merge keeps HaloCelsius's rate-of-fire and projectile-count checks for players who aren't admins.
+Each commit's message lists the original changes and says which range of the full history it replaces. The full history is the local branch `full-history` (not pushed) and the old fork, Meapy/betterSkillys.
+
+The remotes `upstream` (HaloCelsius) and `aurusenth` share no history with `main` any more: bring in a later change of theirs by hand (`git cherry-pick` or a copy), not with `git merge`.
 
 ## Changes from upstream
 

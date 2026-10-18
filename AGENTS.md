@@ -97,8 +97,18 @@ it asks first; never run test copies under the live process names (`redis-server
 - `core.autocrlf` is on: the repository stores LF, while many working files are CRLF. Scripts
   that patch source text should detect and keep each file's line endings; `sed -i` in Git Bash
   can turn a CRLF file into LF.
-- The remote `aurusenth` is Aurusenth/betterSkillys, merged in earlier (SETUP-LOCAL.md, "Code
-  history").
+- `origin` is [Meapy/Do-Damage](https://github.com/Meapy/Do-Damage), a standalone repository
+  (not a fork). Its history was condensed on 2026-10-18 to one commit per milestone; the full
+  history before that is the local branch `full-history` and the old fork, Meapy/betterSkillys
+  (SETUP-LOCAL.md, "Code history"). Never push `full-history`. A branch cut from `main` before
+  then shares no history with it: move it over with
+  `git rebase --onto main full-history <branch>`.
+- Commit messages, merge messages and authors name the change, not the tool that made it: when
+  merging `main` into a worktree branch, write the message yourself
+  (`git merge -m "Merge main" main`), since the default names the `claude/...` branch.
+- The remotes `aurusenth` (Aurusenth/betterSkillys) and `upstream` (HaloCelsius/betterSkillys)
+  were merged in earlier. Their histories aren't in `main` any more, so pick up a later change
+  from them by hand (cherry-pick or copy), not with `git merge`.
 
 ## Tools
 

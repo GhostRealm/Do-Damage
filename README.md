@@ -1,10 +1,12 @@
-# betterSkillys
+# Do Damage
 
-A Realm of the Mad God private server (C#, .NET 8) with two clients: the original Adobe AIR client
-(ActionScript 3) and a rewrite in Rust that runs on the desktop and in the browser. It is run on
-one PC for a small group of players.
+A Realm of the Mad God private server (C#, .NET 8) with a client written in Rust that runs on the
+desktop and in the browser, for a small group of players. Play at [dodmg.com](https://dodmg.com).
+The code keeps its old name, betterSkillys; the original Adobe AIR client (ActionScript 3) is
+still here but no longer used.
 
-This copy started from [runes02/betterSkillys](https://github.com/runes02/betterSkillys) (a better
+This repository stands on its own, with its history condensed to one commit per milestone
+([SETUP-LOCAL.md](SETUP-LOCAL.md), "Code history"). It started from [runes02/betterSkillys](https://github.com/runes02/betterSkillys) (a better
 NR-CORE/Skilly's 7.0, built on TK-Reborn, with the XMLs of RotMG 1.0.4.0). On top of that it has:
 
 - [Aurusenth/betterSkillys](https://github.com/Aurusenth/betterSkillys) merged in: item tiers and
@@ -18,32 +20,29 @@ NR-CORE/Skilly's 7.0, built on TK-Reborn, with the XMLs of RotMG 1.0.4.0). On to
 
 [SETUP-LOCAL.md](SETUP-LOCAL.md) lists every change in detail.
 
-## Play
+## Play and run
 
-| Script | What it does |
-|---|---|
-| `Run Server.bat` | Builds and starts Redis, the account server and the world server, each in its own window (close them to stop). It also builds the Rust client's package for players. |
-| `Play Client.bat` | Runs the AIR client on this PC. |
-| `Allow Remote Players.bat` | Run once as administrator: opens the firewall for players from outside. |
-
-The servers use these ports. Doomed Realms runs on the same PC with 8888, 2050 and 843.
+The live game runs on a Linux VPS at dodmg.com: Caddy serves the website and browser play over
+https, a gateway carries the game over WebSocket, and Redis, the account server and the world
+servers run as systemd services.
 
 | Part | Port |
 |---|---|
-| Redis | 6379, this PC only |
+| Caddy (website, `/play/`, `/api`, `/ws`) | 80, 443 |
+| Gateway slots | 8095-8097, VPS only |
 | Account server (`source/App`) | 8080 |
-| World server (`source/WorldServer`) | 2051 |
-
-To let friends play, forward TCP 8080 and 2051 on the router and give them a package:
+| World proxy and world servers (`source/WorldServer`) | 2051 |
+| Redis | 6379, VPS only |
 
 ```
-python tools\build_client_rs.py --account http://188.141.12.3:8080 --package   # dist\Do-Damage-windows.zip
-python tools\build_client_rs.py --account http://188.141.12.3:8080 --publish   # update players' clients
-python tools\build_client.py 188.141.12.3 --package                           # dist\betterSkillys-Client.zip (AIR)
+python deploy\deploy.py                                                          # deploy; kicks nobody
+python tools\build_client_rs.py --account https://dodmg.com/api --publish        # update players' clients
+python tools\build_client_rs.py --account https://dodmg.com/api --package        # dist\Do-Damage-windows.zip
 ```
 
-On this PC, play with the local client rather than a package: a package goes out through the
-router and back in, which makes the game lag for everyone.
+[SETUP-LOCAL.md](SETUP-LOCAL.md) covers the VPS ("Running on a VPS"), deploys that kick nobody, and
+running a copy on a Windows PC (`Run Server.bat`) or an isolated test stack
+(`tools\testclient\iso_stack.py`).
 
 ## The Rust client
 
@@ -203,3 +202,5 @@ The highlights; [SETUP-LOCAL.md](SETUP-LOCAL.md) has the rest.
 - **Gummy:** the Lair of Draconis map.
 - **nekoT:** betterAssets in the client.
 - **Orb, GlassBBQ:** credited on TK-Reborn.
+- **rusjaell, Aaron, TKROfficial, kevin, Comfrog, Dante Tyler:** work on TK-Reborn and
+  betterSkillys; the condensed history names them as co-authors of each milestone.
