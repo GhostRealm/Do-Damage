@@ -12,6 +12,9 @@ version number itself is in `client-rs/Cargo.toml`.
 - Losing in an arena no longer kills your character. In the Battle Arena, the Free Battle Arena,
   the /arena arena and the Admin Arena, a hit that would kill you sends you back to the Nexus at
   full health instead, with your gear and fame. There's no grave, and it doesn't count as a death.
+- The treasure chest at the end of the Puppet Master's Theatre opens faster: it has half the
+  health it had and much less armour, so it takes less than half as long to break open. It
+  drops the same loot.
 
 ## 1.2.7 (2026-10-18)
 - The website has a wiki (dodmg.com/wiki): how to get started, how to get stronger, the Oryx
