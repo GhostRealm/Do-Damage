@@ -8,7 +8,7 @@ version (`python tools/build_client_rs.py --publish`) needs a section for that v
 refuses while an `Unreleased` one is left, so rename it to `## <version> (<date>)` then. The
 version number itself is in `client-rs/Cargo.toml`.
 
-## Unreleased
+## 1.2.6 (2026-10-18)
 - The Support Bot in the Nexus now says how many XP gifts are left and when the next ones come,
   between its tips. Every ten minutes, five minutes after the XP gifts, it also opens a portal
   to a random dungeon next to the spawn, open until the next one. It also tells you where to
