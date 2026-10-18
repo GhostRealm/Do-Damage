@@ -8,7 +8,7 @@ version (`python tools/build_client_rs.py --publish`) needs a section for that v
 refuses while an `Unreleased` one is left, so rename it to `## <version> (<date>)` then. The
 version number itself is in `client-rs/Cargo.toml`.
 
-## Unreleased
+## 1.2.7 (2026-10-18)
 - The website has a wiki (dodmg.com/wiki): how to get started, how to get stronger, the Oryx
   chain and its incantations, every dungeon with where its portal or key comes from, how hard it
   is and what it drops, items, pets, every class with what /gear gives it, all the commands, and
