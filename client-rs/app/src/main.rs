@@ -1532,6 +1532,7 @@ impl App {
             }
             for (down, pos) in std::mem::take(&mut self.clicks) {
                 if !down {
+                    self.front.release(pos);
                     if self.options_ui.release() {
                         self.settings.save();
                     }
@@ -1546,6 +1547,7 @@ impl App {
                 }
             }
             self.options_ui.drag(mouse, &mut self.settings);
+            self.front.drag(mouse);
             // Its "Return home" means nothing out here.
             self.options_ui.go_home = false;
             renderer.begin();

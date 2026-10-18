@@ -81,6 +81,8 @@ enum Target {
     Grave(i32),
     ToAccount,
     Timespan(usize),
+    /// The legends' scrollbar: a click jumps there, a drag scrolls.
+    LegendsBar,
     SavePassword,
     Back,
     ServerPrev,
@@ -145,6 +147,12 @@ pub struct Front {
     /// The legends shown, and which time span.
     pub legends: Option<Vec<Legend>>,
     pub timespan: usize,
+    /// The legends' first row shown, when they don't all fit.
+    legends_row: usize,
+    /// The legends' scrollbar last frame: its track, the rows and how many fit.
+    legends_bar: Option<([f32; 4], usize, usize)>,
+    /// The scrollbar's thumb is being dragged, held this far below its top.
+    legends_grab: Option<f32>,
     /// The last death's fame summary.
     pub death: Option<FameSummary>,
     /// The summary was opened from the graveyard (Continue goes back there).
@@ -185,6 +193,9 @@ impl Default for Front {
             skin: 0,
             legends: None,
             timespan: 0,
+            legends_row: 0,
+            legends_bar: None,
+            legends_grab: None,
             death: None,
             death_from_graveyard: false,
             clicked: false,
@@ -314,11 +325,33 @@ impl Front {
     }
 
     /// Show a screen, focusing its first field.
-    /// The mouse wheel, `notches` up (positive) or down: scrolls the character list a row a notch.
+    /// The mouse wheel, `notches` up (positive) or down: scrolls the character list or the
+    /// legends a row a notch.
     pub fn wheel(&mut self, notches: i32) {
         if self.screen == Screen::Chars && self.confirm.is_none() {
             self.chars_row = (self.chars_row as i32 - notches).max(0) as usize;
         }
+        if self.screen == Screen::Legends {
+            self.legends_row = (self.legends_row as i32 - notches).max(0) as usize;
+        }
+    }
+
+    /// The left button let go at `pos`: ends a scrollbar drag there.
+    pub fn release(&mut self, pos: (f64, f64)) {
+        self.drag(pos);
+        self.legends_grab = None;
+    }
+
+    /// The mouse is at `pos`: scrolls the legends while their scrollbar is held.
+    pub fn drag(&mut self, pos: (f64, f64)) {
+        let (Some(grab), Some((track, rows, visible))) = (self.legends_grab, self.legends_bar) else { return };
+        if self.screen != Screen::Legends || visible >= rows {
+            self.legends_grab = None;
+            return;
+        }
+        let thumb_h = track[3] * visible as f32 / rows as f32;
+        let k = ((pos.1 as f32 - grab - track[1]) / (track[3] - thumb_h).max(1.0)).clamp(0.0, 1.0);
+        self.legends_row = (k * (rows - visible) as f32).round() as usize;
     }
 
     pub fn show(&mut self, screen: Screen) {
@@ -454,6 +487,7 @@ impl Front {
             }
             Target::BuySlot => self.confirm = Some(Confirm::BuySlot),
             Target::ToLegends => {
+                self.legends_row = 0;
                 self.show(Screen::Legends);
                 return Some(Action::Legends(TIMESPANS[self.timespan].0));
             }
@@ -464,7 +498,20 @@ impl Front {
             Target::Timespan(i) => {
                 self.timespan = i;
                 self.legends = None;
+                self.legends_row = 0;
                 return Some(Action::Legends(TIMESPANS[i].0));
+            }
+            Target::LegendsBar => {
+                self.clicked = false;
+                if let Some((track, rows, visible)) = self.legends_bar.filter(|b| b.2 < b.1) {
+                    let thumb_h = track[3] * visible as f32 / rows as f32;
+                    let thumb_y = track[1] + (track[3] - thumb_h) * self.legends_row as f32 / (rows - visible) as f32;
+                    // Taken by the thumb, it's held where it was taken; a click on the track
+                    // brings the thumb's middle there.
+                    let y = pos.1 as f32;
+                    self.legends_grab = Some(if (thumb_y..thumb_y + thumb_h).contains(&y) { y - thumb_y } else { thumb_h / 2.0 });
+                    self.drag(pos);
+                }
             }
             Target::SavePassword => return Some(Action::ChangePassword),
             Target::ServerPrev if servers > 0 => self.server = (self.server + servers - 1) % servers,
@@ -1192,6 +1239,7 @@ impl Front {
 
     /// The legends: the most famous characters this week, month or ever.
     fn draw_legends(&mut self, ui: &mut Ui, w: f32, h: f32, s: f32, mouse: (f64, f64)) {
+        self.legends_bar = None;
         let pad = 24.0 * s;
         let ts = (26.0 * s).round();
         let tw = ui.measure("Legends", ts, true);
@@ -1220,12 +1268,20 @@ impl Front {
                 ui.label(t, list_r[0] + (list_r[2] - tw) / 2.0, list_r[1] + list_r[3] / 2.0, size, true, color::TEXT_DIM);
             }
             Some(rows) => {
-                let rows = rows.clone();
+                // Up to 20, as many as fit; the rest scroll, a row a wheel notch or by the
+                // scrollbar, with a line under them saying how many more.
+                let rows: Vec<Legend> = rows.iter().take(20).cloned().collect();
                 let row_h = 50.0 * s;
-                let fit = ((list_r[3] - 16.0 * s) / row_h).floor().max(1.0) as usize;
-                for (i, l) in rows.iter().take(fit).enumerate() {
-                    let y = list_r[1] + 8.0 * s + i as f32 * row_h;
-                    let r = [list_r[0] + 8.0 * s, y, list_r[2] - 16.0 * s, row_h - 4.0 * s];
+                let fit = (((list_r[3] - 16.0 * s) / row_h).floor().max(1.0) as usize).min(rows.len());
+                let more = fit < rows.len();
+                self.legends_row = self.legends_row.min(rows.len() - fit);
+                let first = self.legends_row;
+                let bar_w = if more { 14.0 * s } else { 0.0 };
+                // A narrow list leaves out the equipment, so the names keep their room.
+                let gear = list_r[2] - bar_w >= 560.0 * s;
+                for (i, l) in rows.iter().enumerate().skip(first).take(fit) {
+                    let y = list_r[1] + 8.0 * s + (i - first) as f32 * row_h;
+                    let r = [list_r[0] + 8.0 * s, y, list_r[2] - 16.0 * s - bar_w, row_h - 4.0 * s];
                     if i % 2 == 0 {
                         theme::fill(ui.renderer, r, 6.0 * s, 0xFFFFFF, 0.03);
                     }
@@ -1246,7 +1302,7 @@ impl Front {
                     let ns = (16.0 * s).round();
                     ui.label(&l.name, r[0] + 100.0 * s, r[1] + 4.0 * s, ns, true, color::TEXT);
                     ui.label(class.map_or("", |d| d.display_id.as_str()), r[0] + 100.0 * s, r[1] + 24.0 * s, (12.0 * s).round(), false, color::TEXT_DIM);
-                    for (k, &item) in l.equipment.iter().take(4).enumerate() {
+                    for (k, &item) in l.equipment.iter().take(if gear { 4 } else { 0 }).enumerate() {
                         let side = 32.0 * s;
                         let sr = [r[0] + r[2] - 270.0 * s + k as f32 * (side + 4.0 * s), r[1] + (r[3] - side) / 2.0, side, side];
                         ui.slot_box(sr, if item > 0 { tier_edge(ui.data, item) } else { None }, false, s);
@@ -1258,6 +1314,31 @@ impl Front {
                     let fs = (18.0 * s).round();
                     let fw = ui.measure(&fame, fs, true);
                     ui.label(&fame, r[0] + r[2] - fw - 14.0 * s, r[1] + (r[3] - fs * 1.22) / 2.0, fs, true, color::ACCENT);
+                }
+                if more {
+                    // Under the list, which rows these are and that there's more below.
+                    let below = rows.len() - first - fit;
+                    let hint = if below > 0 {
+                        format!("{} to {} of {} · scroll for {below} more", first + 1, first + fit, rows.len())
+                    } else {
+                        format!("{} to {} of {}", first + 1, first + fit, rows.len())
+                    };
+                    let hs = (12.0 * s).round().max(9.0);
+                    let hw = ui.measure(&hint, hs, false);
+                    // In the panel under the rows when there's room, else just under the panel.
+                    let (rows_end, panel_end) = (list_r[1] + 8.0 * s + fit as f32 * row_h, list_r[1] + list_r[3]);
+                    let room = panel_end - rows_end - 4.0 * s;
+                    let hy = if room >= hs * 1.3 { rows_end + (room - hs * 1.22) / 2.0 } else { panel_end + 3.0 * s };
+                    ui.label(&hint, (w - hw) / 2.0, hy, hs, false, if below > 0 { color::TEXT_DIM } else { color::TEXT_MUTED });
+                    let track = [list_r[0] + list_r[2] - 8.0 * s - bar_w + 4.0 * s, list_r[1] + 8.0 * s, 6.0 * s, fit as f32 * row_h - 4.0 * s];
+                    let hit = [track[0] - 6.0 * s, track[1], track[2] + 12.0 * s, track[3]];
+                    let hot = self.legends_grab.is_some() || inside(hit, mouse);
+                    theme::fill(ui.renderer, track, 3.0 * s, color::TRACK, 0.9);
+                    let thumb_h = track[3] * fit as f32 / rows.len() as f32;
+                    let thumb_y = track[1] + (track[3] - thumb_h) * first as f32 / (rows.len() - fit) as f32;
+                    theme::fill(ui.renderer, [track[0], thumb_y, track[2], thumb_h], 3.0 * s, if hot { color::ACCENT_HI } else { color::ACCENT }, 0.9);
+                    self.targets.push((Target::LegendsBar, hit));
+                    self.legends_bar = Some((track, rows.len(), fit));
                 }
             }
         }
