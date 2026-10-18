@@ -295,7 +295,9 @@ def start_backend(st, slot, folder):
     try:
         deadline = time.time() + START_MINUTES * 60
         while not listening(port):
-            if not alive(p.pid):
+            # our own child: poll() rather than alive(), whose /proc/<pid>/cmdline can read empty
+            # while the child is still turning from this Python into dotnet
+            if p.poll() is not None:
                 raise StartFailed("world server %s stopped while starting: see %s" % (slot, os.path.join(folder, "logs")))
             if time.time() > deadline:
                 raise StartFailed("world server %s didn't start listening in %g minutes" % (slot, START_MINUTES))
