@@ -9,6 +9,8 @@ refuses while an `Unreleased` one is left, so rename it to `## <version> (<date>
 version number itself is in `client-rs/Cargo.toml`.
 
 ## Unreleased
+- /gear also gives you an XP Booster (double experience until level 20 or death) and a Loot Drop
+  Potion (more loot for 30 minutes), into your backpack.
 - The Support Bot's dungeon portal closes once its dungeon has been cleared, and the bot says
   so. If nobody clears it, it's still replaced by a new dungeon after ten minutes. Players
   already inside a dungeon are never sent out when its portal closes.

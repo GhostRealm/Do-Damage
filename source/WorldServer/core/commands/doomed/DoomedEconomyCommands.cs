@@ -434,11 +434,14 @@ namespace WorldServer.core.commands.doomed
     // upgrades: a slot whose item is as good or better keeps it, and the items it replaces move to
     // the backpack, so it needs room for them. A character can't take it twice (the claim is in
     // Redis, GEAR_CLAIMS), so farming it means levelling nothing and making a new character each time.
+    // With it come an XP Booster (2x experience until level 20 or death) and a Loot Drop Potion
+    // (more drops for 30 minutes), both soulbound, into the backpack (BOOSTERS).
     internal class GearCommand : Command
     {
         public const int MAX_LEVEL = 20;
         private const int MAX_TIER = 8;
         private const string GEAR_CLAIMS = "doomed.gearClaimed";   // set of "<account id>.<character id>"
+        private static readonly string[] BOOSTERS = { "XP Booster", "Loot Drop Potion" };
 
         public override string CommandName => "gear";
 
@@ -476,20 +479,26 @@ namespace WorldServer.core.commands.doomed
                     continue;
                 upgrades.Add((i, best));
             }
-            if (upgrades.Count == 0)
+            var items = player.GameServer.Resources.GameData.Items;
+            var boosters = Limited
+                ? BOOSTERS.Select(n => player.GameServer.Resources.GameData.IdToObjectType.TryGetValue(n, out var t) && items.TryGetValue(t, out var it) ? it : null)
+                    .Where(it => it != null).ToList()
+                : new List<Item>();
+            if (upgrades.Count == 0 && boosters.Count == 0)
             {
                 player.SendInfo(Limited ? "Your gear is already as good as the starter gear." : "No gear found for your class.");
                 return false;
             }
 
-            // the replaced items go to the backpack
+            // the replaced items and the boosters go to the backpack
             var replaced = Limited ? upgrades.Select(u => player.Inventory[u.Slot]).Where(it => it != null).ToList() : new List<Item>();
+            replaced.AddRange(boosters);
             var lastSlot = player.HasBackpack ? player.Inventory.Length : InventoryConstants.NUM_EQUIPMENT_SLOTS + InventoryConstants.NUM_INVENTORY_SLOTS;
             var free = Enumerable.Range(InventoryConstants.NUM_EQUIPMENT_SLOTS, lastSlot - InventoryConstants.NUM_EQUIPMENT_SLOTS)
                 .Where(s => player.Inventory[s] == null).ToList();
             if (replaced.Count > free.Count)
             {
-                player.SendError($"Make room in your inventory first: /gear needs {replaced.Count} free slots for the items it replaces.");
+                player.SendError($"Make room in your inventory first: /gear needs {replaced.Count} free slots (for its boosters and the items it replaces).");
                 return false;
             }
             if (Limited && !player.GameServer.Database.Conn.SetAdd(GEAR_CLAIMS, ClaimKey(player)))
@@ -503,8 +512,16 @@ namespace WorldServer.core.commands.doomed
             foreach (var (slot, item) in upgrades)
                 player.Inventory[slot] = item;
 
-            var names = string.Join(", ", upgrades.Select(u => string.IsNullOrEmpty(u.Item.DisplayName) ? u.Item.ObjectId : u.Item.DisplayName));
-            player.SendInfo(Limited ? $"Equipped: {names}. Starter gear is once per character." : "Equipped: " + names);
+            static string Name(Item it) => string.IsNullOrEmpty(it.DisplayName) ? it.ObjectId : it.DisplayName;
+            var names = string.Join(", ", upgrades.Select(u => Name(u.Item)));
+            if (!Limited)
+                player.SendInfo("Equipped: " + names);
+            else
+            {
+                var gift = string.Join(" and ", boosters.Select(Name));
+                player.SendInfo((upgrades.Count > 0 ? $"Equipped: {names}. " : "Your gear is already as good as the starter gear. ")
+                    + (boosters.Count > 0 ? $"In your backpack: {gift}. " : "") + "Starter gear is once per character.");
+            }
             return true;
         }
 
