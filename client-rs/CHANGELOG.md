@@ -8,7 +8,7 @@ version (`python tools/build_client_rs.py --publish`) needs a section for that v
 refuses while an `Unreleased` one is left, so rename it to `## <version> (<date>)` then. The
 version number itself is in `client-rs/Cargo.toml`.
 
-## Unreleased
+## 1.3.3 (2026-10-21)
 - Changing your name at the Name Changer now costs 50,000 fame instead of 100 gold. Choosing
   your first name is still free.
 - The portal's Enter button shows the key you set for Interact in the options, not always 0.
@@ -30,6 +30,8 @@ version number itself is in `client-rs/Cargo.toml`.
   damage, healing and where to get them (which Bazaar and /shop shops sell them and who drops
   them), the items that summon a helper for a while (drake eggs, Santa's reindeer and more),
   and the classic pet yard's pets by family and rarity.
+
+## 1.3.2 (2026-10-20)
 - Arena waves mix in monsters from earlier stages: a couple of each wave's monsters come from
   the stage before, and Godlands monsters keep turning up in every stage after the Godlands.
   From wave 30, an Elder dungeon boss joins the wave's Oryx-stage boss. Chat now says which
@@ -42,7 +44,7 @@ version number itself is in `client-rs/Cargo.toml`.
   the public arena (/arena) count too now, and /leaderboard shows each run's time.
 - Rank stars have nine colours instead of five, spread evenly from no stars to every class
   done: light blue, blue, violet, red, red-orange, orange, gold, pale yellow and, at the very
-  top, white. Hover your rank to see how many stars each colour needs.
+  top, white.
 - Almost every item can now be traded, sold on the market and dropped for other players,
   Soulbound ones included. Only admin items and a few overpowered or test items can't; their
   tooltips say "Untradeable".
@@ -55,6 +57,8 @@ version number itself is in `client-rs/Cargo.toml`.
 - Blademaster, Druid, Mechanic, Ascendant, Summoner, Monk and Sharklord gear now drops like
   everyone else's: wherever a monster can drop, say, a tier 3 ability, it can now be a
   Mechanic's tier 3 turret. Before, these classes' gear never dropped at all.
+
+## 1.3.1 (2026-10-20)
 - The status effect icons above a character no longer jump to the side while it shoots.
 - Item tooltips are easier to read: each stat's name and its value are in different colours.
   What an ability does now comes right under the description, its damage first (for a poison,
@@ -72,12 +76,8 @@ version number itself is in `client-rs/Cargo.toml`.
 - Fixed: a traded item could lose its extra details (what makes that copy of it special).
 - Nearby players: each player's rank star now shows in their rank colour, as in chat, lined up
   with their name, with their character and class beside it.
-- The Support Bot in the Nexus has a new tip about Elder dungeons and their better loot.
-- Your rank and its star moved to the top right, above your gold and fame. Each number there
-  now lines up with the middle of its icon.
-- Options: the sliders now come first on each tab, above the switches.
-- A new Master volume slider on the Sound tab turns all sound and music up or down together.
-- Resetting the camera (Z) now always turns it back to north at the top.
+
+## 1.3.0 (2026-10-19)
 - A new look for the screen: the world fills the whole window, with one bar down the right.
   At its top, the minimap square in the corner, then your experience, HP and MP; at its foot,
   the Nexus button (the Nexus portal and its key), your equipment, your inventory with two
@@ -91,6 +91,27 @@ version number itself is in `client-rs/Cargo.toml`.
 - With no boss around, a small menu button at the top left opens your last 3 bosses. Click one
   to see everyone who hit it, with their class, damage and share.
 - Potions in the potion bar can come back out: drag one onto an empty inventory slot.
+
+## 1.2.9 (2026-10-19)
+- The Support Bot in the Nexus has a new tip about Elder dungeons and their better loot.
+- Every Oryx is worth killing now, and each stage pays more than the last. Every Oryx always
+  drops a Potion of Attack and Defense (Oryx 5 Speed and Dexterity too), with more stat potions
+  on top: about 4 from Oryx 1 up to about 8 from Oryx 5. Oryx 2 always drops Life, Oryx 3 and
+  later Life and Mana, and Oryx 5 two of each.
+- Better gear down the chain: a tier higher at each stage, and tier 7 abilities and rings from
+  Oryx 3, 4 and 5. Oryx 5 is the only place to find tier 8 ones.
+- Rarer prizes are easier to find: Potion of Oryx is nearly twice as likely from Oryx 3, 4 and 5,
+  Oryx 3 can now drop the Oryx set and drops Oryx's Escutcheon more often, and Oryx 4 and 5 drop
+  the Oryx set about twice as often. Oryx 2 can drop the Doom Bow.
+- Everyone who does a fair share of the damage gets the full loot: 5% of the damage is enough for
+  gear and the Oryx set (it was 10%), and 3% for the extra stat potions.
+- The Stone Guardians, Janus, the Giant Oryx Chicken and Oryx's court in the Sanctuary drop more
+  stat potions too.
+- Your rank and its star moved to the top right, above your gold and fame. Each number there
+  now lines up with the middle of its icon.
+- Options: the sliders now come first on each tab, above the switches.
+- A new Master volume slider on the Sound tab turns all sound and music up or down together.
+- Resetting the camera (Z) now always turns it back to north at the top.
 
 ## 1.2.8 (2026-10-19)
 - Realms are much easier to close with a few people. A realm closes after 8 events for 1 to 3
