@@ -448,11 +448,21 @@ def realm():
     for m in re.finditer(r'TerrainType\.(\w+),\s*Tuple\.Create\(\s*\d+,\s*new \[\]\s*\{(.*?)\}\)', src, re.S):
         zones[m.group(1)] = re.findall(r'Tuple\.Create\("([^"]+)"', m.group(2))
     events = re.search(r'_events\s*=\s*new List<.*?>\(\)\s*\{(.*?)\};', src, re.S)
-    close = re.search(r'_EventCount\s*==\s*(\d+)', src)
+    # EventsToClose(players) => Math.Clamp(players + offset, min, max): the count scales with the
+    # realm's players. Older code closed after a fixed `_EventCount == N`.
+    scaled = re.search(r'EventsToClose\(int \w+\)\s*=>\s*Math\.Clamp\(\w+\s*\+\s*(\d+),\s*(\d+),\s*(\d+)\)', src)
+    if scaled:
+        offset, low, high = (int(g) for g in scaled.groups())
+        few = low - offset  # the most players that still need only `low`
+        close = ("%d events with 1 to %d players, one more for each extra player, up to %d" % (low, few, high)
+                 if few > 1 else "%d to %d events, depending on the players in it" % (low, high))
+    else:
+        fixed = re.search(r'_EventCount\s*==\s*(\d+)', src)
+        close = "%s events" % fixed.group(1) if fixed else "enough events"
     return {
         "gods": zones.get("Mountains", []),
         "events": re.findall(r'Tuple\.Create\("([^"]+)"', events.group(1)) if events else [],
-        "close_after": int(close.group(1)) if close else None,
+        "close_after": close,
         "zones": zones,
     }
 

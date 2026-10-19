@@ -38,7 +38,7 @@ the site updates, so they match what you'll see in game.
 3. Head for the realm's quests, its toughest monsters (the arrow at the edge of the screen points
    at yours), and the dungeon portals they drop.
 4. Drink stat potions to raise your stats to their highest. That's what "maxing" means.
-5. When {{v:realm_close}} of a realm's events are beaten, it closes and everyone in it is sent to
+5. When enough of a realm's events are beaten ({{v:realm_close}}), it closes and everyone in it is sent to
    Oryx's Castle. Follow Oryx down.
 6. Put what you want to keep in your vault: when a character dies, it and everything it carries
    are gone, but its fame is yours to keep.

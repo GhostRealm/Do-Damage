@@ -89,7 +89,7 @@ worth more loot than anything around it. They're the realm's main quests.
 
 {{gen:realm-events}}
 
-Each event killed counts towards closing the realm. After {{v:realm_close}} of them, Oryx closes
+Each event killed counts towards closing the realm, which takes {{v:realm_close}}. Then Oryx closes
 the realm, and a little later everyone still inside is sent to **Oryx's Castle**, the start of the
 [Oryx chain](endgame.html).
 

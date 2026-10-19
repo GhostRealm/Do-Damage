@@ -19,7 +19,7 @@ player, depending on the stage).
 
 ## How the chain works
 
-1. **A realm closes** after {{v:realm_close}} of its events are beaten. Oryx shouts, the realm's
+1. **A realm closes** once enough of its events are beaten: {{v:realm_close}}. Oryx shouts, the realm's
    monsters vanish, and about 30 seconds later everyone still in the realm is sent to a new
    **Oryx's Castle**. You can also open the Castle with an Oryx's Castle Key.
 2. **In the Castle**, kill both Stone Guardians. Their death opens the way to **Janus the

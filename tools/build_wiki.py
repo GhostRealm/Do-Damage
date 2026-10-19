@@ -420,7 +420,7 @@ class Gen:
                                                              for a in areas if a in d.worlds)]
                     unlock.append((item, areas, bosses))
             if wid == "Oryx's Castle":
-                special.append("Opens for everyone in a realm when it closes, after %d of its events are defeated."
+                special.append("Opens for everyone in a realm when it closes, once enough of its events are defeated: %s."
                                % self.realm["close_after"])
             on_bot = any(p in bot for p in portals)
             if not (sources or keys or special or unlock):
