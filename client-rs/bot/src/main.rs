@@ -3,17 +3,21 @@
 //! Use it against the isolated test servers only.
 //!
 //!     bsk-bot --account http://127.0.0.1:8082 --credentials <file> [--seconds 60] [--char <id>]
-//!             [--gateway ws://127.0.0.1:8095/ws]
+//!             [--gateway ws://127.0.0.1:8095/ws] [--say "/godlands;;/god"] [--wander <tiles>]
 //!
 //! The credentials file has `email: ...` and `password: ...` lines (test-account.local.txt).
 //! With `--gateway`, the game connection goes through the gateway's WebSocket bridge, as the
 //! browser client's does. It follows the server's Reconnects (a world change, or a rolling
 //! deploy moving it to the new world server) as the client does, each through a new connection.
 //! The exit code is 0 if it stayed connected for the whole time.
+//!
+//! `--say` sends chat lines or commands (split by `;;`), one 3 s after each world is joined or
+//! 3 s after the last. `--wander` walks the bot round a circle of that radius about where it
+//! joined each world, so several bots keep parts of a realm awake for load tests.
 
 
 use bsk_net::{account, http, login, GameSocket, SocketEvent, Target};
-use bsk_proto::{ClientMessage, ServerMessage};
+use bsk_proto::{ClientMessage, PlayerText, ServerMessage, WorldPos};
 use bsk_session::{Event, HelloParams, Join, Phase, Session, NEXUS_GAME_ID};
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
@@ -24,11 +28,13 @@ struct Args {
     seconds: u64,
     char_id: Option<i32>,
     gateway: Option<String>,
+    say: Vec<String>,
+    wander: f32,
 }
 
 fn parse_args() -> Result<Args, String> {
     let mut args =
-        Args { account: String::new(), credentials: String::new(), seconds: 60, char_id: None, gateway: None };
+        Args { account: String::new(), credentials: String::new(), seconds: 60, char_id: None, gateway: None, say: Vec::new(), wander: 0.0 };
     let mut it = std::env::args().skip(1);
     while let Some(a) = it.next() {
         let mut value = || it.next().ok_or(format!("{a} needs a value"));
@@ -38,6 +44,8 @@ fn parse_args() -> Result<Args, String> {
             "--seconds" => args.seconds = value()?.parse().map_err(|e| format!("--seconds: {e}"))?,
             "--char" => args.char_id = Some(value()?.parse().map_err(|e| format!("--char: {e}"))?),
             "--gateway" => args.gateway = Some(value()?),
+            "--say" => args.say = value()?.split(";;").map(|l| l.trim().to_owned()).filter(|l| !l.is_empty()).collect(),
+            "--wander" => args.wander = value()?.parse().map_err(|e| format!("--wander: {e}"))?,
             _ => return Err(format!("unknown argument {a}")),
         }
     }
@@ -72,15 +80,24 @@ fn run(args: Args) -> Result<(), String> {
 
     let xml = wait(http::post_form(&format!("{base}/char/list"), &[("guid", &email), ("password", &password)]))?;
     let list = account::parse_char_list(&xml)?;
+    // with no living character (a fresh test account), a new Wizard
     let ch = match args.char_id {
-        Some(id) => list.chars.iter().find(|c| c.id == id).ok_or(format!("no character {id}"))?,
-        None => list.chars.iter().find(|c| !c.dead).ok_or("no living character")?,
+        Some(id) => Some(list.chars.iter().find(|c| c.id == id).ok_or(format!("no character {id}"))?),
+        None => list.chars.iter().find(|c| !c.dead),
     };
     let server = list.servers.first().ok_or("the account server lists no world servers")?;
-    log::info!(
-        "character {} (type 0x{:04x}, level {}), server {} at {}:{}",
-        ch.id, ch.object_type, ch.level, server.name, server.host, server.port
-    );
+    match ch {
+        Some(ch) => log::info!(
+            "character {} (type 0x{:04x}, level {}), server {} at {}:{}",
+            ch.id, ch.object_type, ch.level, server.name, server.host, server.port
+        ),
+        None => log::info!("no living character: a new Wizard, server {} at {}:{}", server.name, server.host, server.port),
+    }
+    let mut char_id = ch.map(|c| c.id);
+    let join = |char_id: Option<i32>| match char_id {
+        Some(char_id) => Join::Load { char_id },
+        None => Join::Create { class_type: 0x030e, skin_type: 0 },
+    };
 
     // Through the gateway the same way the desktop client goes (wss with BSK_CA, as in its tests).
     let mut target = Target { host: server.host.clone(), port: server.port, gateway: args.gateway.clone() };
@@ -96,7 +113,7 @@ fn run(args: Args) -> Result<(), String> {
         key_time,
         key,
     };
-    let (mut session, first) = Session::start(hello(NEXUS_GAME_ID, -1, vec![]), Join::Load { char_id: ch.id });
+    let (mut session, first) = Session::start(hello(NEXUS_GAME_ID, -1, vec![]), join(char_id));
     socket.send(&first);
 
     let mut received: BTreeMap<&'static str, u32> = BTreeMap::new();
@@ -108,10 +125,33 @@ fn run(args: Args) -> Result<(), String> {
     // The round trips the server measured (each Ping carries its recent average), this report.
     let mut rtts: Vec<i32> = Vec::new();
     let mut reconnects = 0;
+    // --say: the lines still to send and when the next may go; --wander: since when it walks
+    let mut say = args.say.iter();
+    let mut next_say: Option<Instant> = None;
+    let mut circle: Option<Instant> = None;
+    let mut last_step = Instant::now();
 
     let result = loop {
         if Instant::now() >= deadline {
             break Ok(());
+        }
+        if next_say.is_some_and(|t| Instant::now() >= t) {
+            next_say = None;
+            if let Some(line) = say.next() {
+                log::info!("saying {line}");
+                socket.send(&PlayerText { text: line.clone() }.into());
+                next_say = Some(Instant::now() + Duration::from_secs(3));
+            }
+        }
+        if args.wander > 0.0 && last_step.elapsed() >= Duration::from_millis(100) {
+            last_step = Instant::now();
+            if let (Some(since), Some(p)) = (circle, session.position) {
+                // 3 tiles a second, turning so a lap is a circle of that radius; stepping from
+                // where we are follows the server's teleports (Goto)
+                let angle = since.elapsed().as_secs_f32() * 3.0 / args.wander;
+                let pos = WorldPos { x: p.x - 0.3 * angle.sin(), y: p.y + 0.3 * angle.cos() };
+                session.set_position(pos, now());
+            }
         }
         let Some(event) = socket.poll() else {
             std::thread::sleep(Duration::from_millis(2));
@@ -158,7 +198,12 @@ fn run(args: Args) -> Result<(), String> {
                 }
                 match session.handle(&msg, now(), &mut out) {
                     Some(Event::MapInfo(m)) => log::info!("map {} ({}×{})", m.name, m.width, m.height),
-                    Some(Event::Joined { object_id, .. }) => log::info!("joined as object {object_id}"),
+                    Some(Event::Joined { object_id, char_id: id }) => {
+                        log::info!("joined as object {object_id}");
+                        char_id = Some(id);
+                        next_say = Some(Instant::now() + Duration::from_secs(3));
+                        circle = None;
+                    }
                     Some(Event::Failure { error_id, description }) => {
                         break Err(format!("failure {error_id}: {description}"))
                     }
@@ -171,7 +216,7 @@ fn run(args: Args) -> Result<(), String> {
                             target.port = r.port as u16;
                         }
                         socket = GameSocket::connect(&target);
-                        let (s, first) = Session::start(hello(r.game_id, r.key_time, r.key.0.clone()), Join::Load { char_id: ch.id });
+                        let (s, first) = Session::start(hello(r.game_id, r.key_time, r.key.0.clone()), join(char_id));
                         session = s;
                         out.clear();
                         socket.send(&first);
@@ -179,6 +224,9 @@ fn run(args: Args) -> Result<(), String> {
                         continue;
                     }
                     None => {}
+                }
+                if args.wander > 0.0 && circle.is_none() && session.phase == Phase::InGame {
+                    circle = Some(Instant::now());
                 }
                 for m in out.drain(..) {
                     *sent.entry(m.name()).or_default() += 1;

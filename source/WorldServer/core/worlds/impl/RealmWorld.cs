@@ -41,6 +41,15 @@ namespace WorldServer.core.worlds.impl
                 commands.player.GodlandsCommand.Arrived(player, time);
         }
 
+        protected override bool WakesBySight => true;
+
+        public override void AddToWorld(Entity entity)
+        {
+            base.AddToWorld(entity);
+            if (entity is Enemy enemy)
+                RealmManager.OnEnemyAdded(enemy);
+        }
+
         public void EnemyKilled(Enemy enemy, Player killer)
         {
             if (!enemy.Spawned)

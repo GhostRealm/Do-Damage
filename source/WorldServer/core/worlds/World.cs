@@ -3,6 +3,7 @@ using Shared.database;
 using Shared.resources;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using WorldServer.core.objects;
@@ -612,14 +613,32 @@ namespace WorldServer.core.worlds
         /// <summary>Where this world's ticks spend their time (logged as "Tick stats").</summary>
         public readonly TickProfile Profile = new TickProfile();
 
+        /// <summary>
+        /// Wake monsters only out to just past each player's sight (2 chunks, 32-47 tiles, or 3
+        /// for a sight radius over 20) instead of 3 chunks round every player and pet. Realms use
+        /// it: most of their thousands of monsters are idle, far from anyone.
+        /// </summary>
+        protected virtual bool WakesBySight => false;
+
+        private IEnumerable<(float X, float Y, int Radius)> SightCentres()
+        {
+            foreach (var player in Players.Values)
+                yield return (player.X, player.Y, player.SightRadius > 20 ? 3 : 2);
+        }
+
         protected virtual void UpdateLogic(ref TickTime time)
         {
             Profile.Mark(TickProfile.Phase.World);
             foreach (var player in Players.Values)
             {
+                var started = Stopwatch.GetTimestamp();
                 player.Tick(ref time);
                 if (player.Dead)
                     EntitiesToRemove.Add(player);
+                // one player holding up everyone's tick: whose, and where
+                var ms = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+                if (ms > 200)
+                    StaticLogger.Instance.Warn($"[{IdName} {Id}] Slow player tick: {player.Name} {ms:0} ms at ({player.X:0}, {player.Y:0})");
             }
             Profile.Mark(TickProfile.Phase.Players);
 
@@ -662,12 +681,14 @@ namespace WorldServer.core.worlds
 
             if (EnemiesCollision != null)
             {
-                foreach (var entity in EnemiesCollision.GetActiveChunks(PlayersCollision))
+                var active = WakesBySight ? EnemiesCollision.GetChunksAround(SightCentres()) : EnemiesCollision.GetActiveChunks(PlayersCollision);
+                foreach (var entity in active)
                 {
                     entity.Tick(ref time);
                     if (entity.Dead)
                         EntitiesToRemove.Add(entity);
                 }
+                Profile.CountActive(active.Count);
             }
             else
             {

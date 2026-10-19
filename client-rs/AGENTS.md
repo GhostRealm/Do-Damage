@@ -83,7 +83,10 @@ python tools\testclient\iso_stack.py --slot 1 stop
 The bot logs in, joins the nexus with the first living character and answers the server as the
 AIR client does (`bsk-session`), following Reconnects (world changes, rolling deploys) through a
 new connection; it exits non-zero if it gets disconnected. The second form goes
-through the gateway, as the browser does.
+through the gateway, as the browser does. With no living character it makes a Wizard.
+`--say "/godlands;;/god"` sends lines (split by `;;`) 3 s apart after each join, and
+`--wander <tiles>` walks it round a circle that size, so several bots keep a realm busy for load
+tests (accounts from the account server's `/account/register` on the isolated stack).
 
 The client itself can be scripted for tests (desktop only):
 

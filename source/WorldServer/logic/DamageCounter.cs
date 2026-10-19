@@ -56,7 +56,7 @@ namespace WorldServer.logic
                 if (player.HasConditionEffect(ConditionEffectIndex.Paused))
                     continue;
 
-                var xp = enemy.ObjectDesc.MaxHP / 10.0f * enemy.ObjectDesc.ExpMultiplier;
+                var xp = enemy.ObjectDesc.MaxHP / 10.0f * enemy.ObjectDesc.ExpMultiplier * enemy.XpScale;
                 var upperLimit = player.ExperienceGoal * 0.1f;
                 if (player.Quest == enemy)
                     upperLimit = player.ExperienceGoal * 0.5f;

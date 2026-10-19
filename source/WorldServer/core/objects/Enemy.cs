@@ -37,6 +37,12 @@ namespace WorldServer.core.objects
         public bool IsRare { get; set; }
         // multiplies the XML damage of this enemy's Shoot behaviours (set by BossStats)
         public float DamageScale { get; set; } = 1f;
+        // a realm event boss whose health the realm sets by the players near it (RealmManager),
+        // in place of its own ScaleHP2
+        public bool RealmScaled { get; set; }
+        // multiplies the experience it gives (below 1 while a realm event has less health than
+        // its XML, so a smaller boss isn't worth as much)
+        public float XpScale { get; set; } = 1f;
         
         public Enemy(GameServer manager, ushort objType)
             : base(manager, objType)

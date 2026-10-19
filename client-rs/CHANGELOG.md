@@ -9,6 +9,20 @@ refuses while an `Unreleased` one is left, so rename it to `## <version> (<date>
 version number itself is in `client-rs/Cargo.toml`.
 
 ## Unreleased
+- Realms are much easier to close with a few people. A realm closes after 8 events for 1 to 3
+  players, one more for each extra player, up to the classic 25 for 20 or more. The count in
+  chat shows how many your realm needs ("[3/8]").
+- Event bosses (Cube God, Pentaract, the Sphinx, the Hermit God, Ghost Ship and the rest) have
+  60% of their health when 1 or 2 players fight them, and 20% more for each extra player who
+  comes near, up to three times their health for big groups. A boss never loses health it has
+  already gained, and one with less health gives less experience.
+- Events come quicker: the next one appears 15 seconds after the last is defeated, out of sight
+  but near a player instead of anywhere in the realm. Busy realms get two events at once from 6
+  players and three from 12.
+- An event nobody fights for 10 minutes no longer holds up the realm: another one comes along.
+  The Shatters' Defense System only appears once a realm has had 5 or more players.
+- The Killer Bee Nest counts as one event, not three.
+- Realms run lighter: monsters far out of sight now rest until someone comes near.
 - Losing in an arena no longer kills your character. In the Battle Arena, the Free Battle Arena,
   the /arena arena and the Admin Arena, a hit that would kill you sends you back to the Nexus at
   full health instead, with your gear and fame. There's no grave, and it doesn't count as a death.

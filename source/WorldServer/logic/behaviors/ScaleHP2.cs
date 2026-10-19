@@ -86,7 +86,7 @@ namespace WorldServer.logic.behaviors
             {
                 scstate.cooldown = 1000;
 
-                if (!(host is Enemy))
+                if (!(host is Enemy) || (host as Enemy).RealmScaled)
                     return;
 
                 var enemy = host as Enemy;

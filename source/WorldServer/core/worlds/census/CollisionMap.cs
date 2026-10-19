@@ -30,7 +30,7 @@ namespace WorldServer.core.worlds.census
                 cH = (h + CHUNK_SIZE - 1) / CHUNK_SIZE];
         }
 
-        public IEnumerable<T> GetActiveChunks(CollisionMap<T> from)
+        public HashSet<T> GetActiveChunks(CollisionMap<T> from)
         {
             if (from.w != w || from.h != h)
                 throw new ArgumentException("from");
@@ -57,6 +57,27 @@ namespace WorldServer.core.worlds.census
                     }
 
             return ret;
+        }
+
+        private readonly HashSet<T> _around = new HashSet<T>();
+
+        /// <summary>
+        /// The entities in the chunks within <c>radius</c> chunks of each point, like
+        /// GetActiveChunks but with a radius per point. The set is reused by the next call.
+        /// </summary>
+        public HashSet<T> GetChunksAround(IEnumerable<(float X, float Y, int Radius)> points)
+        {
+            _around.Clear();
+            foreach (var (px, py, r) in points)
+            {
+                var cx = (int)px / CHUNK_SIZE;
+                var cy = (int)py / CHUNK_SIZE;
+                for (var y = Math.Max(0, cy - r); y <= Math.Min(cH - 1, cy + r); y++)
+                    for (var x = Math.Max(0, cx - r); x <= Math.Min(cW - 1, cx + r); x++)
+                        for (var node = chunks[x, y]; node != null; node = node.Next)
+                            _around.Add((T)node.Parent);
+            }
+            return _around;
         }
 
         public IEnumerable<T> HitTest(Position pos, double radius) => HitTest(pos.X, pos.Y, radius);

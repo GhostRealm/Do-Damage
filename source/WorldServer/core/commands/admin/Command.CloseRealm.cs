@@ -39,6 +39,25 @@ namespace WorldServer.core.commands
             }
         }
 
+        // where this realm stands: events defeated and needed, the players it's scaled for
+        internal class RealmStatus : Command
+        {
+            public override RankingType RankRequirement => RankingType.Admin;
+            public override string CommandName => "realmstatus";
+
+            protected override bool Process(Player player, TickTime time, string args)
+            {
+                if (!(player.World is RealmWorld rw))
+                {
+                    player.SendError("You must be in a realm.");
+                    return true;
+                }
+
+                player.SendInfo(rw.RealmManager.Status());
+                return true;
+            }
+        }
+
         internal class CloseRealm : Command
         {
             public override RankingType RankRequirement => RankingType.Admin;

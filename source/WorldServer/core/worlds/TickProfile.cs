@@ -32,6 +32,7 @@ namespace WorldServer.core.worlds
         private int _ticks;
         private double _workMs, _workMax, _gapMax, _gapSum;
         private int _slow;
+        private long _active;
         private int _gen0, _gen1, _gen2;
         private TimeSpan _paused;
 
@@ -50,6 +51,9 @@ namespace WorldServer.core.worlds
             _mark = now;
         }
 
+        /// <summary>This many monsters were awake (ticked) this tick.</summary>
+        public void CountActive(int count) => _active += count;
+
         /// <summary>A tick took this long, this long after the one before.</summary>
         public void Tick(double workMs, double gapMs)
         {
@@ -67,7 +71,7 @@ namespace WorldServer.core.worlds
         {
             var n = Math.Max(_ticks, 1);
             var sb = new StringBuilder();
-            sb.Append($"{_ticks} ticks, work avg {_workMs / n:0.00} ms max {_workMax:0} ms, gap avg {_gapSum / n:0} ms max {_gapMax:0} ms, {_slow} over 150 ms; per tick:");
+            sb.Append($"{_ticks} ticks, work avg {_workMs / n:0.00} ms max {_workMax:0} ms, gap avg {_gapSum / n:0} ms max {_gapMax:0} ms, {_slow} over 150 ms, {_active / n} enemies awake; per tick:");
             for (var i = 0; i < Names.Length; i++)
                 sb.Append($" {Names[i]} {_phaseMs[i] / n:0.00}");
             sb.Append($"; GCs {GC.CollectionCount(0) - _gen0}/{GC.CollectionCount(1) - _gen1}/{GC.CollectionCount(2) - _gen2} pausing {(GC.GetTotalPauseDuration() - _paused).TotalMilliseconds:0} ms (last full {LastFullPause():0} ms), heap {GC.GetTotalMemory(false) >> 20} MB, process {Environment.WorkingSet >> 20} MB");
@@ -81,6 +85,7 @@ namespace WorldServer.core.worlds
             _ticks = 0;
             _workMs = _workMax = _gapMax = _gapSum = 0;
             _slow = 0;
+            _active = 0;
             _gen0 = GC.CollectionCount(0);
             _gen1 = GC.CollectionCount(1);
             _gen2 = GC.CollectionCount(2);
