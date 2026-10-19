@@ -155,33 +155,49 @@ The highlights; [SETUP-LOCAL.md](SETUP-LOCAL.md) has the rest.
   sight.
 - **Rust client:** about 1,100 fps at 2560×1440.
 
-## Content status (from upstream)
+## Content status
 
-- [x] Removed TK-Reborn bloat, renamed its files, split up Player.cs, labelled entities and worlds.
-- [x] XMLs up to date with RotMG 1.0.4.0, client/server asset sorting.
-- [x] Fixed what broke when the XMLs were imported (Hermit, Treasure Cave, Davy, Shatters, ...).
-- [x] Damage counter, parallax title screen, screens that scale with the window, wis-mod in
-  tooltips.
-- [x] OnPlayerHit / OnPlayerAbility / OnPlayerShoot activate effects.
-- [x] Potion Storage, Marketplace, seasonal drop tables, item breakdowns, animated emotes.
-- [x] Samurai and Bard.
-- [ ] Every equipment item from RotMG 1.0.4.0 working.
-- [ ] The AIR client's memory leak.
+What's finished and what's still to do, upstream's work and this repository's together.
+
+### Done
+
+- [x] From upstream: TK-Reborn cleaned up, XMLs up to date with RotMG 1.0.4.0, the damage
+  counter, Potion Storage, the Marketplace, seasonal drop tables, animated emotes, Samurai and
+  Bard.
+- [x] The Rust client, on the desktop and in the browser, in place of the AIR client (and with
+  it the AIR client's memory leak).
+- [x] The live game at dodmg.com, with the website and its wiki; updates and deploys kick nobody.
+- [x] Random dungeon layouts, each run small, medium or large; rebuilt Elder dungeons.
+- [x] The Nexus rebuilt as a castle courtyard, with the Nexus Bazaar.
+- [x] About 80 monsters that stood still now fight (Red Demon, Phoenix Lord, Lich, Ent Ancient,
+  Ghost King, Oasis Giant and more), with loot to match; the Beer God can be seen.
+- [x] Boss pets fire their boss's shots.
+- [x] Arena defeats send you to the Nexus instead of killing you.
 
 ### Dungeons and bosses
 
-✮ finished but rough; ✧ map and monsters, still being worked on.
+✮ finished but rough.
 
 - [x] Garnet/Jade Statues, Killer Bee Nest, Mountain Temple, Toxic Sewers, Hive, Magic Woods,
   Ice Tomb, Tomb of the Ancients.
-- [x] Ivory Wyvern ✮, Ice Cave / Inner Sanctum ✮.
-- [ ] Lair of Draconis: no map or world here yet (the Rock Dragon drops Lair of Shaitan instead;
-  Elder Draconis uses Doomed Realms' map).
 - [x] Ancient Ruins, Cursed Library, Fungal Cavern, Parasite Chambers, Secluded Thicket: each has
   behaviours for every monster, a boss with loot and an exit portal, and a portal source.
-- [x] Abyss Idol and Horrific Creation: both have fights now.
-- [x] Battle for the Nexus ✧, Nest ✧, Lost Halls ✧, Cultist Hideout ✧, The Void ✧, Court of
-  Oryx ✧, Oryx's Sanctuary ✧.
+- [x] Abyss Idols, Horrific Creation, Mixcoatl, Belladonna: all have fights now.
+- [x] The Oryx chain: Oryx's Castle, Oryx's Chamber, Wine Cellar, Oryx's Sanctuary, Hash Cellar
+  and Doomed Cellar, opened with incantations; and the Chicken Chamber.
+- [x] Ivory Wyvern ✮, Ice Cave / Inner Sanctum ✮.
+- [x] Battle for the Nexus ✮: four bosses with loot; its key is sold in the Nexus Bazaar.
+- [x] Lost Halls ✮: the Marble Colossus fight, with loot (Oryx 2 drops the portal).
+
+### Still to do
+
+- [ ] Every equipment item from RotMG 1.0.4.0 working: some items still can't be used.
+- [ ] Lair of Draconis: no map or world yet (the Rock Dragon drops Lair of Shaitan instead;
+  Elder Draconis uses Doomed Realms' map).
+- [ ] Cultist Hideout: a map, but Malus and the cultists have no fight and nothing leads there.
+- [ ] The Void: a map, but no world or monsters.
+- [ ] Court of Oryx: a map, but no world or monsters.
+- [ ] The Nest: no map or world yet.
 
 ## Credits
 
