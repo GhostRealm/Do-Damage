@@ -63,6 +63,7 @@ namespace WorldServer.core.worlds.impl
             "Type /tell <name> <message> to whisper, and /trade <name> to trade.",
             "Type /commands to see every command you can use.",
             "Do Damage is open source: github.com/Meapy/Do-Damage",
+            "Elder dungeons drop much better loot and have a chance of dropping a potion that will max a stat!"
         };
 
         private readonly World _world;

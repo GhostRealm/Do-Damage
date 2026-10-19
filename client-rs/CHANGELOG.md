@@ -8,6 +8,9 @@ version (`python tools/build_client_rs.py --publish`) needs a section for that v
 refuses while an `Unreleased` one is left, so rename it to `## <version> (<date>)` then. The
 version number itself is in `client-rs/Cargo.toml`.
 
+## Unreleased
+- The Support Bot in the Nexus has a new tip about Elder dungeons and their better loot.
+
 ## 1.2.8 (2026-10-19)
 - Realms are much easier to close with a few people. A realm closes after 8 events for 1 to 3
   players, one more for each extra player, up to the classic 25 for 20 or more. The count in
