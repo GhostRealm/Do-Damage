@@ -116,20 +116,25 @@ pub struct Floater {
     pub life: i32,
 }
 
+/// Damage numbers: red, or purple for a hit that ignored defense (an `ArmorPiercing` shot).
+pub const DAMAGE_COLOR: u32 = 0xFF0000;
+pub const PIERCED_COLOR: u32 = 0xC060FF;
+
 impl Floater {
     /// A damage number: red, for a second.
     pub fn damage(object_id: i32, amount: i32, at: i32) -> Self {
-        Floater { object_id, text: format!("-{amount}"), color: 0xFF0000, at, life: 1000 }
+        Floater::hit(object_id, amount, false, at)
     }
-}
 
-/// Whether a condition effect helps whoever has it (its text shows green, not red): speed,
-/// healing, damage and defence buffs, invisibility, the immunities and stat boosts.
-pub fn helps(effect: u32) -> bool {
-    use bsk_world::condition::*;
-    matches!(effect, SPEEDY | HEALING | DAMAGING | BERSERK | INVULNERABLE | INVINCIBLE | ARMORED | NINJA_SPEEDY | INVISIBLE | INSPIRED)
-        || matches!(effect, 12 | 17 | 23 | 32 | 33 | 34 | 36 | 39 | 50)
-        || (40..=47).contains(&effect)
+    /// A shot's damage number, purple when the shot ignored defense.
+    pub fn hit(object_id: i32, amount: i32, pierced: bool, at: i32) -> Self {
+        let color = if pierced { PIERCED_COLOR } else { DAMAGE_COLOR };
+        Floater { object_id, text: format!("-{amount}"), color, at, life: 1000 }
+    }
+
+    pub fn is_damage(&self) -> bool {
+        (self.color == DAMAGE_COLOR || self.color == PIERCED_COLOR) && self.text.starts_with('-')
+    }
 }
 
 /// `SpeechBalloon`: what someone said, over their head for a few seconds.
@@ -259,8 +264,8 @@ impl Scene<'_> {
             }
         };
         // Attacking (GameObject.getTexture): face the attack, play the attack frames.
-        const ATTACK_PERIOD: i32 = 300;
-        let attacking = self.time < obj.attack_start + ATTACK_PERIOD;
+        let attack_phase = obj.attack_phase(self.time);
+        let attacking = attack_phase.is_some();
         let facing = if attacking && !desc.dont_face_attacks { obj.attack_angle } else { obj.facing };
         let rel = bound_to_pi(facing - self.camera.angle);
         let sec = ((rel / std::f64::consts::FRAC_PI_4 + 4.0) as i32).rem_euclid(8) as usize;
@@ -268,8 +273,8 @@ impl Scene<'_> {
         let (dir, (row, mirror)) = dirs.iter().find_map(|&d| row_of(d).map(|r| (d, r)))?;
         let symmetric = matches!(dir, Dir::Down | Dir::Up);
 
-        if attacking {
-            if let Some(look) = self.attack_look(set, *index, row, mirror, obj) {
+        if let Some(p) = attack_phase {
+            if let Some(look) = self.attack_look(set, *index, row, mirror, p) {
                 return Some(look);
             }
         }
@@ -297,8 +302,9 @@ impl Scene<'_> {
     }
 
     /// How long a walk cycle (both frames) takes, ms. Players: `Player.getTexture`'s
-    /// 3.5 / move speed (365 ms at the fastest, 875 at the slowest); others:
-    /// `GameObject.getTexture`'s 0.5 / speed, rounded up to a multiple of 400.
+    /// 3.5 / move speed (365 ms at the fastest, 875 at the slowest), never quicker than
+    /// `MIN_ANIM_CYCLE` however fast they go; others: `GameObject.getTexture`'s 0.5 / speed,
+    /// rounded up to a multiple of 400.
     fn walk_period(&self, obj: &GameObj, desc: &ObjectDesc) -> i32 {
         let speed = if desc.class != ObjectClass::Player {
             let w = (0.5 / obj.walk_speed.max(1e-6)).min(1e6) as i32;
@@ -308,19 +314,18 @@ impl Scene<'_> {
         } else {
             bsk_world::move_speed(obj.stat_int(bsk_world::SPEED_STAT).unwrap_or(0), obj.conditions(), 1.0)
         };
-        ((3.5 / speed.max(1e-6)) as i32).clamp(100, 2000)
+        ((3.5 / speed.max(1e-6)) as i32).clamp(bsk_world::MIN_ANIM_CYCLE, 2000)
     }
 
-    /// `AnimatedChar.loadDir`'s attack frames: frame 4, then frame 5 (two frames wide with frame 6,
+    /// `AnimatedChar.loadDir`'s attack frames, `p` of the way through a pass: frame 4, then frame 5 (two frames wide with frame 6,
     /// the sword bit, when that isn't blank). `None` if both are blank (then it walks instead).
-    fn attack_look(&self, set: &str, index: u32, row: u32, mirror: bool, obj: &GameObj) -> Option<Look> {
+    fn attack_look(&self, set: &str, index: u32, row: u32, mirror: bool, p: f64) -> Option<Look> {
         let a1 = self.sprites.char_src(set, index, row, 4).filter(|r| !self.sprites.is_blank(*r));
         let a2 = self.sprites.char_src(set, index, row, 5).filter(|r| !self.sprites.is_blank(*r));
         let frames: Vec<SrcRect> = a1.into_iter().chain(a2).collect();
         if frames.is_empty() {
             return None;
         }
-        let p = ((self.time - obj.attack_start).rem_euclid(300)) as f64 / 300.0;
         let i = ((p.clamp(0.0, 0.99999) * frames.len() as f64) as usize).min(frames.len() - 1);
         let mut src = frames[i];
         let frame = if Some(src) == a1 { 4 } else { 5 };
@@ -505,17 +510,23 @@ pub fn draw(scene: &Scene, renderer: &mut Renderer, redrawer: &mut Redrawer, gro
         if c == [0, 0] || has(c, condition::PAUSED) {
             continue;
         }
+        // The 16 x 16 icons (the stat boosts) at three quarters of the 8 x 8 ones' scale, so they're
+        // only a little bigger; each icon takes its own width, with a gap, so none covers another.
+        let big_scale = (icon_scale * 3 / 4).max(1);
         let icons: Vec<_> = condition::icons(c, scene.time)
             .into_iter()
-            .filter_map(|(big, index)| scene.sprites.tile_src(if big { "lofiInterfaceBig" } else { "lofiInterface2" }, index))
-            .filter_map(|src| redrawer.icon(scene.sprites, renderer, src, icon_scale))
+            .filter_map(|(big, index)| {
+                let src = scene.sprites.tile_src(if big { "lofiInterfaceBig" } else { "lofiInterface2" }, index)?;
+                redrawer.icon(scene.sprites, renderer, src, if big { big_scale } else { icon_scale })
+            })
             .collect();
-        let step = 8.0 * icon_scale as f32 + 3.0;
-        let left = x - step * icons.len() as f32 / 2.0;
-        for (i, icon) in icons.iter().enumerate() {
-            let cx = left + step * (i as f32 + 0.5);
+        let gap = (2.0 * icon_scale as f32).max(3.0);
+        let total = icons.iter().map(|i| i.w as f32).sum::<f32>() + gap * icons.len().saturating_sub(1) as f32;
+        let mut left = x - total / 2.0;
+        for icon in &icons {
             let (w, h) = (icon.w as f32, icon.h as f32);
-            renderer.sprite(icon.rect, Quad::rect((cx - w / 2.0).round(), (y - h / 2.0).round(), w, h), Tint::NONE);
+            renderer.sprite(icon.rect, Quad::rect(left.round(), (y - h / 2.0).round(), w, h), Tint::NONE);
+            left += w + gap;
         }
     }
 
@@ -549,7 +560,7 @@ pub fn draw(scene: &Scene, renderer: &mut Renderer, redrawer: &mut Redrawer, gro
     crate::prof::mark("v.hp");
     // Damage numbers and notifications, rising above the object.
     let style = Style { size: (18.0 * k).round().max(10.0), bold: true, color: 0xFF0000 };
-    for f in scene.floaters.iter().filter(|f| scene.show.damage_numbers || !(f.color == 0xFF0000 && f.text.starts_with('-'))) {
+    for f in scene.floaters.iter().filter(|f| scene.show.damage_numbers || !f.is_damage()) {
         let Some(obj) = world.objects.get(&f.object_id) else { continue };
         let age = (scene.time - f.at) as f32 / 1000.0;
         let [px, py] = cam.to_screen(obj.x, obj.y, 0.0);

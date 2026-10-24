@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using WorldServer.core.commands.doomed;
 using WorldServer.core.net.datas;
 using WorldServer.core.net.stats;
 using WorldServer.core.objects.containers;
@@ -143,6 +144,29 @@ namespace WorldServer.core.objects
                 return;
             }
 
+            // a stat potion goes to the storage for a stat already at its highest, so with that storage
+            // full it isn't spent: all of it, so a Potion of Oryx doesn't raise its other stats and stay
+            foreach (var eff in item.ActivateEffects)
+                if (eff.Effect == ActivateEffects.IncrementStat && PotionStorageFull(eff, out var stat))
+                {
+                    Refuse($"Your {PotionNames[stat]} potion storage is full..");
+                    return;
+                }
+
+            // no ability while Silenced (the Infernal Brimstone Poison does it to its user)
+            if (slot == 1 && entity == this && HasConditionEffect(ConditionEffectIndex.Silenced))
+            {
+                Refuse("You are silenced.");
+                return;
+            }
+
+            // a forge shard goes to the forge storage, so with that full it isn't spent
+            if (ForgeStorage.Full(this, item.ObjectId))
+            {
+                Refuse($"Your forge storage holds no more {item.ObjectId}s.");
+                return;
+            }
+
             // an incantation is only spent where it works: in its dungeon, beside its locked portal
             foreach (var eff in item.ActivateEffects)
                 if (eff.Effect == ActivateEffects.ChangeObject && ChangeObjectTarget(eff, out var why) == null)
@@ -228,6 +252,8 @@ namespace WorldServer.core.objects
                 if (item.SlotType == slotType || (Client.Account.Admin && slot == 1))
                 {
                     AbilityUseEffects(pos);
+                    if (slot == 1 && objId == Id)
+                        AbilityBoosts();
                 }
             }
             else
@@ -443,6 +469,9 @@ namespace WorldServer.core.objects
                 StartXPBoost(item, slot, objId, item.Timer < 0 ? -1 : (int)(item.Timer * 1000));
             if (item.LDBoosted && item.Timer > 0 && !item.ActivateEffects.Any(e => e.Effect == ActivateEffects.LDBoost))
                 StartLDBoost((int)(item.Timer * 1000));
+            // the forge shards have no Activate effect: used, they go to the forge storage
+            if (ForgeStorage.Index(item.ObjectId) >= 0)
+                ForgeStorage.Store(this, item.ObjectId);
 
             foreach (var eff in item.ActivateEffects)
             {
@@ -741,6 +770,7 @@ namespace WorldServer.core.objects
         private void AEObjectToss(Item item, Position target, ActivateEffect eff)
         {
             GameServer.Resources.GameData.IdToObjectType.TryGetValue(eff.Id == null ? eff.ObjectId : eff.Id, out ushort objType);
+            target = new Position { X = target.X + eff.OffsetX, Y = target.Y + eff.OffsetY };
             var throwTime = eff.ThrowTime;
             if (eff.ThrowTime != 0)
             {
@@ -757,11 +787,11 @@ namespace WorldServer.core.objects
 
             // ThrowTime is already in ms: * 1000 left an invisible object in the world for 25 minutes
             // after every throw, which every nearby player was sent and every tick went through.
-            var x = new Placeholder(GameServer, eff.ThrowTime + 1000);
+            var x = new Placeholder(GameServer, eff.ThrowTime + eff.DelayMS + 1000);
             x.Move(target.X, target.Y);
             World.EnterWorld(x);
 
-            World.StartNewTimer(throwTime, (world, t) =>
+            World.StartNewTimer(throwTime + eff.DelayMS, (world, t) =>
             {
                 world.BroadcastIfVisible(new ShowEffect()
                 {
@@ -957,6 +987,13 @@ namespace WorldServer.core.objects
                 return null;
             }
 
+            var sealedWhy = SealedDungeons.WhyPortal(eff.NewId);
+            if (sealedWhy != null && !Client.Account.Admin)
+            {
+                why = sealedWhy;
+                return null;
+            }
+
             if (!string.IsNullOrWhiteSpace(eff.OnlyInArea))
             {
                 var areas = eff.OnlyInArea.Split(',').Select(a => a.Trim()).Where(a => a.Length > 0).ToArray();
@@ -1134,7 +1171,7 @@ namespace WorldServer.core.objects
 
                 if (storedAmount != -1)
                 {
-                    string statname = item.DisplayName.Split(' ').Last();
+                    string statname = PotionNames[idx];
                     bool checkVowel = statname.Substring(0, 1) == "A";
                     string accForVowel = checkVowel ? "n" : "";
                     switch (inc)
@@ -1168,6 +1205,19 @@ namespace WorldServer.core.objects
                     Stats.Base[idx] = statInfo[idx].MaxValue;
                 SendInfo($"{item.DisplayName} was consumed");
             }
+        }
+
+        // the stat potions by stat index, as their names end (Potion of Life...)
+        private static readonly string[] PotionNames = { "Life", "Mana", "Attack", "Defense", "Speed", "Dexterity", "Vitality", "Wisdom" };
+
+        // whether this IncrementStat effect would go to potion storage (the stat is at its highest)
+        // and that stat's storage has no room
+        private bool PotionStorageFull(ActivateEffect eff, out int idx)
+        {
+            idx = StatsManager.GetStatIndex((StatDataType)eff.Stats);
+            var statInfo = GameServer.Resources.GameData.Classes[ObjectType].Stats;
+            return idx >= 0 && Stats.Base[idx] >= statInfo[idx].MaxValue
+                && Client.Account.StoredPotions[idx] >= Client.Account.PotionStorageCapacity;
         }
 
         private int AttemptToAdd(int idx, int amount)
@@ -1363,6 +1413,9 @@ namespace WorldServer.core.objects
                         ((Enemy)entity).Damage(this, ref time, impDamage, true);
                     if (eff.TotalDamage > 0)
                         PoisonEnemy(world, (Enemy)entity, eff, eff.UseWisMod);
+                    // and its condEffect, for condDuration (the Infernal Brimstone Poison's Curse)
+                    if (eff.ConditionEffect is { } cond && eff.EffectDuration > 0)
+                        entity.ApplyConditionEffect(cond, (int)(eff.EffectDuration * 1000));
                 });
             });
         }
@@ -1396,6 +1449,10 @@ namespace WorldServer.core.objects
             }, this);
         }
 
+        // the condition a held ability (MultiPhase, with an effect of its own) gives while its key is
+        // held and mana lasts (Player.Effects takes it off when the mana runs out)
+        private ConditionEffectIndex? _heldAbilityEffect;
+
         private void AEShurikenAbility(int time, TickTime tickTime, Item item, Position target, ActivateEffect eff, int useType)
         {
             ConditionEffectIndex effect = ConditionEffectIndex.NinjaSpeedy;
@@ -1405,13 +1462,17 @@ namespace WorldServer.core.objects
             {
                 case START_USE:
                     if (effect != ConditionEffectIndex.NinjaSpeedy)
+                    {
                         ApplyPermanentConditionEffect(ConditionEffectIndex.ManaDeplete);
+                        _heldAbilityEffect = effect;
+                    }
                     ApplyPermanentConditionEffect(effect);
                     break;
                 case END_USE:
                     if (Mana >= item.MpEndCost)
                         Mana -= item.MpEndCost;
                     RemoveCondition(effect);
+                    _heldAbilityEffect = null;
                     break;
             }
         }
@@ -1422,6 +1483,9 @@ namespace WorldServer.core.objects
             var amount = eff.Amount;
             var duration = eff.DurationMS;
             var range = eff.Range;
+            // noStack (the seals): using it again while it lasts refreshes the boost instead of
+            // adding half of it again on top
+            var stack = eff.NoStack;
             if (eff.UseWisMod)
             {
                 amount = (int)UseWisMod(eff.Amount, 0);
@@ -1434,12 +1498,12 @@ namespace WorldServer.core.objects
                 if (player.HasConditionEffect(ConditionEffectIndex.HpBoost))
                     return;
 
-                ((Player)player).Stats.Boost.ActivateBoost[idx].Push(amount, false);
+                ((Player)player).Stats.Boost.ActivateBoost[idx].Push(amount, stack);
                 ((Player)player).Stats.ReCalculateValues();
 
                 World.StartNewTimer(duration, (world, t) =>
                 {
-                    ((Player)player).Stats.Boost.ActivateBoost[idx].Pop(amount, false);
+                    ((Player)player).Stats.Boost.ActivateBoost[idx].Pop(amount, stack);
                     ((Player)player).Stats.ReCalculateValues();
                 });
             });

@@ -7,7 +7,6 @@
 			<Index>0x05</Index>
 		</Texture>
 		<SlotType>3</SlotType>
-		<Ethereal/>
 		<Description>A bow imbued with energy from faraway galaxies. It's origin is unknown.</Description>
 		<ExtraTooltipData>
 			<EffectInfo name="On Ability use" description=""/>
@@ -188,7 +187,7 @@
 			<Index>0x0b</Index>
 		</Texture>
 		<SlotType>3</SlotType>
-		<Description>An upgraded catalyst of destruction. Its heavy shots tear through flesh and spell alike.</Description>
+		<Description>An upgraded catalyst of destruction. Its twin shots part and meet again at the end of their flight, tearing through flesh and spell alike.</Description>
 		<RateOfFire>0.3</RateOfFire>
 		<Sound>weapon/golden_bow</Sound>
 		<Projectile>
@@ -197,13 +196,14 @@
 			<MinDamage>320</MinDamage>
 			<MaxDamage>475</MaxDamage>
 			<LifetimeMS>550</LifetimeMS>
-			<Frequency>1</Frequency>
+			<Frequency>0.5</Frequency>
 			<Size>125</Size>
 			<MultiHit/>
 			<PassesCover/>
+			<Amplitude>0.8</Amplitude>
 		</Projectile>
 		<NumProjectiles>2</NumProjectiles>
-		<ArcGap>20</ArcGap>
+		<ArcGap>0</ArcGap>
 		<ActivateOnEquip stat="20" amount="4">IncrementStat</ActivateOnEquip>
 		<BagType>6</BagType>
 		<FameBonus>8</FameBonus>
@@ -219,7 +219,6 @@
 			<Index>0x10</Index>
 		</Texture>
 		<SlotType>2</SlotType>
-		<Ethereal/>
 		<Description>A legendary blade perfected through masterful craftsmanship. It no longer merely proves the Dirk's worth—it embodies its ultimate supremacy.</Description>
 		<RateOfFire>0.95</RateOfFire>
 		<Sound>weapon/fire_dagger</Sound>
@@ -251,7 +250,6 @@
 			<Index>0x0a</Index>
 		</Texture>
 		<SlotType>9</SlotType>
-		<Ethereal/>
 		<Description>Restored to its true, devastating splendor. To wear it is to command the absolute, ruinous power of a forgotten empire...</Description>
 		<ActivateOnEquip stat="28" amount="12">IncrementStat</ActivateOnEquip>
 		<ActivateOnEquip stat="20" amount="12">IncrementStat</ActivateOnEquip>
@@ -269,15 +267,14 @@
 			<Index>0x0d</Index>
 		</Texture>
 		<SlotType>8</SlotType>
-		<Ethereal/>
-		<Description>The soft chime of wind has transformed into a deafening resonance of pure crystal power. Its polished core vibrates with relentless magic.</Description>
+		<Description>Two Crystal Wands forged into one: the soft chime of wind has become a deafening resonance of pure crystal power, and its shots pass through any armor.</Description>
 		<RateOfFire>1.65</RateOfFire>
 		<Sound>weapon/wand_of_death</Sound>
 		<Projectile>
 			<ObjectId>Reforged Crystal Wand Shot</ObjectId>
 			<Speed>150</Speed>
-			<MinDamage>105</MinDamage>
-			<MaxDamage>175</MaxDamage>
+			<MinDamage>153</MinDamage>
+			<MaxDamage>211</MaxDamage>
 			<LifetimeMS>600</LifetimeMS>
 			<Frequency>1</Frequency>
 			<Size>100</Size>
@@ -291,7 +288,7 @@
 		<FameBonus>8</FameBonus>
 		<feedPower>2000</feedPower>
 		<Soulbound/>
-		<DisplayId>Crystal Wand</DisplayId>
+		<DisplayId>Prismatic Crystal Wand</DisplayId>
 	</Object>
 	<Object type="0x5714" id="Reforged Helm of the Juggernaut">
 		<Class>Equipment</Class>
@@ -301,7 +298,6 @@
 			<Index>0x0f</Index>
 		</Texture>
 		<SlotType>16</SlotType>
-		<Ethereal/>
 		<Description>An extraterrestrial masterpiece, perfected by master smiths. The meteoric steel now vibrates with unstoppable, crushing durability.</Description>
 		<ActivateOnEquip stat="21" amount="15">IncrementStat</ActivateOnEquip>
 		<ActivateOnEquip stat="22" amount="7">IncrementStat</ActivateOnEquip>
@@ -556,5 +552,1589 @@
 		<BagType>9</BagType>
 		<FameBonus>5</FameBonus>
 		<feedPower>325</feedPower>
+	</Object>
+	<Object type="0x5800" id="Sovereign Blades">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>drLofiObj5</File>
+			<Index>0xdc</Index>
+		</Texture>
+		<SlotType>36</SlotType>
+		<Tier>13</Tier>
+		<Description>Twin blades carried by the guards of a forgotten king.</Description>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/fire_dagger</Sound>
+		<Projectile>
+			<ObjectId>Master Proj</ObjectId>
+			<Speed>200</Speed>
+			<MinDamage>147</MinDamage>
+			<MaxDamage>210</MaxDamage>
+			<LifetimeMS>250</LifetimeMS>
+			<MultiHit/>
+			<ArmorPiercing/>
+		</Projectile>
+		<ActivateOnEquip stat="21" amount="6">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="22" amount="4">IncrementStat</ActivateOnEquip>
+		<BagType>9</BagType>
+		<FameBonus>5</FameBonus>
+		<OldSound>daggerSwing</OldSound>
+		<feedPower>650</feedPower>
+		<Soulbound/>
+	</Object>
+	<Object type="0x5801" id="Eclipse Blades">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>drLofiObj5</File>
+			<Index>0xdc</Index>
+		</Texture>
+		<SlotType>36</SlotType>
+		<Tier>14</Tier>
+		<Description>Twin blades that drink the light around them.</Description>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/fire_dagger</Sound>
+		<Projectile>
+			<ObjectId>Master Proj</ObjectId>
+			<Speed>200</Speed>
+			<MinDamage>154</MinDamage>
+			<MaxDamage>221</MaxDamage>
+			<LifetimeMS>250</LifetimeMS>
+			<MultiHit/>
+			<ArmorPiercing/>
+		</Projectile>
+		<ActivateOnEquip stat="21" amount="8">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="22" amount="6">IncrementStat</ActivateOnEquip>
+		<BagType>9</BagType>
+		<FameBonus>6</FameBonus>
+		<OldSound>daggerSwing</OldSound>
+		<feedPower>950</feedPower>
+		<Soulbound/>
+	</Object>
+	<Object type="0x5802" id="Cloth Hand Wraps">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>customAssets8x8</File>
+			<Index>0x70</Index>
+		</Texture>
+		<SlotType>200</SlotType>
+		<Tier>0</Tier>
+		<Description>Strips of cloth wound tight around the knuckles.</Description>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/fire_dagger</Sound>
+		<Projectile>
+			<ObjectId>Bone Proj</ObjectId>
+			<Speed>125</Speed>
+			<MinDamage>31</MinDamage>
+			<MaxDamage>44</MaxDamage>
+			<LifetimeMS>400</LifetimeMS>
+			<MultiHit/>
+		</Projectile>
+		<BagType>1</BagType>
+		<OldSound>daggerSwing</OldSound>
+		<feedPower>5</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x5803" id="Leather Hand Wraps">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>customAssets8x8</File>
+			<Index>0x71</Index>
+		</Texture>
+		<SlotType>200</SlotType>
+		<Tier>1</Tier>
+		<Description>Hardened leather that turns a fist into a club.</Description>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/fire_dagger</Sound>
+		<Projectile>
+			<ObjectId>Bone Proj</ObjectId>
+			<Speed>125</Speed>
+			<MinDamage>35</MinDamage>
+			<MaxDamage>50</MaxDamage>
+			<LifetimeMS>400</LifetimeMS>
+			<MultiHit/>
+		</Projectile>
+		<BagType>1</BagType>
+		<OldSound>daggerSwing</OldSound>
+		<feedPower>7</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x5804" id="Studded Hand Wraps">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>customAssets8x8</File>
+			<Index>0x72</Index>
+		</Texture>
+		<SlotType>200</SlotType>
+		<Tier>2</Tier>
+		<Description>Wraps set with iron studs over each knuckle.</Description>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/fire_dagger</Sound>
+		<Projectile>
+			<ObjectId>Bone Proj</ObjectId>
+			<Speed>125</Speed>
+			<MinDamage>44</MinDamage>
+			<MaxDamage>63</MaxDamage>
+			<LifetimeMS>400</LifetimeMS>
+			<MultiHit/>
+		</Projectile>
+		<BagType>1</BagType>
+		<OldSound>daggerSwing</OldSound>
+		<feedPower>10</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x5805" id="Iron Knuckles">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>customAssets8x8</File>
+			<Index>0x73</Index>
+		</Texture>
+		<SlotType>200</SlotType>
+		<Tier>3</Tier>
+		<Description>Plain iron rings for a plain, heavy punch.</Description>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/fire_dagger</Sound>
+		<Projectile>
+			<ObjectId>Bone Proj</ObjectId>
+			<Speed>125</Speed>
+			<MinDamage>53</MinDamage>
+			<MaxDamage>75</MaxDamage>
+			<LifetimeMS>400</LifetimeMS>
+			<MultiHit/>
+		</Projectile>
+		<BagType>1</BagType>
+		<OldSound>daggerSwing</OldSound>
+		<feedPower>15</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x5806" id="Steel Knuckles">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>customAssets8x8</File>
+			<Index>0x74</Index>
+		</Texture>
+		<SlotType>200</SlotType>
+		<Tier>4</Tier>
+		<Description>Tempered steel shaped to the hand.</Description>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/fire_dagger</Sound>
+		<Projectile>
+			<ObjectId>Bone Proj</ObjectId>
+			<Speed>125</Speed>
+			<MinDamage>61</MinDamage>
+			<MaxDamage>88</MaxDamage>
+			<LifetimeMS>400</LifetimeMS>
+			<MultiHit/>
+		</Projectile>
+		<BagType>1</BagType>
+		<OldSound>daggerSwing</OldSound>
+		<feedPower>22</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x5807" id="Tiger Claw Gauntlets">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>customAssets8x8</File>
+			<Index>0x75</Index>
+		</Texture>
+		<SlotType>200</SlotType>
+		<Tier>5</Tier>
+		<Description>Curved claws for the striking style of the tiger.</Description>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/fire_dagger</Sound>
+		<Projectile>
+			<ObjectId>Bone Proj</ObjectId>
+			<Speed>125</Speed>
+			<MinDamage>79</MinDamage>
+			<MaxDamage>113</MaxDamage>
+			<LifetimeMS>400</LifetimeMS>
+			<MultiHit/>
+		</Projectile>
+		<BagType>1</BagType>
+		<OldSound>daggerSwing</OldSound>
+		<feedPower>32</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x5808" id="Crane Talon Gauntlets">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>customAssets8x8</File>
+			<Index>0x76</Index>
+		</Texture>
+		<SlotType>200</SlotType>
+		<Tier>6</Tier>
+		<Description>Thin talons for the swift style of the crane.</Description>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/fire_dagger</Sound>
+		<Projectile>
+			<ObjectId>Bone Proj</ObjectId>
+			<Speed>125</Speed>
+			<MinDamage>96</MinDamage>
+			<MaxDamage>138</MaxDamage>
+			<LifetimeMS>400</LifetimeMS>
+			<MultiHit/>
+		</Projectile>
+		<BagType>1</BagType>
+		<OldSound>daggerSwing</OldSound>
+		<feedPower>47</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x5809" id="Serpent Fang Gauntlets">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>customAssets8x8</File>
+			<Index>0x77</Index>
+		</Texture>
+		<SlotType>200</SlotType>
+		<Tier>7</Tier>
+		<Description>Fangs for the darting style of the serpent.</Description>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/fire_dagger</Sound>
+		<Projectile>
+			<ObjectId>Bone Proj</ObjectId>
+			<Speed>125</Speed>
+			<MinDamage>114</MinDamage>
+			<MaxDamage>163</MaxDamage>
+			<LifetimeMS>400</LifetimeMS>
+			<MultiHit/>
+		</Projectile>
+		<BagType>2</BagType>
+		<OldSound>daggerSwing</OldSound>
+		<feedPower>70</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x580a" id="Mantis Gauntlets">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>customAssets8x8</File>
+			<Index>0x78</Index>
+		</Texture>
+		<SlotType>200</SlotType>
+		<Tier>8</Tier>
+		<Description>Hooked blades for the patient style of the mantis.</Description>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/fire_dagger</Sound>
+		<Projectile>
+			<ObjectId>Bone Proj</ObjectId>
+			<Speed>125</Speed>
+			<MinDamage>123</MinDamage>
+			<MaxDamage>175</MaxDamage>
+			<LifetimeMS>400</LifetimeMS>
+			<MultiHit/>
+		</Projectile>
+		<BagType>2</BagType>
+		<FameBonus>1</FameBonus>
+		<OldSound>daggerSwing</OldSound>
+		<feedPower>100</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x580b" id="Dragon Scale Gauntlets">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>customAssets8x8</File>
+			<Index>0x79</Index>
+		</Texture>
+		<SlotType>200</SlotType>
+		<Tier>9</Tier>
+		<Description>Scales shed by a young dragon, still warm.</Description>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/fire_dagger</Sound>
+		<Projectile>
+			<ObjectId>Bone Proj</ObjectId>
+			<Speed>125</Speed>
+			<MinDamage>127</MinDamage>
+			<MaxDamage>181</MaxDamage>
+			<LifetimeMS>400</LifetimeMS>
+			<MultiHit/>
+		</Projectile>
+		<BagType>2</BagType>
+		<FameBonus>1</FameBonus>
+		<OldSound>daggerSwing</OldSound>
+		<feedPower>145</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x580c" id="Fists of the Storm">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>customAssets8x8</File>
+			<Index>0x7a</Index>
+		</Texture>
+		<SlotType>200</SlotType>
+		<Tier>10</Tier>
+		<Description>Each blow lands like a thunderclap.</Description>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/fire_dagger</Sound>
+		<Projectile>
+			<ObjectId>Bone Proj</ObjectId>
+			<Speed>125</Speed>
+			<MinDamage>131</MinDamage>
+			<MaxDamage>188</MaxDamage>
+			<LifetimeMS>400</LifetimeMS>
+			<MultiHit/>
+		</Projectile>
+		<BagType>4</BagType>
+		<FameBonus>2</FameBonus>
+		<OldSound>daggerSwing</OldSound>
+		<feedPower>212</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x580d" id="Fists of the Mountain">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>customAssets8x8</File>
+			<Index>0x7b</Index>
+		</Texture>
+		<SlotType>200</SlotType>
+		<Tier>11</Tier>
+		<Description>Strikes as unmoving stone answers the sea.</Description>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/fire_dagger</Sound>
+		<Projectile>
+			<ObjectId>Bone Proj</ObjectId>
+			<Speed>125</Speed>
+			<MinDamage>136</MinDamage>
+			<MaxDamage>194</MaxDamage>
+			<LifetimeMS>400</LifetimeMS>
+			<MultiHit/>
+		</Projectile>
+		<ActivateOnEquip stat="20" amount="2">IncrementStat</ActivateOnEquip>
+		<BagType>4</BagType>
+		<FameBonus>3</FameBonus>
+		<OldSound>daggerSwing</OldSound>
+		<feedPower>310</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x580e" id="Fists of the Heavens">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>customAssets8x8</File>
+			<Index>0x7c</Index>
+		</Texture>
+		<SlotType>200</SlotType>
+		<Tier>12</Tier>
+		<Description>A master's gauntlets, blessed at a high temple.</Description>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/fire_dagger</Sound>
+		<Projectile>
+			<ObjectId>Bone Proj</ObjectId>
+			<Speed>125</Speed>
+			<MinDamage>140</MinDamage>
+			<MaxDamage>200</MaxDamage>
+			<LifetimeMS>400</LifetimeMS>
+			<MultiHit/>
+		</Projectile>
+		<ActivateOnEquip stat="20" amount="4">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="22" amount="2">IncrementStat</ActivateOnEquip>
+		<BagType>4</BagType>
+		<FameBonus>4</FameBonus>
+		<OldSound>daggerSwing</OldSound>
+		<feedPower>450</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x580f" id="Fists of the Void">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>customAssets8x8</File>
+			<Index>0x7d</Index>
+		</Texture>
+		<SlotType>200</SlotType>
+		<Tier>13</Tier>
+		<Description>Every strike opens a little of the dark between stars.</Description>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/fire_dagger</Sound>
+		<Projectile>
+			<ObjectId>Bone Proj</ObjectId>
+			<Speed>125</Speed>
+			<MinDamage>153</MinDamage>
+			<MaxDamage>219</MaxDamage>
+			<LifetimeMS>400</LifetimeMS>
+			<MultiHit/>
+		</Projectile>
+		<ActivateOnEquip stat="20" amount="6">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="22" amount="4">IncrementStat</ActivateOnEquip>
+		<BagType>9</BagType>
+		<FameBonus>5</FameBonus>
+		<OldSound>daggerSwing</OldSound>
+		<feedPower>650</feedPower>
+		<Soulbound/>
+	</Object>
+	<Object type="0x5810" id="Fists of the Eternal Master">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>customAssets8x8</File>
+			<Index>0x7e</Index>
+		</Texture>
+		<SlotType>200</SlotType>
+		<Tier>14</Tier>
+		<Description>Worn by the first master, and by none since.</Description>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/fire_dagger</Sound>
+		<Projectile>
+			<ObjectId>Bone Proj</ObjectId>
+			<Speed>125</Speed>
+			<MinDamage>166</MinDamage>
+			<MaxDamage>238</MaxDamage>
+			<LifetimeMS>400</LifetimeMS>
+			<MultiHit/>
+		</Projectile>
+		<ActivateOnEquip stat="20" amount="8">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="22" amount="6">IncrementStat</ActivateOnEquip>
+		<BagType>9</BagType>
+		<FameBonus>6</FameBonus>
+		<OldSound>daggerSwing</OldSound>
+		<feedPower>950</feedPower>
+		<Soulbound/>
+	</Object>
+	<!-- the T15 weapons: each its kind's T14 a step up (the T15 staff's step, 75-115 to 100-135),
+	     +2 to each stat bonus, drawn by tools/draw_t15_weapons.py; Oryx 5 drops them (TierLoot 15) -->
+	<Object type="0x5824" id="Sword of Ascension">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>t15Weapons8x8</File>
+			<Index>0x00</Index>
+		</Texture>
+		<SlotType>1</SlotType>
+		<Tier>15</Tier>
+		<Description>Forged in the light of Oryx's Elysium, a blade fit to strike down an ascended god.</Description>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/mithril_sword</Sound>
+		<Projectile>
+			<ObjectId>Majesty Bolt</ObjectId>
+			<Speed>100</Speed>
+			<MinDamage>333</MinDamage>
+			<MaxDamage>358</MaxDamage>
+			<LifetimeMS>400</LifetimeMS>
+		</Projectile>
+		<ActivateOnEquip stat="21" amount="10">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="20" amount="8">IncrementStat</ActivateOnEquip>
+		<BagType>9</BagType>
+		<FameBonus>7</FameBonus>
+		<OldSound>bladeSwing</OldSound>
+		<feedPower>950</feedPower>
+		<Soulbound/>
+	</Object>
+	<Object type="0x5825" id="Dagger of Divine Wrath">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>t15Weapons8x8</File>
+			<Index>0x01</Index>
+		</Texture>
+		<SlotType>2</SlotType>
+		<Tier>15</Tier>
+		<Description>A sliver of the Ascended God's own judgement, honed to a killing point.</Description>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/fire_dagger</Sound>
+		<Projectile>
+			<ObjectId>Black Magic</ObjectId>
+			<Speed>150</Speed>
+			<MinDamage>167</MinDamage>
+			<MaxDamage>241</MaxDamage>
+			<LifetimeMS>400</LifetimeMS>
+		</Projectile>
+		<ActivateOnEquip stat="20" amount="8">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="28" amount="10">IncrementStat</ActivateOnEquip>
+		<BagType>9</BagType>
+		<FameBonus>7</FameBonus>
+		<OldSound>daggerSwing</OldSound>
+		<feedPower>950</feedPower>
+		<Soulbound/>
+	</Object>
+	<Object type="0x5826" id="Bow of the Firmament">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>t15Weapons8x8</File>
+			<Index>0x02</Index>
+		</Texture>
+		<SlotType>3</SlotType>
+		<Tier>15</Tier>
+		<Description>Strung with light from the Elysian sky, its arrows fall like stars.</Description>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/golden_bow</Sound>
+		<Projectile>
+			<ObjectId>Deep Enchantment Arrow</ObjectId>
+			<Speed>160</Speed>
+			<MinDamage>93</MinDamage>
+			<MaxDamage>100</MaxDamage>
+			<LifetimeMS>450</LifetimeMS>
+			<MultiHit/>
+		</Projectile>
+		<ActivateOnEquip stat="20" amount="8">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="28" amount="10">IncrementStat</ActivateOnEquip>
+		<BagType>9</BagType>
+		<FameBonus>7</FameBonus>
+		<NumProjectiles>3</NumProjectiles>
+		<ArcGap>7.2</ArcGap>
+		<OldSound>arrowShoot</OldSound>
+		<feedPower>950</feedPower>
+		<Soulbound/>
+	</Object>
+	<Object type="0x5827" id="Wand of Absolution">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>t15Weapons8x8</File>
+			<Index>0x03</Index>
+		</Texture>
+		<SlotType>8</SlotType>
+		<Tier>15</Tier>
+		<Description>It speaks the last word of judgement, and nothing it names survives it.</Description>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/wand_of_death</Sound>
+		<Projectile>
+			<ObjectId>Retribution Magic</ObjectId>
+			<Speed>200</Speed>
+			<LifetimeMS>400</LifetimeMS>
+			<MinDamage>213</MinDamage>
+			<MaxDamage>265</MaxDamage>
+			<MultiHit/>
+		</Projectile>
+		<ActivateOnEquip stat="20" amount="13">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="28" amount="11">IncrementStat</ActivateOnEquip>
+		<BagType>9</BagType>
+		<FameBonus>7</FameBonus>
+		<OldSound>magicShoot</OldSound>
+		<feedPower>950</feedPower>
+		<Soulbound/>
+	</Object>
+	<Object type="0x5828" id="Ame-no-Habakiri">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>t15Weapons8x8</File>
+			<Index>0x04</Index>
+		</Texture>
+		<SlotType>24</SlotType>
+		<Tier>15</Tier>
+		<Description>The blade that cut the eight-headed serpent, reborn in the gold of Oryx's Elysium.</Description>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/long_sword</Sound>
+		<Projectile>
+			<ObjectId>Kusanagi Slash</ObjectId>
+			<Speed>150</Speed>
+			<LifetimeMS>350</LifetimeMS>
+			<MinDamage>243</MinDamage>
+			<MaxDamage>271</MaxDamage>
+			<MultiHit/>
+		</Projectile>
+		<ActivateOnEquip stat="21" amount="10">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="20" amount="8">IncrementStat</ActivateOnEquip>
+		<BagType>9</BagType>
+		<FameBonus>7</FameBonus>
+		<OldSound>bladeSwing</OldSound>
+		<Soulbound/>
+		<feedPower>950</feedPower>
+	</Object>
+	<Object type="0x5829" id="Seraphic Blades">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>t15Weapons8x8</File>
+			<Index>0x05</Index>
+		</Texture>
+		<SlotType>36</SlotType>
+		<Tier>15</Tier>
+		<Description>Twin blades of seraph's light that cut where the eye can't follow.</Description>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/fire_dagger</Sound>
+		<Projectile>
+			<ObjectId>Master Proj</ObjectId>
+			<Speed>200</Speed>
+			<MinDamage>205</MinDamage>
+			<MaxDamage>259</MaxDamage>
+			<LifetimeMS>250</LifetimeMS>
+			<MultiHit/>
+			<ArmorPiercing/>
+		</Projectile>
+		<ActivateOnEquip stat="21" amount="10">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="22" amount="8">IncrementStat</ActivateOnEquip>
+		<BagType>9</BagType>
+		<FameBonus>7</FameBonus>
+		<OldSound>daggerSwing</OldSound>
+		<feedPower>950</feedPower>
+		<Soulbound/>
+	</Object>
+	<Object type="0x582a" id="Fists of the Ascended">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>t15Weapons8x8</File>
+			<Index>0x06</Index>
+		</Texture>
+		<SlotType>200</SlotType>
+		<Tier>15</Tier>
+		<Description>The hands of one who climbed beyond mortal strength, wrapped in holy gold.</Description>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/fire_dagger</Sound>
+		<Projectile>
+			<ObjectId>Bone Proj</ObjectId>
+			<Speed>125</Speed>
+			<MinDamage>221</MinDamage>
+			<MaxDamage>279</MaxDamage>
+			<LifetimeMS>400</LifetimeMS>
+			<MultiHit/>
+		</Projectile>
+		<ActivateOnEquip stat="20" amount="10">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="22" amount="8">IncrementStat</ActivateOnEquip>
+		<BagType>9</BagType>
+		<FameBonus>7</FameBonus>
+		<OldSound>daggerSwing</OldSound>
+		<feedPower>950</feedPower>
+		<Soulbound/>
+	</Object>
+	<Object type="0x5811" id="Halo of the Seraphim">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>drLofiObj6</File>
+			<Index>0x106</Index>
+		</Texture>
+		<SlotType>126</SlotType>
+		<Tier>7</Tier>
+		<Description>A halo worn by the highest of the angels.</Description>
+		<Sound>spell/major_heal</Sound>
+		<Activate range="8" amount="70" duration="22">Halo</Activate>
+		<ActivateOnEquip stat="26" amount="3">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="27" amount="3">IncrementStat</ActivateOnEquip>
+		<Usable/>
+		<BagType>9</BagType>
+		<FameBonus>5</FameBonus>
+		<MpCost>105</MpCost>
+		<feedPower>570</feedPower>
+		<Soulbound/>
+	</Object>
+	<Object type="0x5812" id="Halo of the Archangel">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>drLofiObj6</File>
+			<Index>0x106</Index>
+		</Texture>
+		<SlotType>126</SlotType>
+		<Tier>8</Tier>
+		<Description>The halo of the first angel, brighter than any sun.</Description>
+		<Sound>spell/major_heal</Sound>
+		<Activate range="8" amount="80" duration="24">Halo</Activate>
+		<ActivateOnEquip stat="26" amount="4">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="27" amount="4">IncrementStat</ActivateOnEquip>
+		<Usable/>
+		<BagType>9</BagType>
+		<FameBonus>6</FameBonus>
+		<MpCost>110</MpCost>
+		<feedPower>855</feedPower>
+		<Soulbound/>
+	</Object>
+	<Object type="0x5813" id="Scroll of the Mad God">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>drLofiObj5</File>
+			<Index>0x10e</Index>
+		</Texture>
+		<SlotType>128</SlotType>
+		<Tier>8</Tier>
+		<Description>Binds the Mad God himself to your will, for a while.</Description>
+		<Sound>spell/major_heal</Sound>
+		<Activate objectId="Oryx" duration="120">Summon</Activate>
+		<ActivateOnEquip stat="26" amount="4">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="27" amount="4">IncrementStat</ActivateOnEquip>
+		<Usable/>
+		<BagType>9</BagType>
+		<FameBonus>6</FameBonus>
+		<MpCost>110</MpCost>
+		<feedPower>855</feedPower>
+		<Soulbound/>
+	</Object>
+	<Object type="0x5814" id="Fountain Droplet">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>drLofiObj5</File>
+			<Index>0x10a</Index>
+		</Texture>
+		<SlotType>130</SlotType>
+		<Tier>0</Tier>
+		<Description>Water from the Nexus fountains, that heals your friends and carries you along.</Description>
+		<Sound>spell/major_heal</Sound>
+		<Activate range="5" amount="110">HealNova</Activate>
+		<Activate maxDistance="10">Teleport</Activate>
+		<Usable/>
+		<BagType>1</BagType>
+		<MpCost>50</MpCost>
+		<feedPower>5</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x5815" id="Fountain Trickle">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>drLofiObj5</File>
+			<Index>0x10a</Index>
+		</Texture>
+		<SlotType>130</SlotType>
+		<Tier>1</Tier>
+		<Description>Water from the Nexus fountains, that heals your friends and carries you along.</Description>
+		<Sound>spell/major_heal</Sound>
+		<Activate range="5.5" amount="145">HealNova</Activate>
+		<Activate maxDistance="11">Teleport</Activate>
+		<Usable/>
+		<BagType>1</BagType>
+		<MpCost>55</MpCost>
+		<feedPower>10</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x5816" id="Fountain Spring">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>drLofiObj5</File>
+			<Index>0x10a</Index>
+		</Texture>
+		<SlotType>130</SlotType>
+		<Tier>2</Tier>
+		<Description>Water from the Nexus fountains, that heals your friends and carries you along.</Description>
+		<Sound>spell/major_heal</Sound>
+		<Activate range="6.5" amount="225">HealNova</Activate>
+		<Activate maxDistance="13">Teleport</Activate>
+		<Usable/>
+		<BagType>1</BagType>
+		<MpCost>65</MpCost>
+		<feedPower>20</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x5817" id="Fountain Brook">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>drLofiObj5</File>
+			<Index>0x10a</Index>
+		</Texture>
+		<SlotType>130</SlotType>
+		<Tier>3</Tier>
+		<Description>Water from the Nexus fountains, that heals your friends and carries you along.</Description>
+		<Sound>spell/major_heal</Sound>
+		<Activate range="7.5" amount="255">HealNova</Activate>
+		<Activate maxDistance="14">Teleport</Activate>
+		<Usable/>
+		<BagType>2</BagType>
+		<FameBonus>1</FameBonus>
+		<MpCost>70</MpCost>
+		<feedPower>45</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x5818" id="Fountain Stream">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>drLofiObj5</File>
+			<Index>0x10a</Index>
+		</Texture>
+		<SlotType>130</SlotType>
+		<Tier>4</Tier>
+		<Description>Water from the Nexus fountains, that heals your friends and carries you along.</Description>
+		<Sound>spell/major_heal</Sound>
+		<Activate range="7.5" amount="285">HealNova</Activate>
+		<Activate maxDistance="16">Teleport</Activate>
+		<Usable/>
+		<BagType>2</BagType>
+		<FameBonus>2</FameBonus>
+		<MpCost>75</MpCost>
+		<feedPower>90</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x5819" id="Fountain Cascade">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>drLofiObj5</File>
+			<Index>0x10a</Index>
+		</Texture>
+		<SlotType>130</SlotType>
+		<Tier>5</Tier>
+		<Description>Water from the Nexus fountains, that heals your friends and carries you along.</Description>
+		<Sound>spell/major_heal</Sound>
+		<Activate range="8" amount="320">HealNova</Activate>
+		<Activate maxDistance="17">Teleport</Activate>
+		<Usable/>
+		<BagType>4</BagType>
+		<FameBonus>3</FameBonus>
+		<MpCost>80</MpCost>
+		<feedPower>185</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x581a" id="Fountain Torrent">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>drLofiObj5</File>
+			<Index>0x10a</Index>
+		</Texture>
+		<SlotType>130</SlotType>
+		<Tier>6</Tier>
+		<Description>Water from the Nexus fountains, that heals your friends and carries you along.</Description>
+		<Sound>spell/major_heal</Sound>
+		<Activate range="8" amount="320">HealNova</Activate>
+		<Activate maxDistance="19">Teleport</Activate>
+		<ActivateOnEquip stat="26" amount="2">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="27" amount="2">IncrementStat</ActivateOnEquip>
+		<Usable/>
+		<BagType>4</BagType>
+		<FameBonus>4</FameBonus>
+		<MpCost>85</MpCost>
+		<feedPower>380</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x581b" id="Heart of the Fountains">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>drLofiObj5</File>
+			<Index>0x10a</Index>
+		</Texture>
+		<SlotType>130</SlotType>
+		<Tier>8</Tier>
+		<Description>Water from the Nexus fountains, that heals your friends and carries you along.</Description>
+		<Sound>spell/major_heal</Sound>
+		<Activate range="10" amount="380">HealNova</Activate>
+		<Activate maxDistance="21">Teleport</Activate>
+		<ActivateOnEquip stat="26" amount="4">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="27" amount="4">IncrementStat</ActivateOnEquip>
+		<Usable/>
+		<BagType>9</BagType>
+		<FameBonus>6</FameBonus>
+		<MpCost>95</MpCost>
+		<feedPower>855</feedPower>
+		<Soulbound/>
+	</Object>
+	<Object type="0x581c" id="Ripple">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>drLofiObj5</File>
+			<Index>0xec</Index>
+		</Texture>
+		<SlotType>5000</SlotType>
+		<Tier>0</Tier>
+		<Description>The power of the sea, in a ring of waves.</Description>
+		<Sound>weapon/sprite_wand</Sound>
+		<Projectile>
+			<ObjectId>Wavess</ObjectId>
+			<Speed>160</Speed>
+			<MinDamage>11</MinDamage>
+			<MaxDamage>16</MaxDamage>
+			<LifetimeMS>364</LifetimeMS>
+			<Size>100</Size>
+			<MultiHit/>
+			<PassesCover/>
+			<ParticleTrail/>
+		</Projectile>
+		<NumProjectiles>10</NumProjectiles>
+		<ArcGap>36</ArcGap>
+		<OldSound>magicShoot</OldSound>
+		<Activate>Shoot</Activate>
+		<Usable/>
+		<BagType>1</BagType>
+		<MpCost>22</MpCost>
+		<feedPower>5</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x581d" id="Splash">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>drLofiObj5</File>
+			<Index>0xec</Index>
+		</Texture>
+		<SlotType>5000</SlotType>
+		<Tier>1</Tier>
+		<Description>The power of the sea, in a ring of waves.</Description>
+		<Sound>weapon/sprite_wand</Sound>
+		<Projectile>
+			<ObjectId>Wavess</ObjectId>
+			<Speed>160</Speed>
+			<MinDamage>21</MinDamage>
+			<MaxDamage>33</MaxDamage>
+			<LifetimeMS>364</LifetimeMS>
+			<Size>105</Size>
+			<MultiHit/>
+			<PassesCover/>
+			<ParticleTrail/>
+		</Projectile>
+		<NumProjectiles>10</NumProjectiles>
+		<ArcGap>36</ArcGap>
+		<OldSound>magicShoot</OldSound>
+		<Activate>Shoot</Activate>
+		<Usable/>
+		<BagType>1</BagType>
+		<MpCost>33</MpCost>
+		<feedPower>10</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x581e" id="Swell">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>drLofiObj5</File>
+			<Index>0xec</Index>
+		</Texture>
+		<SlotType>5000</SlotType>
+		<Tier>2</Tier>
+		<Description>The power of the sea, in a ring of waves.</Description>
+		<Sound>weapon/sprite_wand</Sound>
+		<Projectile>
+			<ObjectId>Wavess</ObjectId>
+			<Speed>160</Speed>
+			<MinDamage>32</MinDamage>
+			<MaxDamage>49</MaxDamage>
+			<LifetimeMS>364</LifetimeMS>
+			<Size>110</Size>
+			<MultiHit/>
+			<PassesCover/>
+			<ParticleTrail/>
+		</Projectile>
+		<NumProjectiles>10</NumProjectiles>
+		<ArcGap>36</ArcGap>
+		<OldSound>magicShoot</OldSound>
+		<Activate>Shoot</Activate>
+		<Usable/>
+		<BagType>1</BagType>
+		<MpCost>44</MpCost>
+		<feedPower>20</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x581f" id="Breaker">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>drLofiObj5</File>
+			<Index>0xec</Index>
+		</Texture>
+		<SlotType>5000</SlotType>
+		<Tier>3</Tier>
+		<Description>The power of the sea, in a ring of waves.</Description>
+		<Sound>weapon/sprite_wand</Sound>
+		<Projectile>
+			<ObjectId>Wavess</ObjectId>
+			<Speed>160</Speed>
+			<MinDamage>43</MinDamage>
+			<MaxDamage>65</MaxDamage>
+			<LifetimeMS>364</LifetimeMS>
+			<Size>115</Size>
+			<MultiHit/>
+			<PassesCover/>
+			<ParticleTrail/>
+		</Projectile>
+		<NumProjectiles>10</NumProjectiles>
+		<ArcGap>36</ArcGap>
+		<OldSound>magicShoot</OldSound>
+		<Activate>Shoot</Activate>
+		<Usable/>
+		<BagType>2</BagType>
+		<FameBonus>1</FameBonus>
+		<MpCost>56</MpCost>
+		<feedPower>45</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x5820" id="Riptide">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>drLofiObj5</File>
+			<Index>0xec</Index>
+		</Texture>
+		<SlotType>5000</SlotType>
+		<Tier>4</Tier>
+		<Description>The power of the sea, in a ring of waves.</Description>
+		<Sound>weapon/sprite_wand</Sound>
+		<Projectile>
+			<ObjectId>Wavess</ObjectId>
+			<Speed>160</Speed>
+			<MinDamage>53</MinDamage>
+			<MaxDamage>81</MaxDamage>
+			<LifetimeMS>364</LifetimeMS>
+			<Size>120</Size>
+			<MultiHit/>
+			<PassesCover/>
+			<ParticleTrail/>
+		</Projectile>
+		<NumProjectiles>10</NumProjectiles>
+		<ArcGap>36</ArcGap>
+		<OldSound>magicShoot</OldSound>
+		<Activate>Shoot</Activate>
+		<Usable/>
+		<BagType>2</BagType>
+		<FameBonus>2</FameBonus>
+		<MpCost>67</MpCost>
+		<feedPower>90</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x5821" id="Undertow">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>drLofiObj5</File>
+			<Index>0xec</Index>
+		</Texture>
+		<SlotType>5000</SlotType>
+		<Tier>5</Tier>
+		<Description>The power of the sea, in a ring of waves.</Description>
+		<Sound>weapon/sprite_wand</Sound>
+		<Projectile>
+			<ObjectId>Wavess</ObjectId>
+			<Speed>160</Speed>
+			<MinDamage>64</MinDamage>
+			<MaxDamage>98</MaxDamage>
+			<LifetimeMS>364</LifetimeMS>
+			<Size>125</Size>
+			<MultiHit/>
+			<PassesCover/>
+			<ParticleTrail/>
+		</Projectile>
+		<NumProjectiles>10</NumProjectiles>
+		<ArcGap>36</ArcGap>
+		<OldSound>magicShoot</OldSound>
+		<Activate>Shoot</Activate>
+		<Usable/>
+		<BagType>4</BagType>
+		<FameBonus>3</FameBonus>
+		<MpCost>78</MpCost>
+		<feedPower>185</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x5822" id="Maelstrom">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>drLofiObj5</File>
+			<Index>0xec</Index>
+		</Texture>
+		<SlotType>5000</SlotType>
+		<Tier>6</Tier>
+		<Description>The power of the sea, in a ring of waves.</Description>
+		<Sound>weapon/sprite_wand</Sound>
+		<Projectile>
+			<ObjectId>Wavess</ObjectId>
+			<Speed>160</Speed>
+			<MinDamage>74</MinDamage>
+			<MaxDamage>114</MaxDamage>
+			<LifetimeMS>364</LifetimeMS>
+			<Size>130</Size>
+			<MultiHit/>
+			<PassesCover/>
+			<ParticleTrail/>
+		</Projectile>
+		<NumProjectiles>10</NumProjectiles>
+		<ArcGap>36</ArcGap>
+		<OldSound>magicShoot</OldSound>
+		<Activate>Shoot</Activate>
+		<ActivateOnEquip stat="26" amount="2">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="27" amount="2">IncrementStat</ActivateOnEquip>
+		<Usable/>
+		<BagType>4</BagType>
+		<FameBonus>4</FameBonus>
+		<MpCost>89</MpCost>
+		<feedPower>380</feedPower>
+		<DropTradable/>
+	</Object>
+	<Object type="0x5823" id="Tsunami">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>drLofiObj5</File>
+			<Index>0xec</Index>
+		</Texture>
+		<SlotType>5000</SlotType>
+		<Tier>8</Tier>
+		<Description>The power of the sea, in a ring of waves.</Description>
+		<Sound>weapon/sprite_wand</Sound>
+		<Projectile>
+			<ObjectId>Wavess</ObjectId>
+			<Speed>160</Speed>
+			<MinDamage>96</MinDamage>
+			<MaxDamage>146</MaxDamage>
+			<LifetimeMS>364</LifetimeMS>
+			<Size>140</Size>
+			<MultiHit/>
+			<PassesCover/>
+			<ParticleTrail/>
+		</Projectile>
+		<NumProjectiles>10</NumProjectiles>
+		<ArcGap>36</ArcGap>
+		<OldSound>magicShoot</OldSound>
+		<Activate>Shoot</Activate>
+		<ActivateOnEquip stat="26" amount="4">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="27" amount="4">IncrementStat</ActivateOnEquip>
+		<Usable/>
+		<BagType>9</BagType>
+		<FameBonus>6</FameBonus>
+		<MpCost>111</MpCost>
+		<feedPower>855</feedPower>
+		<Soulbound/>
+	</Object>
+	<!-- BEGIN forge shards and Ascended items (tools/build_ascended_items.py) -->
+	<Object type="0x5840" id="Infernal Weapon Shard">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>ascendedItems8x8</File>
+			<Index>0x00</Index>
+		</Texture>
+		<SlotType>10</SlotType>
+		<Description>A shard of Oryx the Mad God's power, for forging weapon gear. Use it to put it in your forge storage, which the Divine Forge takes it from.</Description>
+		<Sound>use_potion</Sound>
+		<Consumable/>
+		<BagType>7</BagType>
+	</Object>
+	<Object type="0x5841" id="Infernal Ability Shard">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>ascendedItems8x8</File>
+			<Index>0x01</Index>
+		</Texture>
+		<SlotType>10</SlotType>
+		<Description>A shard of Oryx the Mad God's power, for forging ability gear. Use it to put it in your forge storage, which the Divine Forge takes it from.</Description>
+		<Sound>use_potion</Sound>
+		<Consumable/>
+		<BagType>7</BagType>
+	</Object>
+	<Object type="0x5842" id="Infernal Armor Shard">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>ascendedItems8x8</File>
+			<Index>0x02</Index>
+		</Texture>
+		<SlotType>10</SlotType>
+		<Description>A shard of Oryx the Mad God's power, for forging armor gear. Use it to put it in your forge storage, which the Divine Forge takes it from.</Description>
+		<Sound>use_potion</Sound>
+		<Consumable/>
+		<BagType>7</BagType>
+	</Object>
+	<Object type="0x5843" id="Infernal Accessory Shard">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>ascendedItems8x8</File>
+			<Index>0x03</Index>
+		</Texture>
+		<SlotType>10</SlotType>
+		<Description>A shard of Oryx the Mad God's power, for forging accessory gear. Use it to put it in your forge storage, which the Divine Forge takes it from.</Description>
+		<Sound>use_potion</Sound>
+		<Consumable/>
+		<BagType>7</BagType>
+	</Object>
+	<Object type="0x5844" id="Ascended Weapon Shard">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>ascendedItems8x8</File>
+			<Index>0x04</Index>
+		</Texture>
+		<SlotType>10</SlotType>
+		<Description>A shard of Oryx the Ascended God's power, for forging weapon gear. Use it to put it in your forge storage, which the Divine Forge takes it from.</Description>
+		<Sound>use_potion</Sound>
+		<Consumable/>
+		<BagType>9</BagType>
+	</Object>
+	<Object type="0x5845" id="Ascended Ability Shard">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>ascendedItems8x8</File>
+			<Index>0x05</Index>
+		</Texture>
+		<SlotType>10</SlotType>
+		<Description>A shard of Oryx the Ascended God's power, for forging ability gear. Use it to put it in your forge storage, which the Divine Forge takes it from.</Description>
+		<Sound>use_potion</Sound>
+		<Consumable/>
+		<BagType>9</BagType>
+	</Object>
+	<Object type="0x5846" id="Ascended Armor Shard">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>ascendedItems8x8</File>
+			<Index>0x06</Index>
+		</Texture>
+		<SlotType>10</SlotType>
+		<Description>A shard of Oryx the Ascended God's power, for forging armor gear. Use it to put it in your forge storage, which the Divine Forge takes it from.</Description>
+		<Sound>use_potion</Sound>
+		<Consumable/>
+		<BagType>9</BagType>
+	</Object>
+	<Object type="0x5847" id="Ascended Accessory Shard">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>ascendedItems8x8</File>
+			<Index>0x07</Index>
+		</Texture>
+		<SlotType>10</SlotType>
+		<Description>A shard of Oryx the Ascended God's power, for forging accessory gear. Use it to put it in your forge storage, which the Divine Forge takes it from.</Description>
+		<Sound>use_potion</Sound>
+		<Consumable/>
+		<BagType>9</BagType>
+	</Object>
+	<Object type="0x5850" id="Enthroned Sword">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>ascendedItems8x8</File>
+			<Index>0x0b</Index>
+		</Texture>
+		<SlotType>1</SlotType>
+		<Description>A placeholder for the first of the Ascended gear: its numbers come later.</Description>
+		<Ascended/>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/mithril_sword</Sound>
+		<Projectile>
+			<ObjectId>Majesty Bolt</ObjectId>
+			<Speed>100</Speed>
+			<MinDamage>0</MinDamage>
+			<MaxDamage>0</MaxDamage>
+			<LifetimeMS>400</LifetimeMS>
+		</Projectile>
+		<OldSound>bladeSwing</OldSound>
+		<feedPower>950</feedPower>
+		<BagType>9</BagType>
+		<Soulbound/>
+	</Object>
+	<Object type="0x5851" id="Enthroned Dagger">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>ascendedItems8x8</File>
+			<Index>0x0c</Index>
+		</Texture>
+		<SlotType>2</SlotType>
+		<Description>A placeholder for the first of the Ascended gear: its numbers come later.</Description>
+		<Ascended/>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/fire_dagger</Sound>
+		<Projectile>
+			<ObjectId>Black Magic</ObjectId>
+			<Speed>150</Speed>
+			<MinDamage>0</MinDamage>
+			<MaxDamage>0</MaxDamage>
+			<LifetimeMS>400</LifetimeMS>
+		</Projectile>
+		<OldSound>daggerSwing</OldSound>
+		<feedPower>950</feedPower>
+		<BagType>9</BagType>
+		<Soulbound/>
+	</Object>
+	<Object type="0x5852" id="Enthroned Bow">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>ascendedItems8x8</File>
+			<Index>0x0d</Index>
+		</Texture>
+		<SlotType>3</SlotType>
+		<Description>A placeholder for the first of the Ascended gear: its numbers come later.</Description>
+		<Ascended/>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/golden_bow</Sound>
+		<Projectile>
+			<ObjectId>Deep Enchantment Arrow</ObjectId>
+			<Speed>160</Speed>
+			<MinDamage>0</MinDamage>
+			<MaxDamage>0</MaxDamage>
+			<LifetimeMS>450</LifetimeMS>
+			<MultiHit/>
+		</Projectile>
+		<NumProjectiles>3</NumProjectiles>
+		<ArcGap>7.2</ArcGap>
+		<OldSound>arrowShoot</OldSound>
+		<feedPower>950</feedPower>
+		<BagType>9</BagType>
+		<Soulbound/>
+	</Object>
+	<Object type="0x5853" id="Enthroned Wand">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>ascendedItems8x8</File>
+			<Index>0x0e</Index>
+		</Texture>
+		<SlotType>8</SlotType>
+		<Description>A placeholder for the first of the Ascended gear: its numbers come later.</Description>
+		<Ascended/>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/wand_of_death</Sound>
+		<Projectile>
+			<ObjectId>Retribution Magic</ObjectId>
+			<Speed>200</Speed>
+			<LifetimeMS>400</LifetimeMS>
+			<MinDamage>0</MinDamage>
+			<MaxDamage>0</MaxDamage>
+			<MultiHit/>
+		</Projectile>
+		<OldSound>magicShoot</OldSound>
+		<feedPower>950</feedPower>
+		<BagType>9</BagType>
+		<Soulbound/>
+	</Object>
+	<Object type="0x5854" id="Enthroned Katana">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>ascendedItems8x8</File>
+			<Index>0x0f</Index>
+		</Texture>
+		<SlotType>24</SlotType>
+		<Description>A placeholder for the first of the Ascended gear: its numbers come later.</Description>
+		<Ascended/>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/long_sword</Sound>
+		<Projectile>
+			<ObjectId>Kusanagi Slash</ObjectId>
+			<Speed>150</Speed>
+			<LifetimeMS>350</LifetimeMS>
+			<MinDamage>0</MinDamage>
+			<MaxDamage>0</MaxDamage>
+			<MultiHit/>
+		</Projectile>
+		<OldSound>bladeSwing</OldSound>
+		<feedPower>950</feedPower>
+		<BagType>9</BagType>
+		<Soulbound/>
+	</Object>
+	<Object type="0x5855" id="Enthroned Dual Blades">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>ascendedItems8x8</File>
+			<Index>0x10</Index>
+		</Texture>
+		<SlotType>36</SlotType>
+		<Description>A placeholder for the first of the Ascended gear: its numbers come later.</Description>
+		<Ascended/>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/fire_dagger</Sound>
+		<Projectile>
+			<ObjectId>Master Proj</ObjectId>
+			<Speed>200</Speed>
+			<MinDamage>0</MinDamage>
+			<MaxDamage>0</MaxDamage>
+			<LifetimeMS>250</LifetimeMS>
+			<MultiHit/>
+			<ArmorPiercing/>
+		</Projectile>
+		<OldSound>daggerSwing</OldSound>
+		<feedPower>950</feedPower>
+		<BagType>9</BagType>
+		<Soulbound/>
+	</Object>
+	<Object type="0x5856" id="Enthroned Fists">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>ascendedItems8x8</File>
+			<Index>0x11</Index>
+		</Texture>
+		<SlotType>200</SlotType>
+		<Description>A placeholder for the first of the Ascended gear: its numbers come later.</Description>
+		<Ascended/>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/fire_dagger</Sound>
+		<Projectile>
+			<ObjectId>Bone Proj</ObjectId>
+			<Speed>125</Speed>
+			<MinDamage>0</MinDamage>
+			<MaxDamage>0</MaxDamage>
+			<LifetimeMS>400</LifetimeMS>
+			<MultiHit/>
+		</Projectile>
+		<OldSound>daggerSwing</OldSound>
+		<feedPower>950</feedPower>
+		<BagType>9</BagType>
+		<Soulbound/>
+	</Object>
+	<Object type="0x5857" id="Enthroned Spear">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>ascendedItems16x16</File>
+			<Index>0x00</Index>
+		</Texture>
+		<SlotType>17</SlotType>
+		<Description>Oryx the Ascended God's own spear, borne as a staff, a placeholder: its numbers come later.</Description>
+		<Ascended/>
+		<RateOfFire>1</RateOfFire>
+		<Sound>weapon/wand_of_death</Sound>
+		<Projectile>
+			<ObjectId>Staff of Endless Energy Projectile</ObjectId>
+			<Speed>180</Speed>
+			<MinDamage>0</MinDamage>
+			<MaxDamage>0</MaxDamage>
+			<LifetimeMS>475</LifetimeMS>
+			<Amplitude>0.5</Amplitude>
+			<Frequency>2</Frequency>
+		</Projectile>
+		<NumProjectiles>2</NumProjectiles>
+		<ArcGap>0</ArcGap>
+		<OldSound>magicShoot</OldSound>
+		<BagType>9</BagType>
+		<Soulbound/>
+	</Object>
+	<Object type="0x5858" id="Enthroned Hide">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>ascendedItems8x8</File>
+			<Index>0x12</Index>
+		</Texture>
+		<SlotType>6</SlotType>
+		<Description>A placeholder for the first of the Ascended gear: its numbers come later.</Description>
+		<Ascended/>
+		<BagType>9</BagType>
+		<Soulbound/>
+	</Object>
+	<Object type="0x5859" id="Enthroned Plate">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>ascendedItems8x8</File>
+			<Index>0x13</Index>
+		</Texture>
+		<SlotType>7</SlotType>
+		<Description>A placeholder for the first of the Ascended gear: its numbers come later.</Description>
+		<Ascended/>
+		<BagType>9</BagType>
+		<Soulbound/>
+	</Object>
+	<Object type="0x585a" id="Enthroned Robe">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>ascendedItems8x8</File>
+			<Index>0x0a</Index>
+		</Texture>
+		<SlotType>14</SlotType>
+		<Description>Oryx the Ascended God's own robe, a placeholder: its numbers come later.</Description>
+		<Ascended/>
+		<BagType>9</BagType>
+		<Soulbound/>
+	</Object>
+	<Object type="0x585b" id="Enthroned Helm">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>ascendedItems8x8</File>
+			<Index>0x08</Index>
+		</Texture>
+		<SlotType>16</SlotType>
+		<Description>Oryx the Ascended God's own helm, a placeholder: its numbers come later.</Description>
+		<Ascended/>
+		<feedPower>855</feedPower>
+		<BagType>9</BagType>
+		<Soulbound/>
+	</Object>
+	<Object type="0x585c" id="Enthroned Boots">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>ascendedItems8x8</File>
+			<Index>0x09</Index>
+		</Texture>
+		<SlotType>9</SlotType>
+		<Description>Oryx the Ascended God's own boots, worn as a ring, a placeholder: its numbers come later.</Description>
+		<Ascended/>
+		<feedPower>325</feedPower>
+		<BagType>9</BagType>
+		<Soulbound/>
+	</Object>
+	<Object type="0x585d" id="Enthroned Ring of Wrath">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>ascendedItems16x16</File>
+			<Index>0x01</Index>
+		</Texture>
+		<SlotType>9</SlotType>
+		<Description>Oryx the Ascended God's own ring of wrath, a placeholder: its numbers come later.</Description>
+		<Ascended/>
+		<feedPower>325</feedPower>
+		<BagType>9</BagType>
+		<Soulbound/>
+	</Object>
+	<Object type="0x585e" id="Enthroned Ring of Grace">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>ascendedItems16x16</File>
+			<Index>0x02</Index>
+		</Texture>
+		<SlotType>9</SlotType>
+		<Description>Oryx the Ascended God's own ring of grace, a placeholder: its numbers come later.</Description>
+		<Ascended/>
+		<feedPower>325</feedPower>
+		<BagType>9</BagType>
+		<Soulbound/>
+	</Object>
+	<!-- END forge shards and Ascended items -->
+	<!-- Oryx 5's gems, his versions of Oryx 4's Infernal ones (sprites: tools/draw_oryx_uts.py; their
+	     effects: Item.LowHealthBoost and AbilityBoost, Player.ItemProcs.cs) -->
+	<Object type="0x5860" id="Ascended Gem of Adoration">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>oryxUts8x8</File>
+			<Index>0x02</Index>
+		</Texture>
+		<SlotType>9</SlotType>
+		<Description>The Ascended God's own gem of adoration, which will not let its bearer fall: as their life fails, it floods them with vitality.</Description>
+		<ExtraTooltipData>
+			<EffectInfo name="Last Stand" description="When your health drops below 20%: +400 Vitality for 3 seconds"/>
+		</ExtraTooltipData>
+		<LowHealthBoost stat="26" amount="400" duration="3" below="0.2"/>
+		<ActivateOnEquip stat="0" amount="150">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="26" amount="5">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="20" amount="5">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="28" amount="5">IncrementStat</ActivateOnEquip>
+		<BagType>6</BagType>
+		<FameBonus>5</FameBonus>
+		<feedPower>350</feedPower>
+		<Soulbound/>
+	</Object>
+	<Object type="0x5861" id="Ascended Gem of Tenderness">
+		<Class>Equipment</Class>
+		<Item/>
+		<Texture>
+			<File>oryxUts8x8</File>
+			<Index>0x03</Index>
+		</Texture>
+		<SlotType>9</SlotType>
+		<Description>The Ascended God's own gem of tenderness. Now and then, the power its bearer calls on answers with wisdom.</Description>
+		<ExtraTooltipData>
+			<EffectInfo name="Grace" description="Each use of your ability: a 35% chance of +50 Wisdom for 4 seconds"/>
+		</ExtraTooltipData>
+		<AbilityBoost stat="27" amount="50" duration="4" chance="0.35"/>
+		<ActivateOnEquip stat="27" amount="10">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="3" amount="150">IncrementStat</ActivateOnEquip>
+		<ActivateOnEquip stat="22" amount="10">IncrementStat</ActivateOnEquip>
+		<BagType>6</BagType>
+		<FameBonus>5</FameBonus>
+		<feedPower>350</feedPower>
+		<Soulbound/>
 	</Object>
 </Objects>

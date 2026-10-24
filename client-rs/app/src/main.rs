@@ -11,6 +11,7 @@ mod game;
 mod ground;
 mod hud;
 mod login;
+mod forge;
 mod market;
 mod particles;
 mod prof;
@@ -160,7 +161,7 @@ struct App {
     ctrl_held: bool,
     /// Right button presses since the last frame, and where (Ctrl+right-click breaks items down).
     right_clicks: Vec<(f64, f64)>,
-    /// `--mouse` was given: ignore the real cursor.
+    /// `--mouse` was given: ignore the real cursor and its buttons.
     mouse_fixed: bool,
     /// `--mouse-script` (tests): (ms after joining, down/up/move, where), oldest first.
     mouse_script: Vec<(i32, MouseStep, (f64, f64))>,
@@ -197,6 +198,9 @@ struct App {
     audio: Option<audio::Audio>,
     /// The marketplace window.
     market: market::Market,
+    /// The Divine Forge's window, and what it asked of the server on opening.
+    forge: forge::Forge,
+    forge_acts: Vec<forge::Act>,
     /// Key bindings, graphics and sound settings, and their window.
     settings: options::Settings,
     options_ui: options::OptionsUi,
@@ -228,13 +232,18 @@ struct App {
 
 /// Open the window of the NPC we stand by. True for the character changer: back to the
 /// character list.
-fn npc_open(kind: npc::NpcKind, game: &Game, npcs: &mut npc::Npcs, market: &mut market::Market, list: Option<&bsk_net::account::CharList>, data: &bsk_data::GameData) -> bool {
+#[allow(clippy::too_many_arguments)]
+fn npc_open(kind: npc::NpcKind, game: &Game, npcs: &mut npc::Npcs, market: &mut market::Market, forge: &mut forge::Forge, forge_acts: &mut Vec<forge::Act>, list: Option<&bsk_net::account::CharList>, data: &bsk_data::GameData) -> bool {
     use npc::{NpcKind, Prompt, Window};
     let Some(me) = game.world.as_ref().and_then(|w| w.player()) else { return false };
     let window = match kind {
         NpcKind::CharacterChanger => return true,
         NpcKind::Market => {
             market.show(data);
+            return false;
+        }
+        NpcKind::Forge => {
+            forge_acts.extend(forge.show(data));
             return false;
         }
         NpcKind::Reskin => {
@@ -425,10 +434,12 @@ enum MouseStep {
     Down,
     Up,
     Move,
+    /// A right-click.
+    Right,
 }
 
 /// `--mouse-script "down@1500:x,y;move@1600:x,y;up@1700:x,y"` (desktop tests): left-button
-/// steps at times (ms) after joining, for drags and clicks on the HUD.
+/// steps at times (ms) after joining, for drags and clicks on the HUD; `right` right-clicks.
 fn mouse_script_arg() -> Vec<(i32, MouseStep, (f64, f64))> {
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -444,6 +455,7 @@ fn mouse_script_arg() -> Vec<(i32, MouseStep, (f64, f64))> {
                     "down" => MouseStep::Down,
                     "up" => MouseStep::Up,
                     "move" => MouseStep::Move,
+                    "right" => MouseStep::Right,
                     _ => return None,
                 };
                 Some((ms.parse().ok()?, kind, (x.parse().ok()?, y.parse().ok()?)))
@@ -470,10 +482,12 @@ fn mouse_arg() -> Option<(f64, f64)> {
     None
 }
 
-/// The window's icon: the AIR client's `moe.png`, built in.
+/// The window's icon: the website's Do Damage crown (tools/draw_client_icon.py), built in. The small
+/// one is the title bar's, the big one the taskbar's (on Windows they're set apart).
 #[cfg(not(target_arch = "wasm32"))]
-fn window_icon() -> Option<winit::window::Icon> {
-    let img = image::load_from_memory(include_bytes!("../../../client/src/moe.png")).ok()?.to_rgba8();
+fn window_icon(big: bool) -> Option<winit::window::Icon> {
+    let png: &[u8] = if big { include_bytes!("../icons/icon-256.png") } else { include_bytes!("../icons/icon-32.png") };
+    let img = image::load_from_memory(png).ok()?.to_rgba8();
     let (w, h) = img.dimensions();
     winit::window::Icon::from_rgba(img.into_raw(), w, h).ok()
 }
@@ -509,8 +523,18 @@ fn walk_to_arg() -> Vec<(f64, f64)> {
     text_arg("--walk-to").map_or_else(Vec::new, |v| v.split(';').filter_map(point).collect())
 }
 
+/// `--say`'s lines, with `/autoaim` first for `--aim auto`: aiming at the nearest enemy is staff's
+/// `/autoaim`, so it only works on a staff account once the server has said yes.
+fn say_lines() -> Vec<String> {
+    let mut lines = say_arg();
+    if aim_arg().is_none() {
+        lines.insert(0, "/autoaim".to_string());
+    }
+    lines
+}
+
 /// `--aim <degrees>` (desktop tests): the screen direction scripted fire aims at, or `auto` for
-/// the nearest enemy.
+/// the nearest enemy (staff only: see `say_lines`).
 fn aim_arg() -> Option<f64> {
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -567,6 +591,7 @@ fn hold_args() -> Vec<(KeyCode, i32)> {
                     "space" => KeyCode::Space,
                     "hp" => KeyCode::KeyF,
                     "mp" => KeyCode::KeyV,
+                    "i" => KeyCode::F22, // autofire on or off, whatever key it's bound to
                     "o" => KeyCode::KeyO,
                     "z" => KeyCode::KeyZ,
                     "-" => KeyCode::F24, // a pause: holds nothing
@@ -1529,14 +1554,20 @@ impl App {
                     MouseStep::Down => self.clicks.push((true, pos)),
                     MouseStep::Up => self.clicks.push((false, pos)),
                     MouseStep::Move => {}
+                    MouseStep::Right => self.right_clicks.push(pos),
                 }
             }
         }
         // A scripted key starting counts as a press.
         let scripted = self.scripted_key(now);
         if scripted != self.last_scripted {
-            if let Some(k) = scripted {
-                self.pressed.push(k);
+            match scripted {
+                Some(KeyCode::F22) => {
+                    self.autofire = !self.autofire;
+                    log::info!("autofire {}", if self.autofire { "on" } else { "off" });
+                }
+                Some(k) => self.pressed.push(k),
+                None => {}
             }
             self.last_scripted = scripted;
         }
@@ -1689,7 +1720,7 @@ impl App {
                         Some(hud::Interact { id, kind: hud::InteractKind::Portal, .. }) => game.use_portal(id),
                         Some(hud::Interact { id, kind: hud::InteractKind::Shop { .. }, .. }) => game.buy(id),
                         Some(hud::Interact { kind: hud::InteractKind::Npc { kind, .. }, .. }) => {
-                            to_chars |= npc_open(kind, game, &mut self.npcs, &mut self.market, self.front.list.as_ref(), data);
+                            to_chars |= npc_open(kind, game, &mut self.npcs, &mut self.market, &mut self.forge, &mut self.forge_acts, self.front.list.as_ref(), data);
                             self.keys.clear();
                         }
                         _ => {
@@ -1756,7 +1787,7 @@ impl App {
             }
             if game.world.as_ref().is_some_and(|w| w.player().is_some()) {
                 if let Some(kind) = self.npc_test.take().and_then(|c| npc::NpcKind::of_class(&c)) {
-                    to_chars |= npc_open(kind, game, &mut self.npcs, &mut self.market, self.front.list.as_ref(), data);
+                    to_chars |= npc_open(kind, game, &mut self.npcs, &mut self.market, &mut self.forge, &mut self.forge_acts, self.front.list.as_ref(), data);
                 }
             }
             // The options window takes the mouse while it's open.
@@ -1792,6 +1823,28 @@ impl App {
             }
             for act in market_acts {
                 game.market(act);
+            }
+            // The forge window: the same.
+            let mut forge_acts = std::mem::take(&mut self.forge_acts);
+            if self.forge.open {
+                for (down, pos) in std::mem::take(&mut self.clicks) {
+                    if down {
+                        forge_acts.extend(self.forge.click(pos, data));
+                    }
+                }
+                self.mouse_down = false;
+            }
+            for e in std::mem::take(&mut game.forge_events) {
+                self.forge.event(e, data);
+            }
+            for act in forge_acts {
+                game.forge(act);
+            }
+            // --type: into the forge's search once its recipes came.
+            if self.forge.open && self.forge.loaded() {
+                if let Some(t) = self.type_text.take() {
+                    self.forge.key(KeyCode::KeyA, Some(&t), data);
+                }
             }
             // An NPC's window takes the keyboard and the mouse while it's open.
             // --type: into a prompt (and Enter), or onto the board being edited.
@@ -1832,7 +1885,11 @@ impl App {
             if let Some(p) = &built {
                 p.moved(&mut self.hud, self.mouse);
                 // Ctrl+right-click: break the item down (ItemGridMediator.onRightCtrlClick).
+                // A right-click on a nearby player keeps their card open.
                 for pos in std::mem::take(&mut self.right_clicks) {
+                    if !self.ctrl_held && p.right_click(&mut self.hud, &lay, pos) {
+                        continue;
+                    }
                     if let (true, Some(slot)) = (self.ctrl_held, p.slot_at(pos)) {
                         if slot.item > 0 && matches!(slot.kind, hud::SlotKind::Inventory(_) | hud::SlotKind::Container) {
                             game.breakdown(now, slot.owner, slot.index);
@@ -1878,7 +1935,7 @@ impl App {
                 }
                 for action in actions {
                     if let hud::Action::Button(hud::Button::Npc(kind)) = action {
-                        to_chars |= npc_open(kind, game, &mut self.npcs, &mut self.market, self.front.list.as_ref(), data);
+                        to_chars |= npc_open(kind, game, &mut self.npcs, &mut self.market, &mut self.forge, &mut self.forge_acts, self.front.list.as_ref(), data);
                         self.keys.clear();
                         continue;
                     }
@@ -1964,13 +2021,15 @@ impl App {
                             .fold(0.0, f64::max);
                         view_radius = Some(far);
                         // Firing: toward the mouse from where we stand on the screen (MapUserInput),
-                        // or toward --aim for scripted fire.
+                        // or toward --aim for scripted fire. With staff's /autoaim on (and only
+                        // then, for --aim auto too), at the nearest enemy, or the mouse if there's none.
                         if wants_fire {
+                            let auto = game.auto_aim.then(|| nearest_enemy_angle(world, data)).flatten();
                             fire = match (scripted_fire, script_aim) {
                                 (true, Some(screen_angle)) => Some(game.camera_angle + screen_angle),
-                                (true, None) => nearest_enemy_angle(world, data),
+                                (true, None) => auto,
                                 _ if on_hud(mouse) => None,
-                                _ => Some(game.camera_angle + (mouse.1 - camera.cy).atan2(mouse.0 - camera.cx)),
+                                _ => auto.or(Some(game.camera_angle + (mouse.1 - camera.cy).atan2(mouse.0 - camera.cx))),
                             };
                         }
                         let conditions = world.player().map_or([0, 0], |p| p.conditions());
@@ -2087,6 +2146,7 @@ impl App {
                 hud::draw_windows(&mut ui, &lay, world, p, &social, mouse);
                 self.npcs.draw(&mut ui, &lay, world.player(), mouse, now);
                 self.market.draw(&mut ui, &lay, world.player(), mouse, now);
+                self.forge.draw(&mut ui, &lay, world.player(), mouse, now);
                 prof::mark("chat..windows");
                 hud::draw_overlay(&mut ui, &lay, world, p, &self.hud, mouse);
                 prof::mark("overlay");
@@ -2101,6 +2161,7 @@ impl App {
             && !self.options_ui.open
             && !self.changelog.open
             && !self.market.open
+            && !self.forge.open
             && self.npcs.window.is_none()
             && self.hud.drag.is_none();
         if crosshair {
@@ -2255,8 +2316,14 @@ impl ApplicationHandler<UserEvent> for App {
                 Some((w, h)) => attributes.with_inner_size(winit::dpi::PhysicalSize::new(w, h)),
                 None => attributes.with_inner_size(winit::dpi::LogicalSize::new(1280.0, 800.0)),
             }
-            // The AIR client's icon (WebMain-app.xml).
-            .with_window_icon(window_icon())
+            .with_window_icon(window_icon(false))
+            // A scripted test run opens behind the window in use, so it doesn't take the keyboard.
+            .with_active(!args.iter().any(|a| matches!(a.as_str(), "--shot" | "--hold" | "--mouse-script")))
+        };
+        #[cfg(target_os = "windows")]
+        let attributes = {
+            use winit::platform::windows::WindowAttributesExtWindows;
+            attributes.with_taskbar_icon(window_icon(true))
         };
         // In a browser the page's CSS sizes the canvas.
         #[cfg(target_arch = "wasm32")]
@@ -2398,6 +2465,15 @@ impl ApplicationHandler<UserEvent> for App {
                     self.keys.remove(&code);
                     return;
                 }
+                if self.forge.open && matches!(self.phase, Phase::Playing(_)) {
+                    if pressed {
+                        if let Some(l) = &self.loaded {
+                            self.forge.key(code, event.text.as_deref(), &l.data);
+                        }
+                    }
+                    self.keys.remove(&code);
+                    return;
+                }
                 if self.options_ui.open && matches!(self.phase, Phase::Playing(_)) {
                     if pressed && self.options_ui.key(code, &mut self.settings) {
                         self.settings.save();
@@ -2490,6 +2566,17 @@ impl ApplicationHandler<UserEvent> for App {
                 self.wheel -= notches;
                 self.front.wheel(notches as i32);
             }
+            WindowEvent::MouseWheel { delta, .. } if self.forge.open && matches!(self.phase, Phase::Playing(_)) => {
+                // The forge's recipes scroll a row a notch.
+                let lines = match delta {
+                    winit::event::MouseScrollDelta::LineDelta(_, y) => y,
+                    winit::event::MouseScrollDelta::PixelDelta(p) => (p.y / 40.0) as f32,
+                };
+                self.wheel += lines;
+                let notches = self.wheel.trunc();
+                self.wheel -= notches;
+                self.forge.scroll(-notches as i32);
+            }
             WindowEvent::MouseWheel { delta, .. } => {
                 let free = matches!(self.phase, Phase::Playing(_))
                     && !(self.game_menu || self.options_ui.open || self.market.open || self.npcs.window.is_some());
@@ -2509,6 +2596,7 @@ impl ApplicationHandler<UserEvent> for App {
                     }
                 }
             }
+            WindowEvent::MouseInput { .. } if self.mouse_fixed => {}
             WindowEvent::MouseInput { state: ElementState::Pressed, button: winit::event::MouseButton::Right, .. } => {
                 self.right_clicks.push(self.mouse);
             }
@@ -2582,7 +2670,7 @@ fn main() {
         teller: 0,
         chat_names: Vec::new(),
         chat_send: Vec::new(),
-        say: say_arg(),
+        say: say_lines(),
         say_sent_in: None,
         say_given: (!say_arg().is_empty()).then_some(()),
         alt_held: false,
@@ -2618,6 +2706,8 @@ fn main() {
         settings: options::Settings::load(),
         options_ui: Default::default(),
         market: Default::default(),
+        forge: Default::default(),
+        forge_acts: Vec::new(),
         type_text: text_arg("--type"),
         npc_test: text_arg("--npc"),
         effect_test: text_arg("--effect").and_then(|t| t.parse().ok()).map(|t| (t, i32::MIN / 2)),

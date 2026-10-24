@@ -8,6 +8,10 @@ them in code (AssetLoader.as, DoomedAssets.as, EmbeddedData.as). This script rea
 writes the same registrations as JSON, so the Rust client loads exactly what the AIR client loads,
 from the same files. Run it again whenever those files change; don't edit the JSON by hand.
 
+Sheets, characters and game data only the Rust client uses (`RS_ONLY_SETS`, `RS_ONLY_CHARS`,
+`RS_ONLY_GROUND_XML`, `RS_ONLY_OBJECT_XML`: art made after the AIR client was retired) are added
+after the AIR client's.
+
 All paths in the manifest are relative to client/src.
 """
 
@@ -26,6 +30,50 @@ EMBEDDED_DATA = "kabam/rotmg/assets/EmbeddedData.as"
 DOOMED_ASSETS = "kabam/rotmg/assets/doomed/DoomedAssets.as"
 EMOTES = "kabam/rotmg/emotes/Emotes.as"
 EMOTES_XML = "kabam/rotmg/assets/custom/xmls/EmotesXML.xml"
+# (name, file, cell width, cell height): sheets the AIR client doesn't register
+RS_ONLY_SETS = [
+    # the Divine Forge (tools/draw_forge_sprite.py)
+    ("customAssets32x32", "kabam/rotmg/assets/custom/images/CustomAssets32x32.png", 32, 32),
+    # Oryx's Inferno's burnt sanctuary tiles and portal (tools/build_hash_cellar.py)
+    ("hashCellar8x8", "kabam/rotmg/assets/custom/images/HashCellar8x8.png", 8, 8),
+    ("hashCellar16x16", "kabam/rotmg/assets/custom/images/HashCellar16x16.png", 16, 16),
+    ("hashCellar32x32", "kabam/rotmg/assets/custom/images/HashCellar32x32.png", 32, 32),
+    # Oryx's Elysium's marble and gold tiles, gates, portals and divine shots (tools/build_elysium.py)
+    ("elysium8x8", "kabam/rotmg/assets/custom/images/Elysium8x8.png", 8, 8),
+    ("elysium16x16", "kabam/rotmg/assets/custom/images/Elysium16x16.png", 16, 16),
+    ("elysium32x32", "kabam/rotmg/assets/custom/images/Elysium32x32.png", 32, 32),
+    # the gateways of Oryx's Inferno and Oryx's Elysium, and the Oryx chain's incantations
+    # (tools/draw_oryx_gates.py)
+    ("oryxGates32x32", "kabam/rotmg/assets/custom/images/OryxGates32x32.png", 32, 32),
+    ("oryxIncantations16x16", "kabam/rotmg/assets/custom/images/OryxIncantations16x16.png", 16, 16),
+    # the T15 weapons, their T14s in Oryx 5's colours, and the T16 armours, their T15s in them
+    # (tools/draw_t15_weapons.py)
+    ("t15Weapons8x8", "kabam/rotmg/assets/custom/images/T15Weapons8x8.png", 8, 8),
+    ("t16Armors8x8", "kabam/rotmg/assets/custom/images/T16Armors8x8.png", 8, 8),
+    # the forge shards and Oryx 5's Ascended pieces (tools/build_ascended_items.py)
+    ("ascendedItems8x8", "kabam/rotmg/assets/custom/images/AscendedItems8x8.png", 8, 8),
+    ("ascendedItems16x16", "kabam/rotmg/assets/custom/images/AscendedItems16x16.png", 16, 16),
+    # Oryx 4's red-shaded daggers, Oryx 5's Ascended gems, and his weapons' shots and helpers
+    # (tools/draw_oryx_uts.py)
+    ("oryxUts8x8", "kabam/rotmg/assets/custom/images/OryxUts8x8.png", 8, 8),
+    ("oryxUts16x16", "kabam/rotmg/assets/custom/images/OryxUts16x16.png", 16, 16),
+    # ability shots recoloured for items of their own (tools/draw_ability_fx.py)
+    ("abilityFx8x8", "kabam/rotmg/assets/custom/images/AbilityFx8x8.png", 8, 8),
+]
+# (name, file, frame width, frame height, sheet width, sheet height, direction): characters
+RS_ONLY_CHARS = [
+    # Oryx's Inferno's Infernal Court and Oryx 4 (tools/build_hash_cellar.py)
+    ("hashCellarChars16x16", "kabam/rotmg/assets/custom/images/HashCellarChars16x16.png", 16, 16, 112, 16, "right"),
+    ("hashCellarOryx16x16", "kabam/rotmg/assets/custom/images/HashCellarOryx16x16.png", 16, 16, 112, 16, "down"),
+    # Oryx's Elysium's Ascended Host and guardians, and Oryx 5 (tools/build_elysium.py)
+    ("elysiumChars16x16", "kabam/rotmg/assets/custom/images/ElysiumChars16x16.png", 16, 16, 112, 16, "right"),
+    ("elysiumOryx16x16", "kabam/rotmg/assets/custom/images/ElysiumOryx16x16.png", 16, 16, 112, 16, "down"),
+]
+# game data only the Rust client loads
+RS_ONLY_GROUND_XML = ["kabam/rotmg/assets/custom/xmls/HashCellarGrounds.xml",
+                      "kabam/rotmg/assets/custom/xmls/ElysiumGrounds.xml"]
+RS_ONLY_OBJECT_XML = ["kabam/rotmg/assets/custom/xmls/HashCellarObjects.xml",
+                      "kabam/rotmg/assets/custom/xmls/ElysiumObjects.xml"]
 ADD_EMOTE = re.compile(r'addEmote\("((?:[^"\\]|\\.)*)",\s*AssetLibrary\.getImageFromSet\("(\w+)",\s*(\d+)\)(?:,\s*([\d.]+))?')
 
 EMBED_VAR = re.compile(
@@ -160,13 +208,16 @@ def main():
     manifest = {
         "_generated_by": "tools/gen_rs_manifest.py; paths are relative to client/src",
         # The AIR client registers in this order; later registrations of a name replace earlier ones.
-        "image_sets": image_sets(loader, assets, "EmbeddedAssets") + image_sets(doomed_code, doomed, "DoomedAssets"),
+        "image_sets": image_sets(loader, assets, "EmbeddedAssets") + image_sets(doomed_code, doomed, "DoomedAssets")
+                      + [{"name": n, "file": f, "w": w, "h": h} for n, f, w, h in RS_ONLY_SETS],
         "animated_chars": animated_chars(loader, assets, "EmbeddedAssets")
-                          + animated_chars(doomed_code, doomed, "DoomedAssets"),
+                          + animated_chars(doomed_code, doomed, "DoomedAssets")
+                          + [{"name": n, "file": f, "mask": None, "w": w, "h": h, "sheet_w": sw, "sheet_h": sh, "dir": d}
+                             for n, f, w, h, sw, sh, d in RS_ONLY_CHARS],
         "models": [{"name": n, "file": assets.resolve(e, "EmbeddedAssets")} for n, e in MODEL.findall(models_block)],
         "particles": assets.resolve("particlesEmbed", "EmbeddedAssets"),
-        "ground_xml": data_files(data_code, data, "groundFiles"),
-        "object_xml": data_files(data_code, data, "objectFiles"),
+        "ground_xml": data_files(data_code, data, "groundFiles") + RS_ONLY_GROUND_XML,
+        "object_xml": data_files(data_code, data, "objectFiles") + RS_ONLY_OBJECT_XML,
         "region_xml": data_files(data_code, data, "regionFiles"),
         "fonts": {"regular": "com/company/ui/fonts/MyriadPro.otf", "bold": "com/company/ui/fonts/MyriadProBold.otf"},
         # The title screen's background (TitleView's NewHomeScreen).

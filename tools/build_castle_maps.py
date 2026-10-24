@@ -24,15 +24,15 @@ The nexus, from the middle out:
   one portal per tile) along a red carpet;
 - a market ward behind a colonnade on each side: pavilions whose stalls are shop regions
   (`Store N`, see `MerchantLists.Shops`), as many stalls per shop as the old map had;
-- the south yard: the Battle Arena portals (`ARENA_PORTALS`, which `DoomedWorlds.NexusPortals`
-  must match) with the Arena Leaderboard between them, the Wine Cellar, the gatehouse with its portcullis, the class memorial and the
-  treasury. The four shared vault chests keep their items in Redis by tile (`DbNexusChest`), so
+- the south yard: the Arena portal (`ARENA_PORTALS`, which `DoomedWorlds.NexusPortals`
+  must match) west of the road with the Arena Leaderboard east of it, the Wine Cellar, the gatehouse with its portcullis, the class memorial
+  with the Divine Forge in its middle on a floor of gold, and the treasury. The four shared vault chests keep their items in Redis by tile (`DbNexusChest`), so
   they stay on the tiles they had in the old map (`CHESTS`).
 
 The vault is a cellar under the castle, walled with the tall walls of Oryx's Sanctuary and dark
 beyond them (`Grid.underground_walls`): its chest hall (the `Vault` region; `VaultWorld` fills the chests
 nearest the spawn first, so only their number matters), the gift chests (`Gifting Chest`) and a
-court with the Potion Storage, Armoire, Guild Chronicle and the portals.
+court with the Potion Storage, Armoire, Guild Chronicle, the Training Dummy and the portals.
 
 `--preview` draws each map from the game's sprites, one tile per 8 pixels, to check a change
 without starting a server.
@@ -63,6 +63,7 @@ HALL_FLOOR = "Dragon Tile Purple"   # great halls
 CARPET = "Gothic Rug"               # their red carpets
 STONE = "Castle Stone Floor Tile Dark"  # treasuries and the memorial
 MOAT = "Black Water Light"          # dark violet water, out of reach outside the walls
+GOLD_FLOOR = ["Elder Gold Tile"] + [f"Elder Gold Tile Lit {i}" for i in range(1, 7)]  # the forge's floor, dark to bright
 
 # objects
 WALL_OUT = "GhostShip Wall"         # the curtain wall's outer face
@@ -322,10 +323,11 @@ GATE = (46, 50)                     # the gate passage, x0 and x1
 CHESTS = [(61, 70), (79, 70), (61, 74), (79, 74)]
 TREASURY = (57, 66, 83, 78)         # its walls
 MEMORIAL = (23, 72)                 # the middle of the class memorial
+FORGE = (23, 73)                    # the Divine Forge (its sprite stands four tiles tall above it)
 CLASSES = ["Warrior", "Assassin", "Sorcerer", "Priest", "Trickster", "Wizard", "Knight", "Rogue",
            "Mystic", "Necromancer", "Huntress", "Archer", "Paladin"]
-# where DoomedWorlds.AddNexusPortals puts the Battle Arena portals (keep the two in step)
-ARENA_PORTALS = [(42.5, 68.5), (54.5, 68.5)]
+# where DoomedWorlds.AddNexusPortals puts the Arena portal (keep the two in step)
+ARENA_PORTALS = [(45.5, 68.5)]
 WINE_CELLAR = (48, 77)
 # (name, region, x0, y0, columns, rows): see Grid.pavilion. The stall counts are the old map's:
 # one stall per item where a shop has few, so each stall shows something different.
@@ -422,7 +424,7 @@ def build_nexus():
     g.put(COLONNADES[1] - 4, cy - 6, FLOOR, "BulletinBoard")
     g.put(COLONNADES[1] - 2, cy - 6, FLOOR, "BulletinBoard")
 
-    # the south yard: arena portals, the wine cellar, the gate
+    # the south yard: the arena portal, the wine cellar, the gate
     g.rect(36, 66, 60, 81, PLAZA)
     g.path(cx - 1, 64, cx + 1, 85)
     for x, y in ARENA_PORTALS:
@@ -430,8 +432,9 @@ def build_nexus():
         g.paths.add((int(x), int(y)))
         g.banner(int(x), int(y) - 2, PLAZA)
     g.put(WINE_CELLAR[0], WINE_CELLAR[1], PATH, "Locked Wine Cellar Portal")
-    # the arena leaderboard (its trophy opens the top runs in the Rust client), between the portals
-    g.put(cx, int(ARENA_PORTALS[0][1]), PATH, "Arena Leaderboard")
+    # the arena leaderboard (its trophy opens the top runs in the Rust client), across the road
+    # from the portal
+    g.put(2 * cx - int(ARENA_PORTALS[0][0]), int(ARENA_PORTALS[0][1]), PLAZA, "Arena Leaderboard")
     for x in (38, 44, 52, 58):
         g.brazier(x, 72, PLAZA)
     for y in range(67, 81, 3):
@@ -447,19 +450,25 @@ def build_nexus():
     for x in (GATE[0] - 1, GATE[1] + 1):
         g.brazier(x, 82, PATH)
 
-    # the class memorial: a grave for each class in a ring around a brazier
+    # the class memorial: a grave for each class in a ring around the Divine Forge, on gold that
+    # brightens towards the forge's fire
     mx, my = MEMORIAL
+    fx, fy = FORGE
+
+    def gold(x, y):
+        d = math.hypot(x - fx, y - fy + 1.5)
+        return GOLD_FLOOR[max(0, min(6, int(7.2 - d)))]
+
     for y in range(my - 9, my + 10):
         for x in range(mx - 9, mx + 10):
             d = math.hypot(x - mx, y - my)
             if d <= 8.4 and not g.is_wall(x, y):
-                g.put(x, y, STONE if d <= 6.6 else PATH)
+                g.put(x, y, gold(x, y) if d <= 6.6 else PATH)
     for i, cls in enumerate(CLASSES):
         a = 2 * math.pi * i / len(CLASSES) - math.pi / 2
-        g.put(int(round(mx + math.cos(a) * 5)), int(round(my + math.sin(a) * 5)), STONE, f"destnex {cls} Grave")
-    g.put(mx, my, STONE, BRAZIER_OBJ, slot=CENTRE)
-    for dx, dy in ((-2, 0), (2, 0), (0, -2), (0, 2)):
-        g.put(mx + dx, my + dy, STONE, CANDLES, slot=ACCENT)
+        x, y = int(round(mx + math.cos(a) * 5)), int(round(my + math.sin(a) * 5))
+        g.put(x, y, gold(x, y), f"destnex {cls} Grave")
+    g.put(fx, fy, gold(fx, fy), "Divine Forge")
     g.path(mx + 8, my - 1, 35, my + 1)
 
     # the treasury: walled, its door to the west, the chests where they always were
@@ -494,6 +503,7 @@ def check_nexus(g):
     for x, y in ARENA_PORTALS:
         t = g[int(x), int(y)]
         assert not t["obj"] and t["ground"], (x, y)
+    assert g[FORGE]["obj"] == "Divine Forge"
 
 
 # --- the vault -----------------------------------------------------------------------------------
@@ -565,6 +575,9 @@ def build_vault():
     for x in (sx - 3, sx + 3):
         g.banner(x, 36, FLOOR)
     g.accents(rng, 0.08)
+    # the Training Dummy beside the spawn, in reach of every weapon from it (`DpsMeter`)
+    assert not g[sx + 5, sy]["obj"]
+    g.put(sx + 5, sy, obj="Training Dummy")
     g.mark_open()
     return g
 

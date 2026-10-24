@@ -51,6 +51,49 @@ SHARED = """        private const double PotProbability = 0.075;
 """
 HEX = re.compile(r"^\s*(\(\s*short\s*\)\s*)?(0x[0-9a-fA-F]+)\s*$")
 
+# Drops changed from Doomed Realms' (SETUP-LOCAL.md, "Untiered rings"): monster -> {item: its new
+# chance, or None to drop it}. The Crown is an admin item, the America Ring a reward, and Santa's
+# Hat, which saves its wearer from death, is rarer.
+# The T20 Oryx set and armours are unobtainable (port_doomed.UNOBTAINABLE_ITEMS).
+ORYX_SET_GONE = {"Ring of Oryx": None, "Oryx Hide Armor": None, "Oryx Hide Robe": None, "Oryx Scale Armor": None}
+# The Oryx UT pass: the old forge materials drop from nothing (the forge shards took their place), and
+# Oryx 4 alone drops the Infernal Brimstone Poison (the Doom Poison)
+MATERIALS_GONE = {"Shattered Rune of Oryx": None, "Broken Oryx Armor": None, "Purified Doom Saliva": None}
+LOOT_CHANGES = {
+    "Christmas Oryx": {"Crown": None, "Santa's Hat": 0.05, "Oryx Tooth Sword": None, **ORYX_SET_GONE, "Doom Poison": None},
+    "Oryx the Mad God 4": {"Crown": None, "Oryx Tooth Sword": None, **ORYX_SET_GONE, **MATERIALS_GONE},
+    "Oryx the Mad God 5": {"Crown": None, "Oryx Tooth Sword": None, **ORYX_SET_GONE, **MATERIALS_GONE, "Doom Poison": None},
+    # the Burning Amulet is unobtainable (port_doomed.UNOBTAINABLE_ITEMS)
+    "Elder Tomb Support": {"Burning Amulet": None},
+    "Turkey God": {"America Ring": None, "America Sword": None, "America Shield": None},
+    # the swords pass: the T20 and Sword of Ghostly Power can't be found for now, the America Sword
+    # is a reward; Soul Spawned Armor, a T20, is unobtainable
+    "Elder Septavius the Ghost God": {"Sword of Ghostly Power": None, "Soul Mask": 0.02, "Soul Spawned Armor": None},
+    # the abilities pass
+    "Actual Greater Nature Sprite": {"Quiver of Thunder": 0.05},
+    "Mad Gas Controller": {"Orb of Conflict": 0.02},
+    # the staves pass: Natural Essence is commoner, Raw Fish of Terror waits for a rework, and the
+    # Anatis Staff is a reward
+    "Elder Tree": {"Staff of Natural Essence": 0.05},
+    "Elder Coral Gift": {"Raw Fish of Terror": None},
+    "Elder Thessal the Mermaid Goddess": {"Raw Fish of Terror": None},
+    "April Fools Chicken": {"Anatis Staff": None},
+}
+
+
+def change_loot(monster, loot):
+    """`loot` (a definition's loot expression) with LOOT_CHANGES applied."""
+    for item, chance in LOOT_CHANGES.get(monster, {}).items():
+        entry = r'Tuple\.Create\(\s*([0-9.]+)\s*,\s*\(ILoot\)\s*new ItemLoot\(%s\)\)' % re.escape(cs_string(item))
+        if chance is not None:
+            loot = re.sub(entry, lambda m: m.group(0).replace(m.group(1), "%g" % chance, 1), loot)
+            continue
+        # with the comma after it, or the one before it when it's the last of its list
+        loot, n = re.subn(r'\s*' + entry + r'\s*,', "", loot)
+        if not n:
+            loot = re.sub(r',\s*' + entry, "", loot)
+    return loot
+
 
 def split_args(text):
     """Top-level comma split of an argument list (no surrounding parentheses)."""
@@ -169,7 +212,8 @@ def write_monsters(dr_root, monsters, aliases=None):
         if block is None or "PetBehaves" in block or "PetChasing" in block:
             continue  # pets have their own behaviours (port_doomed_pets.py)
         _, behaviours, cond, loot = definition(block, type_to_id, refs)
-        field = "M_" + re.sub(r"\W", "_", oid)
+        loot = change_loot(oid, loot)
+        field ="M_" + re.sub(r"\W", "_", oid)
         body = ",\n                ".join(b.strip() for b in behaviours)
         members.append("        // %s\n        public static readonly Definition %s = new Definition(\n"
                        "            new Behavior[] {\n                %s\n            },\n            %s,\n            %s);\n"

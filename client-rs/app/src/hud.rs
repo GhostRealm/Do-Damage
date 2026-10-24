@@ -816,12 +816,16 @@ pub mod merch {
     pub const RANK_REQ: u8 = 45;
 }
 
+/// How near the Divine Forge its window can be opened, in tiles (the server allows 5).
+pub const FORGE_REACH: f64 = 3.0;
+
 /// Whether objects of this description are sold where they stand.
 pub fn is_shop(d: &ObjectDesc) -> bool {
     d.class == ObjectClass::Merchant || matches!(&d.class, ObjectClass::Other(c) if c == "GuildMerchant" || c == "ClosedVaultChest")
 }
 
-/// `GameSprite.updateNearestInteractive`: the closest bag, portal or shop within a tile.
+/// `GameSprite.updateNearestInteractive`: the closest bag, portal or shop within a tile (the
+/// Divine Forge, four tiles wide, within `FORGE_REACH`).
 pub fn interact_target(world: &World, data: &GameData) -> Option<Interact> {
     let me = world.player()?;
     world
@@ -846,7 +850,8 @@ pub fn interact_target(world: &World, data: &GameData) -> Option<Interact> {
                 return None;
             };
             let dist = (o.x - me.x).hypot(o.y - me.y);
-            (dist < 1.0).then_some((dist, o, d, kind))
+            let reach = if matches!(kind, InteractKind::Npc { kind: crate::npc::NpcKind::Forge, .. }) { FORGE_REACH } else { 1.0 };
+            (dist < reach).then_some((dist, o, d, kind))
         })
         .min_by(|a, b| a.0.total_cmp(&b.0))
         .map(|(_, o, d, kind)| Interact {
@@ -888,6 +893,9 @@ pub struct HudState {
     last_click: Option<(i32, u8, i32)>,
     /// The player menu: for whom, and where it opened.
     menu: Option<(i32, (f32, f32))>,
+    /// A player's card kept open by a right-click, so their gear can be looked over: whose, and
+    /// where it was opened.
+    pinned: Option<(i32, (f64, f64))>,
     /// Which of the minimap's zoom levels (`MiniMap.zoomIndex`): 0 is the closest.
     pub minimap_zoom: usize,
     /// The key bound to the Nexus, for its button.
@@ -980,6 +988,8 @@ pub struct Panel {
     /// The trade window and the player menu, when up (clicks inside them stay there).
     trade_rect: Option<[f32; 4]>,
     menu_rect: Option<[f32; 4]>,
+    /// The player card kept open (`HudState::pinned`): whose, and where it is.
+    pinned: Option<(i32, [f32; 4])>,
     /// The nearby players listed, and the invitation shown.
     members: Vec<(i32, String, i32, bool)>,
     /// Other players on the minimap: id, name, where.
@@ -1002,6 +1012,7 @@ impl Panel {
             shop_icon: None,
             trade_rect: None,
             menu_rect: None,
+            pinned: None,
             members: Vec::new(),
             minimap_players: Vec::new(),
             minimap: None,
@@ -1148,6 +1159,11 @@ impl Panel {
                 }
             }
         }
+        if let Some((id, at)) = state.pinned {
+            if let Some(p) = world.objects.get(&id) {
+                panel.pinned = Some((id, player_card_rect(lay, p, at)));
+            }
+        }
         panel
     }
 
@@ -1173,8 +1189,35 @@ impl Panel {
         self.buttons.iter().find(|(_, r)| inside(*r, pos)).map(|(b, _)| *b)
     }
 
+    /// The right button went down at `pos`: on a nearby player (in the list, or alone under the
+    /// mouse on the minimap) it keeps their card open, so their gear can be hovered; on them again,
+    /// or off the card, it closes it. True if the HUD took it.
+    pub fn right_click(&self, state: &mut HudState, lay: &Layout, pos: (f64, f64)) -> bool {
+        let id = match (self.button_at(pos), self.minimap_players_at(pos, lay.s).as_slice()) {
+            (Some(Button::Member(id)), _) => Some(id),
+            (_, [(id, _, _)]) => Some(*id),
+            _ => None,
+        };
+        if let Some(id) = id {
+            state.pinned = if state.pinned.is_some_and(|(p, _)| p == id) { None } else { Some((id, pos)) };
+            return true;
+        }
+        if self.pinned.is_some_and(|(_, r)| inside(r, pos)) {
+            return true;
+        }
+        state.pinned = None;
+        false
+    }
+
     /// The left button went down at `pos`. True if the HUD took it (so the game doesn't fire).
     pub fn press(&self, state: &mut HudState, lay: &Layout, pos: (f64, f64), shift: bool, now: i32, actions: &mut Vec<Action>) -> bool {
+        // The card kept open keeps its clicks; a click anywhere else closes it.
+        if let Some((_, r)) = self.pinned {
+            if inside(r, pos) {
+                return true;
+            }
+            state.pinned = None;
+        }
         // The player menu: an option, or a click anywhere else closes it.
         if let Some(r) = self.menu_rect {
             state.menu = None;
@@ -1252,6 +1295,10 @@ impl Panel {
 
     /// The mouse moved: a press becomes a drag once it has gone a few pixels.
     pub fn moved(&self, state: &mut HudState, pos: (f64, f64)) {
+        // The player whose card was kept open has gone.
+        if self.pinned.is_none() {
+            state.pinned = None;
+        }
         if let Some((slot, from)) = state.press {
             if (pos.0 - from.0).hypot(pos.1 - from.1) > 4.0 {
                 state.drag = Some(slot);
@@ -1343,8 +1390,7 @@ pub fn draw_panel(ui: &mut Ui, lay: &Layout, world: &World, camera_angle: f64, c
     }
 
     // The inventory and backpack tabs: a bag and the backpack, the page showing edged in the
-    // accent; the backpack's dim until there is one. Hovered, a tab shows the key that switches
-    // between them, at its right middle.
+    // accent; the backpack's dim until there is one. Their tooltip shows the key that switches.
     let page = if panel.has_backpack { state.page } else { Page::Inventory };
     for (i, p) in [Page::Inventory, Page::Backpack].into_iter().enumerate() {
         let r = lay.tab(i);
@@ -1355,12 +1401,6 @@ pub fn draw_panel(ui: &mut Ui, lay: &Layout, world: &World, camera_angle: f64, c
         ui.item_icon(TAB_ICONS[i], 50, r[0] + r[2] / 2.0, r[1] + r[3] / 2.0, s);
         if !usable {
             theme::fill(ui.renderer, r, 4.0 * s, 0x000000, 0.6);
-        }
-        if hover && panel.has_backpack && !state.tabs_key.is_empty() {
-            let small = lay.font(10.0);
-            let kw = ui.measure(&state.tabs_key, small, true);
-            let mid = ui.digit_middle(small, true);
-            ui.label(&state.tabs_key, r[0] + r[2] - kw - 4.0 * s, (r[1] + r[3] / 2.0 - mid).round(), small, true, color::TEXT_DIM);
         }
     }
 
@@ -1496,8 +1536,10 @@ pub fn draw_panel(ui: &mut Ui, lay: &Layout, world: &World, camera_angle: f64, c
                 _ => continue,
             },
             Button::Npc(_) => match panel.interact.as_ref().map(|i| i.kind) {
+                // with the interact key after it, as Enter has
                 Some(InteractKind::Npc { kind, rank_req }) => match crate::npc::interact_text(kind, me, rank_req).1 {
-                    Some(b) => b,
+                    Some((text, k)) if state.interact_key.is_empty() => (text.to_string(), k),
+                    Some((text, k)) => (format!("{text}  {}", state.interact_key), k),
                     None => continue,
                 },
                 _ => continue,
@@ -1872,20 +1914,36 @@ pub fn draw_overlay(ui: &mut Ui, lay: &Layout, world: &World, panel: &Panel, sta
         ui.item_icon(drag.item, 80, mx, my, lay.s);
         return;
     }
+    // The card kept open by a right-click, and the tooltip of the item under the mouse on it.
+    if let Some((id, r)) = panel.pinned {
+        if let Some(p) = world.objects.get(&id) {
+            draw_player_card(ui, lay, p, r, true);
+            if inside(r, mouse) {
+                let slots = player_card_slots(lay, p, r);
+                let item = (0..4u8).find(|&i| inside(slots[i as usize], mouse)).map_or(-1, |i| p.stat_int(slot_stat(i)).unwrap_or(-1));
+                if item > 0 {
+                    let lines = item_tooltip(ui.data, item, world.player(), SlotKind::Shop);
+                    draw_tooltip(ui, lay, &lines, Some(item), crate::screens::tier_edge(ui.data, item), mouse);
+                }
+                return;
+            }
+        }
+    }
     // A nearby player in the list: who they are, their health, magic and gear (PlayerToolTip).
     let member = panel.buttons.iter().find_map(|(b, r)| match b {
         Button::Member(id) if inside(*r, mouse) => Some(*id),
         _ => None,
     });
-    if let Some(p) = member.and_then(|id| world.objects.get(&id)) {
-        draw_player_card(ui, lay, p, mouse);
+    let hovered = |id: i32| panel.pinned.is_none_or(|(p, _)| p != id);
+    if let Some(p) = member.filter(|&id| hovered(id)).and_then(|id| world.objects.get(&id)) {
+        draw_player_card(ui, lay, p, player_card_rect(lay, p, mouse), false);
         return;
     }
     // Players under the mouse on the minimap (`PlayerGroupToolTip`): one is shown in full.
     let near = panel.minimap_players_at(mouse, lay.s);
     if let [(id, _, _)] = near.as_slice() {
-        if let Some(p) = world.objects.get(id) {
-            draw_player_card(ui, lay, p, mouse);
+        if let Some(p) = world.objects.get(id).filter(|_| hovered(*id)) {
+            draw_player_card(ui, lay, p, player_card_rect(lay, p, mouse), false);
             return;
         }
     }
@@ -1903,11 +1961,13 @@ pub fn draw_overlay(ui: &mut Ui, lay: &Layout, world: &World, panel: &Panel, sta
             return;
         }
     }
-    // The inventory and backpack tabs: which is which.
+    // The inventory and backpack tabs: which is which, and the key that switches, centred.
     if let Some(Button::Page(p)) = panel.button_at(mouse) {
         let mut lines = vec![Line::new(if p == Page::Inventory { "Inventory" } else { "Backpack" }, 14.0, true, color::TEXT)];
         if p == Page::Backpack && !panel.has_backpack {
             lines.push(Line::new("You have no backpack yet", 11.0, false, color::TEXT_MUTED));
+        } else if !state.tabs_key.is_empty() {
+            lines.push(Line { centred: true, ..Line::new(&state.tabs_key, 14.0, true, color::TEXT_DIM) });
         }
         draw_tooltip(ui, lay, &lines, None, None, mouse);
         return;
@@ -1927,12 +1987,15 @@ pub fn draw_overlay(ui: &mut Ui, lay: &Layout, world: &World, panel: &Panel, sta
     draw_tooltip(ui, lay, &lines, if slot.item > 0 { Some(slot.item) } else { None }, accent, mouse);
 }
 
-/// `PlayerToolTip`: a player's name, guild, level and class, health and magic, and the four
-/// items they wear, in a box beside the mouse.
-fn draw_player_card(ui: &mut Ui, lay: &Layout, p: &GameObj, mouse: (f64, f64)) {
+/// Whether a player's card has a line for their guild.
+fn has_guild(p: &GameObj) -> bool {
+    p.stat_str(62).is_some_and(|g| !g.is_empty())
+}
+
+/// Where a player's card sits, beside the mouse at `mouse`.
+fn player_card_rect(lay: &Layout, p: &GameObj, mouse: (f64, f64)) -> [f32; 4] {
     let s = lay.s;
-    let (w, h) = (230.0 * s, 150.0 * s);
-    let pad = 10.0 * s;
+    let (w, h) = (230.0 * s, if has_guild(p) { 169.0 } else { 154.0 } * s);
     let (mut x0, mut y0) = (mouse.0 as f32 + 16.0 * s, mouse.1 as f32 + 8.0 * s);
     if x0 + w > lay.w {
         x0 = mouse.0 as f32 - w - 8.0 * s;
@@ -1940,7 +2003,21 @@ fn draw_player_card(ui: &mut Ui, lay: &Layout, p: &GameObj, mouse: (f64, f64)) {
     if y0 + h > lay.h {
         y0 = (lay.h - h).max(0.0);
     }
-    let r = [x0.max(0.0), y0, w, h];
+    [x0.max(0.0), y0, w, h]
+}
+
+/// The four equipment slots on a player's card at `r`.
+fn player_card_slots(lay: &Layout, p: &GameObj, r: [f32; 4]) -> [[f32; 4]; 4] {
+    let s = lay.s;
+    let sy = r[1] + if has_guild(p) { 101.0 } else { 86.0 } * s;
+    std::array::from_fn(|i| [r[0] + 10.0 * s + i as f32 * 44.0 * s, sy, 40.0 * s, 40.0 * s])
+}
+
+/// `PlayerToolTip`: a player's name, guild, level and class, health and magic, and the four
+/// items they wear, in a box at `r`; `pinned` when a right-click keeps it open.
+fn draw_player_card(ui: &mut Ui, lay: &Layout, p: &GameObj, r: [f32; 4], pinned: bool) {
+    let s = lay.s;
+    let (w, pad) = (r[2], 10.0 * s);
     theme::shadow(ui.renderer, r, 8.0 * s, 12.0 * s, 0.5);
     theme::frame(ui.renderer, r, 8.0 * s, s.max(1.0), (color::BORDER_HI, 0.9), ((color::PANEL_TOP, 0.97), (color::PANEL_BOTTOM, 0.98)));
     let (x, y) = (r[0] + pad, r[1] + pad);
@@ -1962,7 +2039,7 @@ fn draw_player_card(ui: &mut Ui, lay: &Layout, p: &GameObj, mouse: (f64, f64)) {
     let info = format!("Level {} {class}", stat(stat::LEVEL));
     ui.label(&info, x, y + 20.0 * s, lay.font(11.5), false, color::TEXT_DIM);
     let mut by = y + 36.0 * s;
-    if let Some(guild) = p.stat_str(62).filter(|g| !g.is_empty()) {
+    if let Some(guild) = p.stat_str(62).filter(|_| has_guild(p)) {
         ui.label(guild, x, by, lay.font(11.0), true, 0xA6FF5D);
         by += 15.0 * s;
     }
@@ -1983,15 +2060,17 @@ fn draw_player_card(ui: &mut Ui, lay: &Layout, p: &GameObj, mouse: (f64, f64)) {
     bar(ui, by, "HP", stat(stat::HP), stat(stat::MAX_HP), 0xE03434);
     bar(ui, by + 18.0 * s, "MP", stat(stat::MP), stat(stat::MAX_MP), 0x3A6FE0);
     // The equipment, in slots.
-    let sy = by + 40.0 * s;
+    let slots = player_card_slots(lay, p, r);
     for i in 0..4u8 {
-        let sr = [x + i as f32 * 44.0 * s, sy, 40.0 * s, 40.0 * s];
+        let sr = slots[i as usize];
         let item = p.stat_int(slot_stat(i)).unwrap_or(-1);
         ui.slot_box(sr, if item > 0 { crate::screens::tier_edge(ui.data, item) } else { None }, false, s);
         if item > 0 {
             ui.item_icon(item, 80, sr[0] + sr[2] / 2.0, sr[1] + sr[3] / 2.0, s);
         }
     }
+    let hint = if pinned { "Hover an item to see it, right-click to close" } else { "Right-click to keep open" };
+    ui.label(hint, x, slots[0][1] + 44.0 * s, lay.font(10.0), false, color::TEXT_MUTED);
 }
 
 /// One line of a tooltip: one or more pieces, each in its colour.
@@ -1999,16 +2078,18 @@ pub struct Line {
     pieces: Vec<(String, u32)>,
     size: f32,
     bold: bool,
+    /// Centred across the box rather than from its left.
+    centred: bool,
 }
 
 impl Line {
     fn new(text: &str, size: f32, bold: bool, color: u32) -> Self {
-        Line { pieces: vec![(text.to_owned(), color)], size, bold }
+        Line { pieces: vec![(text.to_owned(), color)], size, bold, centred: false }
     }
 
     /// "Label: value", the label in the attribute grey and the value in its own colour.
     fn stat(label: &str, value: &str, color: u32) -> Self {
-        Line { pieces: vec![(format!("{label}: "), ATTR), (value.to_owned(), color)], size: 13.0, bold: false }
+        Line { pieces: vec![(format!("{label}: "), ATTR), (value.to_owned(), color)], size: 13.0, bold: false, centred: false }
     }
 
     /// A little space between the tooltip's parts.
@@ -2029,7 +2110,7 @@ fn tier_tag(xml: &bsk_data::xml::Element) -> Option<(String, u32)> {
     if hidden.iter().any(|t| xml.has(t)) {
         return None;
     }
-    let color = [("Admin", 0xFC65D0), ("Ethereal", 0xF61D1D), ("Ascended", 0x1BF7DD), ("Legendary", 0xFFC800)]
+    let color = [("Admin", 0xFC65D0), ("Ethereal", 0xF61D1D), ("Ascended", 0xFF5A5F), ("Legendary", 0xFFC800)]
         .iter()
         .find(|(t, _)| xml.has(t))
         .map(|(_, c)| *c);
@@ -2037,6 +2118,8 @@ fn tier_tag(xml: &bsk_data::xml::Element) -> Option<(String, u32)> {
         Some((format!("T{}", tier.trim()), color.unwrap_or(0xFFFFFF)))
     } else if xml.attr("setType").is_some() {
         Some(("ST".into(), color.unwrap_or(0xF2FF00)))
+    } else if xml.has("Ascended") {
+        Some(("UT · Ascended".into(), 0xFF5A5F))
     } else {
         Some(("UT".into(), color.unwrap_or(0xE22BC9)))
     }
@@ -2230,7 +2313,7 @@ pub fn item_tooltip(data: &GameData, item: i32, me: Option<&GameObj>, kind: Slot
         Some(None) => ItemNumbers { present: true, ..Default::default() },
         Some(Some(w)) => data.objects.get(&(w as u16)).map(item_numbers).unwrap_or_default(),
     };
-    let title_color = [("Admin", 0xFF8BDE), ("Ethereal", 0xFF5A5A), ("Ascended", 0x66FFF0), ("Legendary", 0xFFE066)]
+    let title_color = [("Admin", 0xFF8BDE), ("Ethereal", 0xFF5A5A), ("Ascended", 0xFF8A8E), ("Legendary", 0xFFE066)]
         .iter()
         .find(|(t, _)| xml.has(t))
         .map_or(0xFFFFFF, |(_, c)| *c);
@@ -2244,6 +2327,24 @@ pub fn item_tooltip(data: &GameData, item: i32, me: Option<&GameObj>, kind: Slot
             out.push(Line::new(l.trim(), if l.trim().is_empty() { 6.0 } else { 13.0 }, false, DESCRIPTION));
         }
     }
+    // The item's own notes on what it does (ExtraTooltipData): "name: description", a name alone as
+    // a heading, or a description alone. Many items tell their effects only here.
+    if let Some(extra) = xml.child("ExtraTooltipData") {
+        let infos: Vec<_> = extra.children_named("EffectInfo").collect();
+        if !infos.is_empty() {
+            out.push(Line::gap());
+        }
+        for info in infos {
+            let name = info.attr("name").unwrap_or("").trim();
+            let text = info.attr("description").unwrap_or("").trim();
+            match (name.is_empty(), text.is_empty()) {
+                (false, false) => out.push(Line::stat(name, text, VALUE)),
+                (false, true) => out.push(Line::new(name, 13.0, true, ABILITY)),
+                (true, false) => out.push(Line::new(text, 13.0, false, VALUE)),
+                (true, true) => {}
+            }
+        }
+    }
     // What using it does, under the description: each ability's name, then its numbers, damage
     // first.
     for a in xml.children_named("Activate") {
@@ -2252,6 +2353,9 @@ pub fn item_tooltip(data: &GameData, item: i32, me: Option<&GameObj>, kind: Slot
             // The port writes the pet's damage on one enemy and its healing here.
             out.push(Line::gap());
             out.push(Line::new("Permanent pet", 13.0, true, ABILITY));
+            if let Some(size) = a.attr("petSize") {
+                out.push(Line::stat("    Size", size, VALUE));
+            }
             if let Some(dps) = a.attr("petDps") {
                 out.push(Line::stat("    Damage", &format!("{dps} per second"), VALUE));
             }
@@ -2261,10 +2365,21 @@ pub fn item_tooltip(data: &GameData, item: i32, me: Option<&GameObj>, kind: Slot
                     out.push(Line::stat(&format!("    {verb}"), &format!("{amount} {what} every {secs}s"), VALUE));
                 }
             }
+            // What else it does (its abilities, and what its hits do), "; " between.
+            if let Some(effects) = a.attr("petEffects") {
+                for effect in effects.split("; ").filter(|e| !e.is_empty()) {
+                    out.push(Line::stat("    Also", effect, VALUE));
+                }
+            }
             continue;
         }
         // Bullet and shot activations some items mark as not for the tooltip.
         if a.attr("ignoreOnTooltip") == Some("true") {
+            continue;
+        }
+        // A helper it throws or summons ("Throws a Genesis Spell Portal 1") says nothing when the
+        // item's own notes (ExtraTooltipData, above) tell what it does.
+        if matches!(effect, "ObjectToss" | "Pet" | "Create") && xml.child("ExtraTooltipData").is_some() {
             continue;
         }
         let (name, rows) = activate_rows(a);
@@ -2288,11 +2403,14 @@ pub fn item_tooltip(data: &GameData, item: i32, me: Option<&GameObj>, kind: Slot
         attr("Shots", desc.num_projectiles().to_string(), compare(mine.shots, worn.shots, true));
         let range = p.speed as f64 * p.lifetime as f64 / 10000.0;
         attr("Range", format!("{}", (range * 100.0).round() / 100.0), compare(mine.range, worn.range, true));
-        if [1, 2, 3, 8, 17, 24].contains(&xml.int("SlotType", 0)) {
+        if [1, 2, 3, 8, 17, 24, 36, 200].contains(&xml.int("SlotType", 0)) {
             attr("Rate of Fire", format!("{:.0}%", desc.rate_of_fire() * 100.0), compare(mine.rate_of_fire, worn.rate_of_fire, true));
         }
         for e in &p.effects {
             attr("Shot effect", e.clone(), VALUE);
+        }
+        if p.armor_piercing {
+            attr("Shot effect", "Ignores defense".to_owned(), crate::view::PIERCED_COLOR);
         }
     }
     if xml.has("Usable") {
@@ -2339,7 +2457,7 @@ pub fn item_tooltip(data: &GameData, item: i32, me: Option<&GameObj>, kind: Slot
             } else {
                 vec![(format!("    {amount:+} "), color), (stat_name(stat).to_owned(), ATTR)]
             };
-            out.push(Line { pieces, size: 13.0, bold: false });
+            out.push(Line { pieces, size: 13.0, bold: false, centred: false });
         }
     }
     // Restrictions.
@@ -2360,6 +2478,10 @@ pub fn item_tooltip(data: &GameData, item: i32, me: Option<&GameObj>, kind: Slot
     }
     if desc.untradeable() {
         note("Untradeable", ATTR);
+    }
+    // taken out of the game's drops (tools/port_doomed.py UNOBTAINABLE_ITEMS)
+    if xml.has("Unobtainable") {
+        note("Unobtainable: nothing drops it any more", ATTR);
     }
     if let Some(me) = me {
         let slot_type = xml.int("SlotType", 0);
@@ -2475,7 +2597,7 @@ fn activate_detail(a: &bsk_data::xml::Element) -> String {
 
 /// A tooltip box beside the mouse, kept inside the window: the item's icon and title on top,
 /// then the lines wrapped to the box.
-fn draw_tooltip(ui: &mut Ui, lay: &Layout, lines: &[Line], icon: Option<i32>, accent: Option<u32>, mouse: (f64, f64)) {
+pub(crate) fn draw_tooltip(ui: &mut Ui, lay: &Layout, lines: &[Line], icon: Option<i32>, accent: Option<u32>, mouse: (f64, f64)) {
     let s = lay.s;
     let w = TOOLTIP_W * s;
     let pad = 10.0 * s;
@@ -2483,7 +2605,7 @@ fn draw_tooltip(ui: &mut Ui, lay: &Layout, lines: &[Line], icon: Option<i32>, ac
     let icon_w = if icon.is_some() { 44.0 * s } else { 0.0 };
     // Wrap every line; the first ones (title, tier) sit beside the icon.
     // Each wrapped row: its coloured pieces, size, bold, and where it sits.
-    type Row = (Vec<(String, u32)>, f32, bool, f32);
+    type Row = (Vec<(String, u32)>, f32, bool, f32, bool);
     let mut rows: Vec<Row> = Vec::new();
     let mut y: f32 = 0.0;
     for (i, line) in lines.iter().enumerate() {
@@ -2495,7 +2617,7 @@ fn draw_tooltip(ui: &mut Ui, lay: &Layout, lines: &[Line], icon: Option<i32>, ac
         // `wrap` measures regular text: bold is wider, so leave it some room.
         let room = (inner - indent) * if line.bold { 0.9 } else { 1.0 };
         for part in wrap(ui, &line.pieces, size, room, 0.0) {
-            rows.push((part, size, line.bold, y));
+            rows.push((part, size, line.bold, y, line.centred));
             y += size * 1.25;
         }
     }
@@ -2518,9 +2640,13 @@ fn draw_tooltip(ui: &mut Ui, lay: &Layout, lines: &[Line], icon: Option<i32>, ac
     if let Some(item) = icon {
         ui.item_icon(item, 60, x0 + pad + icon_w / 2.0 - 2.0 * s, y0 + pad + icon_w / 2.0 - 2.0 * s, s * 0.9);
     }
-    for (i, (pieces, size, bold, ry)) in rows.iter().enumerate() {
+    for (i, (pieces, size, bold, ry, centred)) in rows.iter().enumerate() {
         let indent = if i < 2 && icon.is_some() && *ry < icon_w { icon_w } else { 0.0 };
         let mut x = x0 + pad + indent;
+        if *centred {
+            let rw: f32 = pieces.iter().map(|(text, _)| ui.measure(text, *size, *bold)).sum();
+            x += ((inner - indent - rw) / 2.0).max(0.0);
+        }
         for (text, color) in pieces {
             ui.label(text, x, y0 + pad + ry, *size, *bold, *color);
             x += ui.measure(text, *size, *bold);

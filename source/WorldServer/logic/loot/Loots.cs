@@ -67,6 +67,17 @@ namespace WorldServer.logic.loot
         // item
         private static Dictionary<ItemType, Dictionary<int, List<Item>>> Items = new Dictionary<ItemType, Dictionary<int, List<Item>>>();
 
+        // a pool's item, each as likely as the others but TierLoot.ExtraPoolItems at their weight
+        private static Item Pick(List<Item> items)
+        {
+            double Weight(Item i) => TierLoot.ExtraPoolItems.TryGetValue(i.ObjectId, out var e) ? e.Weight : 1;
+            var r = Random.Shared.NextDouble() * items.Sum(Weight);
+            foreach (var i in items)
+                if ((r -= Weight(i)) < 0)
+                    return i;
+            return items[^1];
+        }
+
         public List<Item> GetItems(ItemType itemType, int tier)
         {
             if (Items.TryGetValue(itemType, out var keyValuePairs))
@@ -85,10 +96,20 @@ namespace WorldServer.logic.loot
             {
                 // Items ported from Doomed Realms (types 0xD000-0xDFFF, tools/port_doomed.py) stay out of
                 // the random tier drops, apart from the tiered gear of the Doomed Realms classes, whose
-                // slots nothing else fills: a T3 ability drop can be a Mechanic's T3 turret. Items whose
-                // slot type isn't a loot category stay out too.
+                // slots nothing else fills: a T3 ability drop can be a Mechanic's T3 turret, and the few
+                // TierLoot.DoomedPoolItems. Items whose slot type isn't a loot category stay out too.
+                if (TierLoot.ExtraPoolItems.TryGetValue(item.ObjectId, out var extra) && TierLoot.TryGetItemType(item.SlotType, out var extraType))
+                {
+                    if (!Items.TryGetValue(extraType, out var tiers))
+                        Items[extraType] = tiers = new Dictionary<int, List<Item>>();
+                    if (!tiers.TryGetValue(extra.Tier, out var pool))
+                        tiers[extra.Tier] = pool = new List<Item>();
+                    pool.Add(item);
+                    continue;
+                }
                 var doomed = item.ObjectType >= 0xD000 && item.ObjectType <= 0xDFFF;
-                if (doomed && (!TierLoot.DoomedClassSlots.Contains(item.SlotType) || item.Tier < 0))
+                if (doomed && (!TierLoot.DoomedClassSlots.Contains(item.SlotType) || item.Tier < 0)
+                    && !TierLoot.DoomedPoolItems.Contains(item.ObjectId))
                     continue;
                 if (!TierLoot.TryGetItemType(item.SlotType, out var itemType))
                     continue;
@@ -116,6 +137,35 @@ namespace WorldServer.logic.loot
 
             Items = Items.OrderBy(_ => _.Key).ToDictionary(_ => _.Key, _ => _.Value);
         }
+        // What bosses drop in January and May besides their own loot (ExtraLootTables); seasonal, so
+        // the forge never makes them (ForgeRecipes)
+        public static readonly (string Item, double Chance)[] WinterBossDrops =
+        {
+            ("Frost Citadel Armor", 0.004),
+            ("Frost Drake Hide Armor", 0.004),
+            ("Frost Elementalist Robe", 0.004),
+            ("Scepter of Sainthood", 0.002),
+            ("Snowbound Orb", 0.002),
+            ("Pathfinder's Helm", 0.002),
+            ("Coalbearing Quiver", 0.002),
+            ("Skull of Krampus", 0.002),
+            ("Vigil Spell", 0.002),
+            ("Greedsnatcher Trap", 0.002),
+            ("Resounding Shield", 0.002),
+            ("Ornamental Prism", 0.002),
+            ("Nativity Tome", 0.002),
+            ("Holly Poison", 0.002),
+            ("Cloak of Winter", 0.002),
+            ("Advent Seal", 0.002),
+            ("Ilex Star", 0.002),
+            ("Icicle Launcher", 0.003),
+            ("Winter's Breath Wand", 0.003),
+            ("Frosty's Walking Stick", 0.003),
+            ("Frost Lich's Finger", 0.003),
+            ("Saint Nicolas' Blade", 0.003),
+            ("Yuki", 0.003),
+        };
+
         private List<LootDef> ExtraLootTables(List<LootDef> list, Enemy enemy)
         {
             var gameData = enemy.GameServer.Resources.GameData;
@@ -127,29 +177,8 @@ namespace WorldServer.logic.loot
                 if (TimeOfYear.CurrentMonth == TimeOfYear.Month.May ||
                     TimeOfYear.CurrentMonth == TimeOfYear.Month.January)
                 {
-                    list.Add(new LootDef("Frost Citadel Armor", 0.004, 0.01));
-                    list.Add(new LootDef("Frost Drake Hide Armor", 0.004, 0.01));
-                    list.Add(new LootDef("Frost Elementalist Robe", 0.004, 0.01));
-                    list.Add(new LootDef("Scepter of Sainthood", 0.002, 0.01));
-                    list.Add(new LootDef("Snowbound Orb", 0.002, 0.01));
-                    list.Add(new LootDef("Pathfinder's Helm", 0.002, 0.01));
-                    list.Add(new LootDef("Coalbearing Quiver", 0.002, 0.01));
-                    list.Add(new LootDef("Skull of Krampus", 0.002, 0.01));
-                    list.Add(new LootDef("Vigil Spell", 0.002, 0.01));
-                    list.Add(new LootDef("Greedsnatcher Trap", 0.002, 0.01));
-                    list.Add(new LootDef("Resounding Shield", 0.002, 0.01));
-                    list.Add(new LootDef("Ornamental Prism", 0.002, 0.01));
-                    list.Add(new LootDef("Nativity Tome", 0.002, 0.01));
-                    list.Add(new LootDef("Holly Poison", 0.002, 0.01));
-                    list.Add(new LootDef("Cloak of Winter", 0.002, 0.01));
-                    list.Add(new LootDef("Advent Seal", 0.002, 0.01));
-                    list.Add(new LootDef("Ilex Star", 0.002, 0.01));
-                    list.Add(new LootDef("Icicle Launcher", 0.003, 0.01));
-                    list.Add(new LootDef("Winter's Breath Wand", 0.003, 0.01));
-                    list.Add(new LootDef("Frosty's Walking Stick", 0.003, 0.01));
-                    list.Add(new LootDef("Frost Lich's Finger", 0.003, 0.01));
-                    list.Add(new LootDef("Saint Nicolas' Blade", 0.003, 0.01));
-                    list.Add(new LootDef("Yuki", 0.003, 0.01));
+                    foreach (var (item, chance) in WinterBossDrops)
+                        list.Add(new LootDef(item, chance, 0.01));
                 }
             }
             /*if (NexusWorld.GetCurrentMonth == 5 ||
@@ -180,6 +209,7 @@ namespace WorldServer.logic.loot
                 i.Populate(possDrops);
 
             var pubDrops = new List<Item>();
+            var rate = ArenaPools.LootRate(enemy); // Oryx 3, 4 and 5 drop half as often in the Arena
 
             foreach (var i in possDrops)
             {
@@ -193,10 +223,10 @@ namespace WorldServer.logic.loot
                     continue;
                 
                 var chance = Random.Shared.NextDouble();
-                if (i.Threshold <= 0 && chance < i.Probabilty)
+                if (i.Threshold <= 0 && chance < i.Probabilty * rate)
                 {
                     var items = GetItems(i.ItemType, i.Tier);
-                    var chosenTieredItem = items[Random.Shared.Next(items.Count)];
+                    var chosenTieredItem = Pick(items);
                     pubDrops.Add(chosenTieredItem);
                 }
             }
@@ -234,7 +264,7 @@ namespace WorldServer.logic.loot
                 {
                     var c = Random.Shared.NextDouble();
 
-                    var probability = i.Probabilty * totalBoost;
+                    var probability = i.Probabilty * totalBoost * rate;
 
                     if (i.Threshold >= 0 && i.Threshold < Math.Round(tupPlayer.Item2 / (double)enemy.DamageCounter.TotalDamage, 4))
                     {
@@ -243,7 +273,7 @@ namespace WorldServer.logic.loot
                         {
                             var items = GetItems(i.ItemType, i.Tier);
                             if (items != null)
-                                item = Random.Shared.NextLength(items);
+                                item = Pick(items);
                         }
                         else
                         {

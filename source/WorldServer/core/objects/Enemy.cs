@@ -43,13 +43,17 @@ namespace WorldServer.core.objects
         // multiplies the experience it gives (below 1 while a realm event has less health than
         // its XML, so a smaller boss isn't worth as much)
         public float XpScale { get; set; } = 1f;
-        
+        // the Training Dummy's: tells each player their damage over 5 seconds
+        public DpsMeter DpsMeter { get; private set; }
+
         public Enemy(GameServer manager, ushort objType)
             : base(manager, objType)
         {
             DamageCounter = new DamageCounter(this);
             _glowcolor = new StatTypeValue<int>(this, StatDataType.GlowEnemy, 0);
             _defense = new StatTypeValue<int>(this, StatDataType.Defense, ObjectDesc.Defense);
+            if (ObjectDesc.IdName == DpsMeter.ObjectId)
+                DpsMeter = new DpsMeter(this);
         }
 
         public override void Init(World owner)
@@ -61,12 +65,15 @@ namespace WorldServer.core.objects
 
         public override void Tick(ref TickTime time)
         {
+            DpsMeter?.Tick();
+
             // objects without MaxHitPoints (anchors, spawners, traps) start at 0 HP; they end
             // through their behaviour instead of dying on their first tick
             if (Health == 0 && MaxHealth > 0 && !Dead)
                 Death(ref time);
 
-            if (HasConditionEffect(ConditionEffectIndex.Bleeding))
+            // the Bleeding condition's own drain; not while it only shows a weapon's bleed (Bleed)
+            if (HasConditionEffect(ConditionEffectIndex.Bleeding) && (_bleeds == null || _bleeds.Count == 0))
             {
                 if (_bleeding > 1)
                 {
@@ -197,6 +204,65 @@ namespace WorldServer.core.objects
             }
 
             return 0;
+        }
+
+        private Dictionary<int, BleedState> _bleeds;
+
+        private sealed class BleedState
+        {
+            public int Total, DurationMs, Elapsed, SinceHit, Dealt;
+        }
+
+        // Pets' bleeds (PetStrike's, and pet projectiles with <Bleed>): total damage over durationMs,
+        // ignoring defense, a share each second, credited to from like any hit (so it counts for
+        // loot). A bleed from the same player starts again rather than stacking. The Bleeding
+        // condition only shows it (its icon over the enemy): Tick doesn't drain health for it while
+        // a bleed runs, as that drain credits no one.
+        public void Bleed(Player from, int total, int durationMs)
+        {
+            if (Dead || World == null || total <= 0)
+                return;
+            _bleeds ??= new Dictionary<int, BleedState>();
+            var fresh = !_bleeds.TryGetValue(from.Id, out var b);
+            if (fresh)
+                _bleeds[from.Id] = b = new BleedState();
+            b.Total = total;
+            b.DurationMs = Math.Max(1, durationMs);
+            b.Elapsed = b.SinceHit = b.Dealt = 0;
+            ApplyConditionEffect(ConditionEffectIndex.Bleeding, b.DurationMs);
+            if (!fresh)
+                return;
+
+            WorldTimer tmr = null;
+            bool tick(World w, TickTime t)
+            {
+                if (Dead || World != w || from.World != w)
+                {
+                    _bleeds.Remove(from.Id);
+                    return true;
+                }
+                b.Elapsed += t.ElapsedMsDelta;
+                b.SinceHit += t.ElapsedMsDelta;
+                var done = b.Elapsed >= b.DurationMs;
+                if (b.SinceHit >= 1000 || done)
+                {
+                    b.SinceHit = 0;
+                    var owed = (int)((long)b.Total * Math.Min(b.Elapsed, b.DurationMs) / b.DurationMs) - b.Dealt;
+                    if (owed > 0)
+                    {
+                        b.Dealt += owed;
+                        Damage(from, ref t, owed, true);
+                    }
+                }
+                if (done || Dead)
+                {
+                    _bleeds.Remove(from.Id);
+                    return true;
+                }
+                tmr.Reset();
+                return false;
+            }
+            tmr = World.StartNewTimer(0, tick);
         }
 
         public event EventHandler<BehaviorEventArgs> OnDeath;

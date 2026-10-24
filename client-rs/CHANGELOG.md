@@ -8,18 +8,104 @@ version (`python tools/build_client_rs.py --publish`) needs a section for that v
 refuses while an `Unreleased` one is left, so rename it to `## <version> (<date>)` then. The
 version number itself is in `client-rs/Cargo.toml`.
 
+Keep each version short: changes go under `### ` group headings (Oryx 5, Arena, Items, Game and so
+on), one line per change players notice, summed up rather than item by item (the wiki has the
+details). Add to a group's line when a change adds to it, rather than adding another line.
+
 ## Unreleased
-- Arenas: everyone is invulnerable for 2.5 seconds as each wave starts, so monsters that appear
-  right on top of you can't kill you before you can move.
-- The Potion of Max Life still fills your health to your class's maximum, but if it's already
-  maxed it now adds 30 health to your potion storage (it used to add 1,000). It's also much
-  rarer (1 in 100 from each Elder Tomb boss, was 1 in 10) and drops in a white bag.
-- The wiki's Pets page shows how much each pet heals and restores (for example 10-60 HP every
-  3 seconds, about 12 a second); healing pets showed nothing before.
-- A Portal of Cowardice takes you back the way you came: to a realm from a dungeon opened in a
-  realm, and to the Nexus from one opened in the Nexus or in another dungeon (it always went to
-  a realm).
-- Hovering the inventory or backpack tab shows the key that switches between them, on the tab.
+### Oryx 5: Oryx the Ascended God
+- Oryx 5 has ascended: he is now Oryx the Ascended God, in white and gold with a spear, and his
+  fight is all new: his Radiant Cross, the Firmament, the Divine Hunt, his Host at 80%, his
+  Transcendence at 60%, his Apotheosis at 20% and the Last Judgement at 10%. When he concedes he
+  falls back through every Oryx he was and leaves a Nexus Portal.
+- A new dungeon: the Doomed Cellar is now Oryx's Elysium, a holy island of gold, marble and
+  turquoise sea. His Ascended Host guards the roads, a guardian waits at the Oasis and at the
+  Pyramid (now fallen to the Void, with the Void Entity), and twelve Trees of Doom hold the Holy
+  Gates to his temple shut. It stays sealed while his guardians and loot are finished.
+- New items from him: a T15 of every weapon, three T16 armours (Hide of the Firmament, Armor of
+  Ascension, Robe of Absolution, which replace the Sphinx Leather Armor, Armor of the Pyramid and
+  Robe of the Nile you have), the Elysian Staff, the reworked Sword of Dark Enchantment, two
+  Ascended Gems and the Ascended forge shards.
+- The first Ascended items: the Enthroned set, forged from his top tier and an Ascended shard.
+  They're placeholders with no numbers yet.
+
+### Oryx 3 and Oryx 4
+- New names: Oryx the Celestial Mad God (Oryx 3) and Oryx the Infernal Mad God (Oryx 4). Their
+  taunts go to the chat only, so no speech bubble hides their attacks.
+- Oryx 3 moves more: he chases, backs away and dashes back to the middle of his Sanctum.
+- The Hash Cellar is now Oryx's Inferno, rebuilt in fire: a Burning Path through four chambers,
+  guarded by the new Infernal Court, and a round arena with lava pools. Oryx 4 burns, calls his
+  Infernal Court and fires hellfire.
+- New gateways and incantation seals for Oryx's Sanctuary, Inferno and Elysium. Incantations you
+  have still work.
+- Oryx 4's items are Infernal now (the Brimstone Poison, the Cloak of Bloodshed, the Bloodletter,
+  which makes enemies bleed, and the Gems), and he drops the Infernal forge shards.
+- The Oryx 4 and Oryx 5 event: while it's on, they and everything they bring hit 20% softer.
+
+### Arena
+- One Arena: the Battle Arena is now just the Arena, and the Free Battle Arena and the public
+  arena are gone. Its portal stands in the Nexus's south yard, and `/arena` takes you into the
+  same game from anywhere. It pays fame after every wave as before, and older runs on the
+  leaderboard count as the Arena's.
+- Tougher waves: Oryx 2 to 5 fight in it (with less health and only their first phase), and from
+  wave 40 Oryx's Court comes with them.
+- Fairer starts: everyone is invulnerable for the first 2.5 seconds of each wave, and bosses no
+  longer wall monsters in.
+- The wave and time box at the top works.
+- Oryx 3, 4 and 5 drop everything at half their usual chances here.
+
+### Items
+- Weapons rebalanced: the top tiers give stats and reach further, and wands and katanas hit harder.
+  The Blademaster gets T13 and T14 Dual Blades, and the Monk gets tiered fists (T0 to T14) with
+  their own pictures.
+- Armour rebalanced: leather adds Speed, robes add mana and health, and the top heavy armours add
+  health and Vitality.
+- Abilities: every class has one ability at each tier from T0 to T8, and all of them drop. Most
+  kinds are stronger or do more: quivers, tomes, helms, seals, prisms, lutes, skulls, scepters
+  and poisons. Shurikens throw their star, and the Pirate's cannons drop.
+- Untiered items have new drops, mostly from Oryx 3, 4 and 5, the Ice Tomb, Esben, Belladonna and
+  the Elder bosses. Many have new numbers, and the abilities that did nothing (Oryx's Escutcheon,
+  Genesis, Chaotic Scripture, Battalion Banner, Hivemaster Helm, Marble Seal) work. Legendary,
+  Ascended and Ethereal items are plain untiered items until they're reworked.
+- Gone: set (ST) items, Enchanted Keys in the Bazaar, the old forge materials, the Forge and
+  Burning Amulets, the Ring of Oryx and the T20 armours stop dropping, and several overpowered,
+  donor and seasonal items are staff rewards only now. Ones you have still work.
+- More drops: T9 weapons and T10 armour from the Godlands gods.
+- Potions: the Potion of Max Life is much rarer and stores 30 health when you're maxed, and a
+  Potion of Oryx is no longer drunk halfway.
+- Conditions do what they say: poisons put on their conditions, Silenced stops your ability, and
+  bleeding enemies show the bleed icon.
+
+### Divine Forge
+- The Divine Forge stands in the Nexus's south yard, west of the Arena portal: browse and search
+  its recipes, forge, and sell items for fame. `/forge`, `/forgelist` and `/sellfame` point to it.
+- Every tiered item forges from two of the tier below, for at most 2,000 fame, and no untiered
+  recipe costs more than 3,000. Look swaps cost 100 fame, and one-item recipes work.
+- Forge shards go into a forge storage your whole account shares (its Shards tab). There are
+  new UT and Highest tier filters, and an Enchant tab comes later.
+- It no longer makes overpowered, seasonal or never-dropped items.
+
+### Classes and pets
+- Class changes: the Sharklord's highest Attack is 70 and the Knight's highest Defense 35. Dual
+  Blades ignore defense, the Blademaster's jackets give Attack, and new Monks start with their
+  gear.
+- Pets come in three sizes, Small, Medium and Large, drawn to scale. Every pet heals your health
+  and mana, many help in new ways, and boss pets shoot their boss's attacks.
+- A Training Dummy in your vault tells you your damage a second.
+
+### Game
+- Character sprites keep animating at high dexterity and speed.
+- Right-click a player in the Nearby players list to keep their card open and see their items.
+- Item tooltips show what an item does. NPC buttons and the inventory tab show their keys. Status
+  icons are tidier, with no names written over characters.
+- Legends show characters' Doomed Realms gear again.
+- A Portal of Cowardice takes you back the way you came.
+- The game's window and taskbar icon is the Do Damage crown.
+
+### Wiki
+- New pages for the Divine Forge and Gear statistics (every class's damage on the Training Dummy).
+  The Pets page shows sizes and healing, and the guides are up to date.
+- A wider layout on big screens, a shorter page list, and more complete drop lists.
 
 ## 1.3.3 (2026-10-21)
 - Changing your name at the Name Changer now costs 50,000 fame instead of 100 gold. Choosing

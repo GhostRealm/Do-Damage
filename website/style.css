@@ -22,6 +22,7 @@
   --body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --gutter: 16px;
   --max: 1120px;
+  --wiki-max: 1680px; /* the wiki grows wider on big screens, for its wide tables and card grids */
   color-scheme: dark;
 }
 
@@ -372,6 +373,8 @@ body.lb-open { overflow: hidden; }
 .release h3 { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; font: 700 1.1rem var(--pixel); color: var(--gold); margin-bottom: .9em; }
 .release h3::before { content: "v"; margin-right: -12px; color: var(--ember); }
 .release time { font: 500 .85rem var(--body); color: var(--text-muted); padding: .1em .6em; border: 1px solid var(--line-hi); }
+.release h4 { font: 700 .95rem var(--body); color: var(--text); margin: 1.1em 0 .5em; }
+.release h3 + h4 { margin-top: 0; }
 .release ul { margin: 0 0 12px; padding: 0; list-style: none; }
 .release li { position: relative; padding-left: 20px; margin-bottom: .6em; color: var(--text-dim); }
 .release li::before { content: ""; position: absolute; left: 2px; top: .62em; width: 6px; height: 6px; background: var(--ember); }
@@ -415,8 +418,9 @@ code { font: .86em ui-monospace, "Cascadia Mono", Consolas, monospace; padding: 
 
 /* --- The wiki (tools/build_wiki.py, wiki/wiki.js) ------------------------------------------ */
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.wiki .bar { padding-left: max(var(--gutter), calc((100% - var(--wiki-max)) / 2)); padding-right: max(var(--gutter), calc((100% - var(--wiki-max)) / 2)); }
 .wiki-layout {
-  max-width: var(--max); margin: 0 auto; padding: 40px var(--gutter) 0;
+  max-width: var(--wiki-max); margin: 0 auto; padding: 40px var(--gutter) 0;
   display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: 44px; align-items: start;
 }
 .wiki-side { position: sticky; top: 76px; z-index: 5; padding-bottom: 16px; }
@@ -446,6 +450,11 @@ code { font: .86em ui-monospace, "Cascadia Mono", Consolas, monospace; padding: 
 .wiki-nav a { display: flex; align-items: center; gap: 10px; padding: 8px 10px; color: var(--text-dim); font-weight: 500; font-size: .94rem; border-left: 3px solid transparent; }
 .wiki-nav a:hover { color: var(--text); background: var(--surface); }
 .wiki-nav a[aria-current] { color: var(--text); background: var(--surface); border-left-color: var(--ember); }
+.wiki-nav .group > a::after { content: "\25B8"; margin-left: auto; color: var(--text-muted); font-size: .8em; }
+.wiki-nav .group.open > a::after { content: "\25BE"; }
+.wiki-nav .group.open > a { color: var(--text); }
+.wiki-nav ul.sub { grid-template-columns: 1fr; margin: 2px 0 4px 20px; padding-left: 6px; border-left: 1px solid var(--line); }
+.wiki-nav .sub a { padding: 6px 10px; font-size: .9rem; }
 .wiki-nav .sprite { opacity: .85; }
 
 .wiki-main { min-width: 0; }
@@ -459,7 +468,10 @@ code { font: .86em ui-monospace, "Cascadia Mono", Consolas, monospace; padding: 
 .toc a { color: var(--text-dim); font-size: .93rem; }
 .toc a:hover { color: var(--gold); }
 
-.prose { max-width: 780px; }
+/* Running text keeps a readable width; wide tables and card grids take the whole column. */
+.prose { max-width: none; }
+.prose > :where(p, ul, ol, blockquote, .note, .legend, .table-wrap) { max-width: 780px; }
+.prose > .table-wrap.wide { width: fit-content; max-width: 100%; }
 .prose > * + h2 { margin-top: 2em; }
 .prose h2 { font-size: clamp(1.35rem, 3.2vw, 1.8rem); color: var(--text); scroll-margin-top: 80px; }
 .prose h3 { font-size: 1.12rem; margin-top: 1.6em; color: var(--gold); scroll-margin-top: 80px; }
@@ -487,6 +499,15 @@ code { font: .86em ui-monospace, "Cascadia Mono", Consolas, monospace; padding: 
 .cmds td:first-child { white-space: nowrap; }
 .chain td:first-child { font: 700 .85rem var(--pixel); color: var(--ember); white-space: nowrap; }
 .dim { color: var(--text-muted); }
+.balance td, .balance th { white-space: nowrap; }
+.balance td.n, .balance th.n { text-align: right; font-variant-numeric: tabular-nums; }
+.balance td.t { font: 700 .85rem var(--pixel); color: var(--ember); }
+.balance td.wide { white-space: normal; min-width: 240px; }
+.balance .up { color: var(--good); }
+.balance .down { color: var(--blood); }
+.balance.grid td, .balance.grid th { padding: 7px 9px; }
+.prose h4 .dim { font-weight: 400; font-size: .85em; }
+.table-caption { margin: 0 0 .5em; }
 
 .chips { list-style: none; padding: 0 !important; display: flex; flex-wrap: wrap; gap: 8px; }
 .chips li { margin: 0; padding: .3em .75em; background: var(--surface); border: 1px solid var(--line-hi); color: var(--text); font-size: .9rem; }
@@ -506,7 +527,7 @@ code { font: .86em ui-monospace, "Cascadia Mono", Consolas, monospace; padding: 
 .legend { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: .88rem; }
 .legend .danger { --heat: var(--gold); }
 
-.dgs, .classes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0 0 1em; }
+.dgs, .classes { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: 12px; margin: 0 0 1em; }
 .prose .dgs, .prose .classes { max-width: none; }
 .dg, .cls { padding: 16px 18px 14px; background: var(--surface); border: 1px solid var(--line); scroll-margin-top: 80px; }
 .dg:target, .cls:target { border-color: var(--ember); box-shadow: 0 0 0 1px var(--ember); }
@@ -572,7 +593,7 @@ code { font: .86em ui-monospace, "Cascadia Mono", Consolas, monospace; padding: 
   display: block; background-repeat: no-repeat; image-rendering: pixelated;
   filter: drop-shadow(1px 0 0 #000) drop-shadow(-1px 0 0 #000) drop-shadow(0 1px 0 #000) drop-shadow(0 -1px 0 #000);
 }
-.its { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0 0 1.4em; }
+.its { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: 10px; margin: 0 0 1.4em; }
 .it {
   display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 12px; align-items: start; padding: 12px 14px;
   background: var(--surface); border: 1px solid var(--line); scroll-margin-top: 80px;
@@ -608,7 +629,30 @@ code { font: .86em ui-monospace, "Cascadia Mono", Consolas, monospace; padding: 
 .it-src > .it-flags { grid-template-columns: 1fr; }
 .it-flags dd { color: var(--text-muted); font-size: .78rem; }
 
-.wiki-pager { display: flex; justify-content: space-between; gap: 12px; max-width: 780px; margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--line); }
+/* The Divine Forge page: its window as a banner, and recipes as rows of small item icons */
+.prose .banner { max-width: 880px; margin: 0 auto 2em; text-align: center; }
+.banner img {
+  display: block; width: 100%; height: auto; border: 1px solid var(--line-hi);
+  box-shadow: 0 0 0 6px var(--bg-deep), 0 0 60px rgba(255, 122, 61, .28), 0 20px 50px rgba(0, 0, 0, .55);
+}
+.banner figcaption { margin-top: 14px; font-size: .85rem; color: var(--text-muted); }
+.fr-item { display: inline-flex; align-items: center; gap: 8px; margin: 2px 14px 2px 0; vertical-align: middle; }
+.fr-name { color: var(--text); }
+.fr-n { font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; }
+.prose .fr-recipe {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 4px; width: fit-content; max-width: 100%;
+  padding: 12px 18px; background: var(--surface); border: 1px solid var(--line);
+}
+.fr-arrow { margin: 0 14px 0 0; font-size: 1.4rem; color: var(--ember); }
+.fr-fame { font-weight: 600; color: var(--gold); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fr-tiers th[scope="row"] { position: static; min-width: 200px; white-space: normal; font-weight: 500; background: var(--surface); }
+.fr-tiers th, .fr-tiers td { padding: 9px 10px; }
+.fr-tiers td { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fr-list td { vertical-align: middle; }
+.fr-list td.fr-fame { text-align: right; }
+.fr-ing { min-width: 260px; }
+
+.wiki-pager { display: flex; justify-content: space-between; gap: 12px; margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--line); }
 .wiki-pager a { display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; min-width: 0; background: var(--surface); border: 1px solid var(--line); color: var(--text); font-weight: 600; }
 .wiki-pager a:hover { border-color: var(--ember); color: var(--gold); }
 .wiki-pager span { font: 700 .66rem var(--pixel); color: var(--ember); letter-spacing: .1em; text-transform: uppercase; }

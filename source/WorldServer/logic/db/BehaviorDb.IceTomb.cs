@@ -240,7 +240,8 @@ namespace WorldServer.logic
                         new Shoot(50, 4, 10, 4, coolDown: 300),
                         new Shoot(50, 3, 10, 0, coolDown: 4750, coolDownOffset: 500)
                     )
-                )
+                ),
+                new Threshold(0.01, new ItemLoot("Tome of Frigid Protection", 0.005))
             )
             .Init("Ice Tomb Support",
                 new State(
@@ -753,6 +754,13 @@ namespace WorldServer.logic
                     new ItemLoot("Enchanted Ice Shard", 0.02),
                     new ItemLoot("Frimarra", 0.02),
                     new ItemLoot("Freezing Quiver", 0.005),
+                    new ItemLoot("Arctic Bow", 0.005),
+                    new ItemLoot("Bow of Eternal Frost", 0.005),
+                    new ItemLoot("Frosty's Walking Stick", 0.005),
+                    new ItemLoot("Staff of Iceblast", 0.005),
+                    new ItemLoot("Eternal Snowflake Wand", 0.005),
+                    new ItemLoot("Frozen Wand", 0.005),
+                    new ItemLoot("Snowblind Wand", 0.005),
                     new ItemLoot("Potion of Life", .35, 3),
                     new ItemLoot("Ice Crown", .0025)
                 )

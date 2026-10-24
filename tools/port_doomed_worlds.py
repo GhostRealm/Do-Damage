@@ -57,14 +57,24 @@ PORTED_WORLDS = {
     "PartyCellarMap": ["Birthday Portal"],
     "Kitchen": ["Kitchen Portal"],
     "Secret": ["Secret Portal"],
+    # the Arena (WORLD_NAMES); Doomed Realms' Free Battle Arena (BattleArenaMap2) is left out, so
+    # the Arena is the only one
     "BattleArenaMap": ["Battle Arena Portal"],
-    "BattleArenaMap2": ["Free Battle Arena Portal"],
     "Mine": [],
     "GauntletMap": [],
     "TurkeyMap": [],
     "Admin": [],
     "ShopMap": [],
 }
+
+# Ported worlds whose map betterSkillys builds itself (a path under worlds/): the world keeps its
+# Doomed Realms background and portals, the map is the script's. Oryx's Inferno (Oryx 4):
+# tools/build_hash_cellar.py; Oryx's Elysium (Oryx 5): tools/build_elysium.py.
+OWN_MAPS = {"Dragonlord": "Dungeons/Oryx's Inferno/Oryx's Inferno.jm",
+            "Dcellar": "Dungeons/Oryx's Elysium/Oryx's Elysium.jm"}
+# Ported worlds renamed for players: Oryx 4's Hash Cellar is Oryx's Inferno, Oryx 5's Doomed Cellar
+# Oryx's Elysium, and the Battle Arena the Arena (DoomedWorlds.ArenaName).
+WORLD_NAMES = {"Dragonlord": "Oryx's Inferno", "Dcellar": "Oryx's Elysium", "BattleArenaMap": "Arena"}
 
 # Elder dungeons Doomed Realms left unfinished (it made their keys, portals and monsters, but no
 # maps): built like its finished ones, from the regular dungeon's maps with every object that has
@@ -314,6 +324,12 @@ def world_maps(dr_root, dr_ids=frozenset()):
     out = {}
     for cls in PORTED_WORLDS:
         name, bg, tp, maps = classes[cls]
+        name = WORLD_NAMES.get(cls, name)
+        if cls in OWN_MAPS:
+            with open(os.path.join(os.path.dirname(WORLDS_DIR), OWN_MAPS[cls]), encoding="utf-8") as f:
+                j = json.load(f)
+            out[cls] = (name, bg, tp, [{"width": j["width"], "height": j["height"], "own": OWN_MAPS[cls]}])
+            continue
         maps = [read_wmap(find_map(dr_root, m)) for m in maps]
         if cls == SHOP_WORLD:
             maps = [shop_regions(m) for m in maps]
@@ -346,6 +362,9 @@ def write_worlds(worlds, dr_grounds, object_id):
         safe = re.sub(r"[^A-Za-z0-9 '\-]", "", name).strip() or cls
         files = []
         for i, wm in enumerate(maps):
+            if "own" in wm:
+                files.append(wm["own"])
+                continue
             fname = safe + (" %d" % (i + 1) if len(maps) > 1 else "") + ".jm"
             with open(os.path.join(WORLDS_DIR, fname), "w", encoding="utf-8") as f:
                 f.write(wm["jm"] if "jm" in wm else to_jm(wm, dr_grounds, object_id))

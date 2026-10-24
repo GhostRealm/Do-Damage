@@ -42,6 +42,8 @@ pub enum NpcKind {
     Market,
     /// The Arena Leaderboard trophy in the Nexus's south yard: the best arena runs.
     ArenaLeaderboard,
+    /// The Divine Forge in the Nexus's south yard: forging, and selling items for fame.
+    Forge,
 }
 
 impl NpcKind {
@@ -56,6 +58,7 @@ impl NpcKind {
             "PotionStorage" => Self::PotionStorage,
             "MarketNPC" => Self::Market,
             "ArenaLeaderboard" => Self::ArenaLeaderboard,
+            "Forge" => Self::Forge,
             _ => return None,
         })
     }
@@ -110,6 +113,7 @@ pub fn interact_text(kind: NpcKind, me: &GameObj, rank_req: i32) -> (String, Opt
         NpcKind::PotionStorage => open("Store stat potions", "Open"),
         NpcKind::Market => open("Buy and sell items", "Manage"),
         NpcKind::ArenaLeaderboard => open("The arena's best runs", "View"),
+        NpcKind::Forge => open("Forge items, or sell them for fame", "Open"),
     }
 }
 
@@ -597,7 +601,7 @@ impl Npcs {
                         ui.label(t, body[0], body[1], ts, false, if error.is_some() { color::DANGER } else { color::TEXT_MUTED });
                     }
                     Some(runs) if runs.is_empty() => {
-                        ui.label("No runs yet. Survive waves in the Battle Arena or /arena to get on the board.", body[0], body[1], ts, false, color::TEXT_MUTED);
+                        ui.label("No runs yet. Survive waves in the Arena (/arena) to get on the board.", body[0], body[1], ts, false, color::TEXT_MUTED);
                     }
                     Some(runs) => draw_runs(ui, runs, body, s, me.and_then(|m| m.name()).unwrap_or("")),
                 }
@@ -742,6 +746,7 @@ mod tests {
         assert_eq!(rank_name(20), "Officer");
         assert_eq!(rank_name(40), "Founder");
         assert_eq!(NpcKind::of_class("ReskinVendor"), Some(NpcKind::Reskin));
-        assert_eq!(NpcKind::of_class("Forge"), None);
+        assert_eq!(NpcKind::of_class("Forge"), Some(NpcKind::Forge));
+        assert_eq!(NpcKind::of_class("SkillTree"), None);
     }
 }

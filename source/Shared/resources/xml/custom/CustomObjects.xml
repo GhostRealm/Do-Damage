@@ -26,6 +26,41 @@
 		<Static />
 		<ShadowSize>60</ShadowSize>
 	</Object>
+	<!-- the Divine Forge in the Nexus's south yard (tools/build_castle_maps.py): its window in the
+	     Rust client forges items and sells them for fame (ForgeHandlers.cs); its sprite is drawn by
+	     tools/draw_forge_sprite.py -->
+	<Object type="0x497a" id="Divine Forge">
+		<Class>Forge</Class>
+		<DisplayId>Divine Forge</DisplayId>
+		<Texture>
+			<File>customAssets32x32</File>
+			<Index>0x00</Index>
+		</Texture>
+		<Animation prob="1.0" period="0.0">
+			<Frame time="0.15">
+				<Texture>
+					<File>customAssets32x32</File>
+					<Index>0x00</Index>
+				</Texture>
+			</Frame>
+			<Frame time="0.15">
+				<Texture>
+					<File>customAssets32x32</File>
+					<Index>0x01</Index>
+				</Texture>
+			</Frame>
+			<Frame time="0.15">
+				<Texture>
+					<File>customAssets32x32</File>
+					<Index>0x02</Index>
+				</Texture>
+			</Frame>
+		</Animation>
+		<Size>120</Size>
+		<Static/>
+		<OccupySquare/>
+		<ShadowSize>110</ShadowSize>
+	</Object>
 	<!-- the Elder Tomb's boss anchor: its bosses circle it, and it drops the exit portal once
 	     they are dead -->
 	<Object type="0xe901" id="Elder Tomb Boss Anchor">
@@ -67,5 +102,53 @@
 		<Size>100</Size>
 		<Static/>
 		<ShadowSize>70</ShadowSize>
+	</Object>
+	<!-- the vault's Training Dummy: it never dies, and tells whoever hits it their damage over 5
+	     seconds (DpsMeter) -->
+	<Object type="0x4976" id="Training Dummy">
+		<Class>GameObject</Class>
+		<Texture>
+			<File>lofiEnvironment3</File>
+			<Index>0x97</Index>
+		</Texture>
+		<Enemy/>
+		<MaxHitPoints>1000000</MaxHitPoints>
+		<Defense>0</Defense>
+		<Exp>0</Exp>
+		<StasisImmune/>
+		<NoMiniMap/>
+		<HitSound>monster/wooden_walls_hit</HitSound>
+		<DeathSound>monster/stone_walls_death</DeathSound>
+	</Object>
+	<!-- helpers the Oryx 5 weapons summon as they shoot (OnPlayerShootActivate Pet; their behaviours in
+	     BehaviorDb.Allies.cs): the Sword of Dark Enchantment's dark orb, which zaps, and the Elysian
+	     Staff's halo, Oryx 5's Halo Orb, which circles you firing his Holy Orbs -->
+	<Object type="0x5864" id="Dark Enchantment Orb">
+		<Class>GameObject</Class>
+		<Texture>
+			<File>oryxUts8x8</File>
+			<Index>5</Index>
+		</Texture>
+		<Flying/>
+		<Size>70</Size>
+		<Z>0.3</Z>
+	</Object>
+	<Object type="0x5865" id="Elysian Halo">
+		<Class>GameObject</Class>
+		<Texture>
+			<File>elysium8x8</File>
+			<Index>0x69</Index>
+		</Texture>
+		<Flying/>
+		<Size>80</Size>
+		<Z>0.3</Z>
+		<Projectile id="0">
+			<ObjectId>Holy Orb</ObjectId>
+			<Speed>110</Speed>
+			<MinDamage>120</MinDamage>
+			<MaxDamage>150</MaxDamage>
+			<LifetimeMS>900</LifetimeMS>
+			<Size>90</Size>
+		</Projectile>
 	</Object>
 </Objects>

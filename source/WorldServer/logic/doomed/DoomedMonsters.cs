@@ -290,7 +290,7 @@ namespace WorldServer.logic.doomed
                         Tuple.Create(0.25, (ILoot) MpPotionLoot.Instance)
                         ),
                     Tuple.Create(100, new LootDef(0, 1, 0, 8,
-                        Tuple.Create(0.001, (ILoot) new ItemLoot("Quiver of Thunder")),
+                        Tuple.Create(0.05, (ILoot) new ItemLoot("Quiver of Thunder")),
                         Tuple.Create(0.06, (ILoot) new ItemLoot("Tincture of Dexterity")),
                         Tuple.Create(0.06, (ILoot) new ItemLoot("Tincture of Life")),
                         Tuple.Create(0.08, (ILoot) new ItemLoot("Green Drake Egg")),
@@ -370,8 +370,7 @@ namespace WorldServer.logic.doomed
                             Tuple.Create(0.2, (ILoot)new StatPotionLoot(StatPotion.Vit)),
                             Tuple.Create(0.2, (ILoot)new StatPotionLoot(StatPotion.Def)),
 
-                            Tuple.Create(0.3, (ILoot)new ItemLoot("Chicken Leg of Doom")),
-                            Tuple.Create(0.3, (ILoot)new ItemLoot("Anatis Staff"))
+                            Tuple.Create(0.3, (ILoot)new ItemLoot("Chicken Leg of Doom"))
                     ))));
 
         // April Fools Egg
@@ -780,15 +779,8 @@ namespace WorldServer.logic.doomed
                             Tuple.Create(0.2, (ILoot)new TierLoot(8, ItemType.Ability)),
                             Tuple.Create(0.2, (ILoot)new TierLoot(15, ItemType.Armor)),
                             Tuple.Create(0.2, (ILoot)new TierLoot(14, ItemType.Weapon)),
-                            Tuple.Create(0.009, (ILoot)new ItemLoot("Crown")),
-                            Tuple.Create(0.2, (ILoot)new ItemLoot("Oryx Tooth Sword")),
                             Tuple.Create(0.2, (ILoot)new ItemLoot("Doom Dirk")),
                             Tuple.Create(0.1, (ILoot)new ItemLoot("Platinum Sword")),
-                            Tuple.Create(0.2, (ILoot)new ItemLoot("Oryx Hide Robe")),
-                            Tuple.Create(0.2, (ILoot)new ItemLoot("Oryx Hide Armor")),
-                            Tuple.Create(0.2, (ILoot)new ItemLoot("Oryx Scale Armor")),
-                            Tuple.Create(0.2, (ILoot)new ItemLoot("Ring of Oryx")),
-                            Tuple.Create(0.01, (ILoot)new ItemLoot("Doom Poison")),
                             Tuple.Create(0.9, (ILoot)new ItemLoot("Potion of Oryx")),
                             Tuple.Create(0.1, (ILoot)new ItemLoot("Oceanic Nova")),
                             Tuple.Create(0.05, (ILoot)new ItemLoot("Great Coil Snake Generator")),
@@ -798,7 +790,7 @@ namespace WorldServer.logic.doomed
                             Tuple.Create(0.1, (ILoot)new ItemLoot("Flying Doom Daggers")),
                            Tuple.Create(0.3, (ILoot)new ItemLoot("Candy Cane Sword")),
                            Tuple.Create(0.3, (ILoot)new ItemLoot("The Snowball")),
-                           Tuple.Create(0.3, (ILoot)new ItemLoot("Santa's Hat")),
+                           Tuple.Create(0.05, (ILoot)new ItemLoot("Santa's Hat")),
                             Tuple.Create(0.3, (ILoot)new ItemLoot("The Agressive Caroller"))
                     ))));
 
@@ -1925,7 +1917,6 @@ namespace WorldServer.logic.doomed
                     Tuple.Create(360, new LootDef(0, 3, 0, 8,
                         Tuple.Create(0.1, (ILoot)new ItemLoot("Potion of Max Mana")),
                         Tuple.Create(0.005, (ILoot)new ItemLoot("Wine Cellar Incantation")),
-                            Tuple.Create(0.01, (ILoot)new ItemLoot("Raw Fish of Terror")),
                             Tuple.Create(0.01, (ILoot)new ItemLoot("Scaled Robe")),
                             Tuple.Create(0.01, (ILoot)new ItemLoot("Oceans Gift")),
                             Tuple.Create(0.01, (ILoot)new ItemLoot("Idol of the Fish")),
@@ -4843,9 +4834,7 @@ namespace WorldServer.logic.doomed
                     Tuple.Create(800, new LootDef(0, 5, 1, 2,
                         Tuple.Create(0.001, (ILoot) new ItemLoot("Doom Bow")),
                         Tuple.Create(0.001, (ILoot)new ItemLoot("Seal of the Fallen Angel")),
-                        Tuple.Create(0.0001, (ILoot)new ItemLoot("Sword of Ghostly Power")),
-                        Tuple.Create(0.0005, (ILoot)new ItemLoot("Soul Mask")),
-                        Tuple.Create(0.0004, (ILoot)new ItemLoot("Soul Spawned Armor")),
+                        Tuple.Create(0.02, (ILoot)new ItemLoot("Soul Mask")),
                         Tuple.Create(0.0009, (ILoot)new ItemLoot("Soul Tipped Dirk")),
                         Tuple.Create(0.005, (ILoot) new ItemLoot("Wine Cellar Incantation")),
                         Tuple.Create(1.0, (ILoot)new ItemLoot("Potion of Max Wisdom")),
@@ -5223,7 +5212,6 @@ namespace WorldServer.logic.doomed
                     Tuple.Create(100, new LootDef(0, 5, 2, 5,
                         Tuple.Create(0.1, (ILoot) new ItemLoot("Potion of Max Mana")),
                         Tuple.Create(0.005, (ILoot) new ItemLoot("Wine Cellar Incantation")),
-                            Tuple.Create(0.01, (ILoot)new ItemLoot("Raw Fish of Terror")),
                             Tuple.Create(0.01, (ILoot)new ItemLoot("Scaled Robe")),
                             Tuple.Create(0.01, (ILoot)new ItemLoot("Oceans Gift")),
                             Tuple.Create(0.01, (ILoot)new ItemLoot("Idol of the Fish")),
@@ -5548,7 +5536,6 @@ namespace WorldServer.logic.doomed
             null,
             new LootBehavior(LootDef.Empty,
                     Tuple.Create(100, new LootDef(0, 2, 0, 2,
-                        Tuple.Create(0.03, (ILoot)new ItemLoot("Burning Amulet")),
                         Tuple.Create(0.01, (ILoot) new ItemLoot("Wine Cellar Incantation")),
                         Tuple.Create(0.1, (ILoot) new ItemLoot("Potion of Max Life")),
                                                 Tuple.Create(0.01, (ILoot)new ItemLoot("Wings of Natural Bloodlust")),
@@ -5647,7 +5634,7 @@ namespace WorldServer.logic.doomed
                     Tuple.Create(500, new LootDef(0, 5, 0, 10,
                         Tuple.Create(0.9, (ILoot) new ItemLoot("Potion of Speed")),
                         Tuple.Create(0.1, (ILoot) new ItemLoot("Potion of Vitality")),
-                        Tuple.Create(0.005, (ILoot) new ItemLoot("Staff of Natural Essence"))
+                        Tuple.Create(0.05, (ILoot) new ItemLoot("Staff of Natural Essence"))
                         ))));
 
         // Elder Tree Roots
@@ -6872,7 +6859,7 @@ namespace WorldServer.logic.doomed
             null,
             new LootBehavior(LootDef.Empty,
                             Tuple.Create(100, new LootDef(0, 3, 0, 8,
-                                Tuple.Create(0.001, (ILoot) new ItemLoot("Orb of Conflict")),
+                                Tuple.Create(0.02, (ILoot) new ItemLoot("Orb of Conflict")),
                                 Tuple.Create(0.01, (ILoot) new TierLoot(11, ItemType.Weapon)),
                                 Tuple.Create(0.01, (ILoot) new TierLoot(11, ItemType.Armor)),
                                 Tuple.Create(0.01, (ILoot) new TierLoot(5, ItemType.Ring)),
@@ -7501,8 +7488,6 @@ namespace WorldServer.logic.doomed
                             Tuple.Create(0.029, (ILoot)new TierLoot(8, ItemType.Ability)),
                             Tuple.Create(0.029, (ILoot)new TierLoot(15, ItemType.Armor)),
                             Tuple.Create(0.029, (ILoot)new TierLoot(14, ItemType.Weapon)),
-                            Tuple.Create(0.00009, (ILoot)new ItemLoot("Crown")),
-                            Tuple.Create(0.1, (ILoot)new ItemLoot("Oryx Tooth Sword")),
                             Tuple.Create(0.2, (ILoot)new ItemLoot("Tornado Generator")),
                             Tuple.Create(0.1, (ILoot)new ItemLoot("Rain Bow")),
                             Tuple.Create(0.1, (ILoot)new ItemLoot("Gyarados Generator")),
@@ -7511,10 +7496,6 @@ namespace WorldServer.logic.doomed
                             Tuple.Create(0.5, (ILoot)new ItemLoot("Platinum Sword")),
                             Tuple.Create(0.2, (ILoot)new ItemLoot("Large Black Striped Cloth")),
                             Tuple.Create(0.2, (ILoot)new ItemLoot("Small Black Striped Cloth")),
-                            Tuple.Create(0.1, (ILoot)new ItemLoot("Oryx Hide Robe")),
-                            Tuple.Create(0.1, (ILoot)new ItemLoot("Oryx Hide Armor")),
-                            Tuple.Create(0.1, (ILoot)new ItemLoot("Oryx Scale Armor")),
-                            Tuple.Create(0.1, (ILoot)new ItemLoot("Ring of Oryx")),
                             Tuple.Create(0.01, (ILoot)new ItemLoot("Doom Poison")),
                             Tuple.Create(0.2, (ILoot)new ItemLoot("Shark Generator")),
                             Tuple.Create(0.5, (ILoot)new ItemLoot("Potion of Oryx")),
@@ -7522,11 +7503,8 @@ namespace WorldServer.logic.doomed
                             Tuple.Create(0.3, (ILoot)new ItemLoot("Strike Amulet")),
                             Tuple.Create(0.4, (ILoot)new ItemLoot("Transformation Potion")),
                             Tuple.Create(0.1, (ILoot)new ItemLoot("Flying Doom Daggers")),
-                            Tuple.Create(0.6, (ILoot)new ItemLoot("Shattered Rune of Oryx")),
-                            Tuple.Create(0.5, (ILoot)new ItemLoot("Broken Oryx Armor")),
                             Tuple.Create(0.4, (ILoot)new ItemLoot("Large Oryx Cloth")),
-                            Tuple.Create(0.4, (ILoot)new ItemLoot("Small Oryx Cloth")),
-                            Tuple.Create(0.4, (ILoot)new ItemLoot("Purified Doom Saliva"))
+                            Tuple.Create(0.4, (ILoot)new ItemLoot("Small Oryx Cloth"))
                                 ))));
 
         // Oryx the Mad God 5
@@ -7615,14 +7593,7 @@ namespace WorldServer.logic.doomed
                             Tuple.Create(0.2, (ILoot)new TierLoot(9, ItemType.Ability)),
                             Tuple.Create(0.2, (ILoot)new TierLoot(15, ItemType.Armor)),
                             Tuple.Create(0.2, (ILoot)new TierLoot(14, ItemType.Weapon)),
-                            Tuple.Create(0.009, (ILoot)new ItemLoot("Crown")),
-                            Tuple.Create(0.2, (ILoot)new ItemLoot("Oryx Tooth Sword")),
                             Tuple.Create(0.2, (ILoot)new ItemLoot("Doom Dirk")),
-                            Tuple.Create(0.2, (ILoot)new ItemLoot("Oryx Hide Robe")),
-                            Tuple.Create(0.2, (ILoot)new ItemLoot("Oryx Hide Armor")),
-                            Tuple.Create(0.2, (ILoot)new ItemLoot("Oryx Scale Armor")),
-                            Tuple.Create(0.2, (ILoot)new ItemLoot("Ring of Oryx")),
-                            Tuple.Create(0.01, (ILoot)new ItemLoot("Doom Poison")),
                             Tuple.Create(0.9, (ILoot)new ItemLoot("Potion of Oryx")),
                             Tuple.Create(0.1, (ILoot)new ItemLoot("Oceanic Nova")),
                             Tuple.Create(0.09, (ILoot)new ItemLoot("Potion of Power")),
@@ -8300,10 +8271,7 @@ namespace WorldServer.logic.doomed
             null,
             new LootBehavior(LootDef.Empty,
                         Tuple.Create(100, new LootDef(0, 5, 0, 8,
-                            Tuple.Create(0.05, (ILoot)new ItemLoot("America Sword")),
                             Tuple.Create(0.05, (ILoot)new ItemLoot("America Armor")),
-                            Tuple.Create(0.05, (ILoot)new ItemLoot("America Shield")),
-                            Tuple.Create(0.05, (ILoot)new ItemLoot("America Ring")),
 
                             Tuple.Create(0.5, (ILoot)new StatPotionLoot(StatPotion.Att)),
                             Tuple.Create(0.5, (ILoot)new StatPotionLoot(StatPotion.Wis)),

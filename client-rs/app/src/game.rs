@@ -49,10 +49,10 @@ pub struct Game {
     pub floaters: Vec<crate::view::Floater>,
     /// Speech balloons, one per speaker.
     pub bubbles: Vec<crate::view::Bubble>,
-    /// Each object's condition effects as last seen, to name the ones it gains.
-    seen_conditions: std::collections::HashMap<i32, [u32; 2]>,
     /// The market's answers, for its window.
     pub market_events: Vec<crate::market::Event>,
+    /// The Divine Forge's answers, for its window.
+    pub forge_events: Vec<crate::forge::Event>,
     /// Sound effects to play: (name, volume, is it a weapon's shot).
     pub sounds: Vec<(String, f32, bool)>,
     /// The map's music (`MapInfo.music`, `SwitchMusic`).
@@ -73,6 +73,9 @@ pub struct Game {
     pub tellers: Vec<String>,
     /// The arena's wave and clock (`ArenaMenu`): wave, seconds, since when, running.
     pub arena: Option<(i32, i32, i32, bool)>,
+    /// Staff's `/autoaim`: shots go at the nearest enemy. Only the server turns it on, with a line
+    /// from `*AutoAim*` (a name no player can have); `--aim auto` asks for it.
+    pub auto_aim: bool,
     /// `MapInfo.showDisplays`: the map shows your rank at the top right (the Nexus, the Vault...).
     pub show_displays: bool,
     /// Sparks, effects and area attacks.
@@ -237,11 +240,11 @@ impl Game {
             sent_view_radius: MIN_VIEW_RADIUS,
             view_radius_sent_at: i32::MIN / 2,
             floaters: Vec::new(),
-            seen_conditions: std::collections::HashMap::new(),
             bubbles: Vec::new(),
             tellers: Vec::new(),
             sounds: Vec::new(),
             market_events: Vec::new(),
+            forge_events: Vec::new(),
             music: None,
             last_level: 0,
             dealt: Default::default(),
@@ -249,6 +252,7 @@ impl Game {
             boss_history: Vec::new(),
             fame_stats: Default::default(),
             arena: None,
+            auto_aim: false,
             show_displays: false,
             particles: Default::default(),
             quest: None,
@@ -603,6 +607,10 @@ impl Game {
             }
         }
         if let ServerMessage::Text(t) = msg {
+            if t.name == "*AutoAim*" {
+                self.auto_aim = t.text == "on";
+                return;
+            }
             if self.is_ignored(t.object_id) {
                 return;
             }
@@ -673,6 +681,15 @@ impl Game {
             ServerMessage::MarketAddResult(r) => self.market_events.push(crate::market::Event::Add(r.code, r.description.clone())),
             ServerMessage::MarketRemoveResult(r) => self.market_events.push(crate::market::Event::Remove(r.code, r.description.clone())),
             ServerMessage::MarketMyOffersResult(r) => self.market_events.push(crate::market::Event::MyOffers(r.results.0.clone())),
+            ServerMessage::ForgeData(d) => self.forge_events.push(crate::forge::Event::Data(d.recipes.0.clone(), d.prices.0.clone())),
+            ServerMessage::ForgeResult(r) => self.forge_events.push(crate::forge::Event::Result {
+                sold: r.sold,
+                success: r.success,
+                item: r.item,
+                fame: r.fame,
+                message: r.message.clone(),
+            }),
+            ServerMessage::ForgeShards(s) => self.forge_events.push(crate::forge::Event::Shards(s.shards.0.clone())),
             ServerMessage::Goto(g) => world.apply_goto(g.object_id, g.pos.x as f64, g.pos.y as f64, now, data),
             ServerMessage::EnemyShoot(e) => {
                 let Some(owner) = world.objects.get(&e.owner_id).filter(|o| !o.dead) else { return };
@@ -685,8 +702,7 @@ impl Game {
                     world.add_projectile(p);
                 }
                 if let Some(owner) = world.objects.get_mut(&e.owner_id) {
-                    owner.attack_start = now;
-                    owner.attack_angle = e.angle as f64 + inc * (num - 1) as f64 / 2.0;
+                    owner.note_attack(now, e.angle as f64 + inc * (num - 1) as f64 / 2.0);
                 }
             }
             ServerMessage::ServerPlayerShoot(s) => {
@@ -698,8 +714,7 @@ impl Game {
             }
             ServerMessage::AllyShoot(a) => {
                 let Some(owner) = world.objects.get_mut(&a.owner_id).filter(|o| !o.dead) else { return };
-                owner.attack_start = now;
-                owner.attack_angle = a.angle as f64;
+                owner.note_attack(now, a.angle as f64);
                 let (x, y) = (owner.x, owner.y);
                 let p = Projectile::new(a.owner_id, a.bullet_id, a.container_type as u16, 0, a.angle as f64, now, x, y, 1.0, 0, false);
                 world.add_projectile(p);
@@ -744,6 +759,7 @@ impl Game {
     /// `stars` is the speaker's rank, or -1 for none (the server's own lines).
     #[allow(clippy::too_many_arguments)]
     pub fn add_chat(&mut self, name: &str, recipient: &str, text: &str, name_color: i32, text_color: i32, stars: i32, now: i32) {
+        log::debug!("chat {name}: {text}"); // scripted tests read results from here (RUST_LOG=debug)
         // TextBox.tellers_: who we last whispered with, newest last.
         let me = self.world.as_ref().and_then(|w| w.player()).and_then(|p| p.name()).unwrap_or("").to_owned();
         let other = if !recipient.is_empty() && recipient == me {
@@ -812,16 +828,16 @@ impl Game {
         let Some(world) = &mut self.world else { return };
         for hit in world.update_projectiles(now, data) {
             let msg: ClientMessage = match hit {
-                Hit::Player { bullet_id, owner_id, damage } => {
+                Hit::Player { bullet_id, owner_id, damage, pierced } => {
                     if let Some(s) = world.player().and_then(|p| hurt_sound(data, p.object_type, false)) {
                         self.sounds.push((s, 1.0, false));
                     }
                     if let Some(me) = world.me {
-                        self.floaters.push(crate::view::Floater::damage(me, damage, now));
+                        self.floaters.push(crate::view::Floater::hit(me, damage, pierced, now));
                     }
                     PlayerHit { bullet_id, object_id: owner_id }.into()
                 }
-                Hit::Enemy { time, bullet_id, target_id, kill, damage } => {
+                Hit::Enemy { time, bullet_id, target_id, kill, damage, pierced } => {
                     let counted = world.objects.get(&target_id).and_then(|o| data.objects.get(&o.object_type)).is_some_and(|d| d.xml.has("Quest") || d.xml.has("Chest"));
                     if counted {
                         *self.dealt.entry(target_id).or_default() += damage;
@@ -829,7 +845,7 @@ impl Game {
                     if let Some(s) = world.objects.get(&target_id).and_then(|o| hurt_sound(data, o.object_type, kill)) {
                         self.sounds.push((s, 1.0, false));
                     }
-                    self.floaters.push(crate::view::Floater::damage(target_id, damage, now));
+                    self.floaters.push(crate::view::Floater::hit(target_id, damage, pierced, now));
                     EnemyHit { time, bullet_id, target_id, kill }.into()
                 }
                 Hit::Other { time, bullet_id, owner_id, target_id } => {
@@ -846,39 +862,8 @@ impl Game {
             *self.counts.entry(msg.name()).or_default() += 1;
             self.socket.send(&msg);
         }
-        self.condition_text(now);
         self.floaters.retain(|f| now - f.at < f.life);
         self.bubbles.retain(|b| now - b.at < b.life);
-    }
-
-    /// Effects an object gains, named over it like a damage number: red when they hurt, green
-    /// when they help. Objects just come into sight say nothing about what they already had.
-    fn condition_text(&mut self, now: i32) {
-        use bsk_world::condition::{active, EFFECTS};
-        let Some(world) = &self.world else { return };
-        let mut seen = std::collections::HashMap::with_capacity(world.objects.len());
-        for o in world.objects.values() {
-            let c = o.conditions();
-            if let Some(before) = self.seen_conditions.get(&o.id) {
-                let gained = [c[0] & !before[0], c[1] & !before[1]];
-                let (mut good, mut bad) = (Vec::new(), Vec::new());
-                for n in active(gained).filter(|&n| n > 1) {
-                    let name = EFFECTS[n as usize].name;
-                    if crate::view::helps(n) {
-                        good.push(name);
-                    } else {
-                        bad.push(name);
-                    }
-                }
-                for (names, color) in [(bad, 0xFF0000), (good, 0x5AFF5A)] {
-                    if !names.is_empty() {
-                        self.floaters.push(crate::view::Floater { object_id: o.id, text: names.join(", "), color, at: now, life: 2000 });
-                    }
-                }
-            }
-            seen.insert(o.id, c);
-        }
-        self.seen_conditions = seen;
     }
 
     /// Advance the world by `dt` ms with the keys held; `rotate` is -1, 0 or 1.
@@ -1032,7 +1017,9 @@ impl Game {
         let Some(me) = self.world.as_ref().and_then(|w| w.player()) else { return };
         let item = me.stat_int(crate::hud::slot_stat(1)).unwrap_or(-1);
         let mp = me.stat_int(crate::hud::stat::MP).unwrap_or(0);
-        let (id, paused) = (me.id, bsk_world::condition::has(me.conditions(), bsk_world::condition::PAUSED));
+        // Silenced (the Infernal Brimstone Poison's user): no ability, as the server refuses it
+        let paused = [bsk_world::condition::PAUSED, bsk_world::condition::SILENCED].iter().any(|&c| bsk_world::condition::has(me.conditions(), c));
+        let id = me.id;
         let Some(xml) = data.objects.get(&(item as u16)).map(|d| &d.xml) else { return };
         if now < self.next_ability {
             return;
@@ -1195,6 +1182,18 @@ impl Game {
             Act::Add(slots, price) => bsk_proto::MarketAdd { slots: bsk_proto::List8(slots), price, currency: 1, hours: 24 }.into(),
             Act::Remove(id) => bsk_proto::MarketRemove { id }.into(),
             Act::MyOffers => bsk_proto::MarketMyOffers {}.into(),
+        };
+        self.send(msg);
+    }
+
+    /// Ask the Divine Forge (`ForgeHandlers.cs`).
+    pub fn forge(&mut self, act: crate::forge::Act) {
+        use crate::forge::Act;
+        let msg: ClientMessage = match act {
+            Act::Data => bsk_proto::ForgeDataRequest {}.into(),
+            Act::Forge(result, slots) => bsk_proto::Forge { result, slots: bsk_proto::List8(slots) }.into(),
+            Act::Sell(slots) => bsk_proto::ForgeSell { slots: bsk_proto::List8(slots) }.into(),
+            Act::Withdraw(item) => bsk_proto::ForgeWithdraw { item }.into(),
         };
         self.send(msg);
     }

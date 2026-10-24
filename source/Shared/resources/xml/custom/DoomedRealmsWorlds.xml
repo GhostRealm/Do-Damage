@@ -7,17 +7,10 @@
 		<VisibilityType>1</VisibilityType>
 		<Dungeon/>
 	</World>
-	<World id="Battle Arena">
+	<World id="Arena">
 		<Width>34</Width>
 		<Height>34</Height>
-		<MapJM>Doomed/Battle Arena.jm</MapJM>
-		<VisibilityType>1</VisibilityType>
-		<Dungeon/>
-	</World>
-	<World id="Free Battle Arena">
-		<Width>34</Width>
-		<Height>34</Height>
-		<MapJM>Doomed/Free Battle Arena.jm</MapJM>
+		<MapJM>Doomed/Arena.jm</MapJM>
 		<VisibilityType>1</VisibilityType>
 		<Dungeon/>
 	</World>
@@ -28,10 +21,10 @@
 		<VisibilityType>1</VisibilityType>
 		<Dungeon/>
 	</World>
-	<World id="Doomed Cellar">
-		<Width>256</Width>
-		<Height>256</Height>
-		<MapJM>Doomed/Doomed Cellar.jm</MapJM>
+	<World id="Oryx's Elysium">
+		<Width>96</Width>
+		<Height>136</Height>
+		<MapJM>Dungeons/Oryx's Elysium/Oryx's Elysium.jm</MapJM>
 		<VisibilityType>1</VisibilityType>
 		<Dungeon/>
 	</World>
@@ -42,10 +35,10 @@
 		<VisibilityType>1</VisibilityType>
 		<Dungeon/>
 	</World>
-	<World id="Hash Cellar">
-		<Width>56</Width>
-		<Height>107</Height>
-		<MapJM>Doomed/Hash Cellar.jm</MapJM>
+	<World id="Oryx's Inferno">
+		<Width>64</Width>
+		<Height>122</Height>
+		<MapJM>Dungeons/Oryx's Inferno/Oryx's Inferno.jm</MapJM>
 		<VisibilityType>1</VisibilityType>
 		<Dungeon/>
 	</World>

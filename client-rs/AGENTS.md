@@ -98,15 +98,15 @@ The client itself can be scripted for tests (desktop only):
 | `--bench` | No vsync or frame cap for this run (the settings are left alone), and every 2 s the frame rate, CPU time by section and draw calls in the log. Measure a release build, after the first few seconds |
 | `--shot <png> --shot-after <seconds>` | Save one frame, then quit (logs the position and what it sent) |
 | `--walk-to x,y[;x,y...]` | Walk to world positions in turn (in the first world joined, or the one `--say` moves to) |
-| `--hold <key>:<ms>` | Hold keys one after another: `w a s d q e r o z 0 1`-`8 space hp mp`, `f` fires, `-` waits |
-| `--aim <degrees>` / `--aim auto` | Where `f` fires on the screen, or at the nearest enemy |
+| `--hold <key>:<ms>` | Hold keys one after another: `w a s d q e r o z 0 1`-`8 space hp mp`, `f` fires, `i` turns autofire on or off (it fires at the mouse while other keys are held), `-` waits |
+| `--aim <degrees>` / `--aim auto` | Where `f` fires on the screen, or at the nearest enemy. `auto` is staff's `/autoaim`: the client sends it first and aims only once the server agrees, so the account must be an admin on the test stack (`rank` 6 in its Redis) |
 | `--say <text>` | Send a chat line or command once in the game; several lines split by `;;` go out in turn, each once another world is joined or 3 s after the last (`"/dungeon Oryx's Sanctuary;;/god"`) |
 | `--npc <class>` | Open that NPC's window once in the game (`GuildBoard`, `PotionStorage`...), wherever you stand |
 | `--effect <type>` | Show that `ShowEffect` type on you every half second (0: an area attack beside you), to check particles |
-| `--type <text>` | Type into the first NPC prompt that opens (then Enter), or onto the guild board being edited |
+| `--type <text>` | Type into the first NPC prompt that opens (then Enter), onto the guild board being edited, or into the Divine Forge's search (with `--npc Forge`) |
 | `--size WxH` | Open the window at this size (physical pixels), to check the layout |
-| `--mouse x,y` | Put the mouse there (window pixels) and ignore the real one: tooltips, aiming |
-| `--mouse-script "down@ms:x,y;move@ms:x,y;up@ms:x,y"` | Left-button steps after joining: drags and clicks on the HUD |
+| `--mouse x,y` | Put the mouse there (window pixels) and ignore the real one and its buttons: tooltips, aiming |
+| `--mouse-script "down@ms:x,y;move@ms:x,y;up@ms:x,y;right@ms:x,y"` | Mouse steps after joining: left-button drags and clicks on the HUD, and right-clicks |
 
 - **Paths and slashes:** from Git Bash, run it with `MSYS_NO_PATHCONV=1` and give
   `--credentials` a Windows path (`C:/Users/...`); a `/c/Users/...` path isn't found and the client
@@ -114,11 +114,16 @@ The client itself can be scripted for tests (desktop only):
 - **Your login stays yours:** sign-ins from `--credentials` are never saved ("Remember me" is
   skipped for them). But a run without `--credentials` signs in with the login saved on this PC,
   which is the owner's own: its sign-in screen shows their email. Don't share those shots.
+- **In the background:** a run with `--shot`, `--hold` or `--mouse-script` opens its window
+  without taking focus, so the keyboard stays with the window in use; `--mouse` also ignores
+  clicks on it.
+- **Chat in the log:** with `RUST_LOG=info,betterskillys=debug` every chat line is logged
+  (`chat <name>: <text>`), for reading results such as the vault Training Dummy's.
 - **No server needed** for the screens outside the game: `--account http://127.0.0.1:1` with
   `--shot` shows the menu and sign-in screens over the sky, at any `--size`.
 
-For example, the Battle Arena (its monsters come 60 s after you enter):
-`--walk-to 106.5,75.4 --hold 0:200 --hold -:6000 --hold f:100000 --aim auto --shot a.png --shot-after 95`.
+For example, the Arena (its monsters come 60 s after you enter; its portal is in the Nexus's south
+yard): `--walk-to 45.5,68.5 --hold 0:200 --hold -:6000 --hold f:100000 --aim auto --shot a.png --shot-after 95`.
 
 ## Layout
 
@@ -202,7 +207,8 @@ For example, the Battle Arena (its monsters come 60 s after you enter):
    **Done.**
 6. Party, trading, guild and the NPC windows (`npc.rs`): **Done.** Market, emotes, sound to do.
 7. Packaging: `build_client_rs.py --account <url> --package` (the address built in, release
-   builds without a console window on Windows, the AIR client's icon). **Done.**
+   builds without a console window on Windows, the website's crown as the window and taskbar icon,
+   `tools/draw_client_icon.py`). **Done.**
 8. Updates: versions, the changelog window, signed releases on the account server, downloads in
    the background and the switch at the next portal. **Done** (desktop; the browser loads the
    newest build when the page loads).

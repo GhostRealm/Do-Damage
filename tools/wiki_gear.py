@@ -3,8 +3,10 @@ and ring in the game's XML, with its sprite, its numbers and where it comes from
 
 - wiki/gear/<kind>.html: one page per kind of item (sword, spell, robe...; the rings are
   gear/rings.html), its items grouped as the client colours their slots: tiered (by tier),
-  untiered (UT), set pieces (ST), Legendary, Ascended, Ethereal, admin and test items. Tabs on top
-  lead to the four categories and the kinds in the one shown.
+  untiered (UT), future additions (untiered items with no source yet), unobtainable (taken out of
+  the game's drops), set pieces (ST), Legendary,
+  Ascended, Ethereal, rewards, admin and test items. Tabs on top lead to the four categories and the
+  kinds in the one shown.
 - wiki/gear/weapons.html, abilities.html and armor.html: a category's kinds.
 - wiki/classes/<class>.html: one page per class, a tab each for the weapons, abilities, armor and
   rings it can use (#weapon, #ability, #armor, #ring).
@@ -17,6 +19,7 @@ and ring in the game's XML, with its sprite, its numbers and where it comes from
 A category is where the classes wear the slot type (a class's slots are weapon, ability, armor,
 ring), so a Wakizashi is an ability, as it is for the Samurai.
 """
+import hashlib
 import os
 import re
 import shutil
@@ -29,14 +32,25 @@ CATEGORIES = [("weapons", "Weapons", "Weapon", "weapon"), ("abilities", "Abiliti
 GROUPS = [
     ("tiered", "Tiered", "T", "Drop from monsters all over the game, by tier: the higher the tier, the better."),
     ("untiered", "Untiered (UT)", "UT", "Each comes from particular bosses, with numbers or an effect of its own."),
-    ("set", "Set pieces (ST)", "ST", "One piece of a set of four for one class: weapon, ability, armor and ring."),
+    ("future", "Future additions", "UT", "Untiered items that nothing drops, sells or forges yet: they'll get a source in a later update."),
+    ("unobtainable", "Unobtainable", "Unobtainable",
+     "Nothing drops, sells or forges these any more. Ones players already have still work."),
+    ("set", "Set pieces (ST): future additions", "ST",
+     "One piece of a set of four for one class: weapon, ability, armor and ring. None can be found for now."),
     ("legendary", "Legendary", "Legendary", "Rare untiered items with the gold slot edge."),
-    ("ascended", "Ascended", "Ascended", "Rare untiered items with the gold slot edge."),
+    ("ascended", "Untiered (UT): Ascended", "Ascended",
+     "Oryx the Ascended God's own gear, with the red slot edge: nothing drops it, the Divine Forge makes it from his top tier and an Ascended shard."),
     ("ethereal", "Ethereal", "Ethereal", "Rare untiered items with the gold slot edge."),
+    ("reward", "Reward items", "Reward", "Given by the staff as rewards: nothing drops or sells them."),
     ("admin", "Admin items", "Admin", "Made for staff and testing."),
     ("test", "Test items", "Test", "Left in the game's data from testing."),
 ]
 GROUP_NAMES = {g: (title, tag) for g, title, tag, _ in GROUPS}
+# groups a kind's page shows even with no items in them: the kinds whose untiered items have been
+# reworked, whose special items are plain untiered ones for now
+REWORKED = {"legendary", "ascended", "ethereal"}
+ALWAYS_SHOWN = {"Ring": REWORKED, "Dagger": REWORKED, "Bow": REWORKED, "Staff": REWORKED, "Wand": REWORKED,
+                "Katana": REWORKED, "Sword": REWORKED, "abilities": REWORKED}  # a kind, or a whole category
 PLURAL = {"Staff": "Staves", "Dual Blades": "Dual Blades", "Shuriken": "Shuriken", "Wakizashi": "Wakizashi",
           "Leather armor": "Leather armor", "Heavy armor": "Heavy armor"}
 STAT = {0: "HP", 3: "MP", 20: "Att", 21: "Def", 22: "Spd", 26: "Vit", 27: "Wis", 28: "Dex"}
@@ -101,13 +115,6 @@ class Gear:
         for t in sorted(cat_of):
             if t not in self.kinds[cat_of[t]]:
                 self.kinds[cat_of[t]].append(t)
-        self.by_slot = {}
-        for it in self.items:
-            self.by_slot.setdefault(it["slot"], []).append(it)
-        order = [g for g, _, _, _ in GROUPS]
-        for lst in self.by_slot.values():
-            lst.sort(key=lambda it: (order.index(it["group"]), it["tier"] if it["group"] == "tiered" else 0,
-                                     it["doomed"], it["name"].lower()))
         self.wearers = {}
         for c in self.classes:
             for t in c["slots"]:
@@ -123,6 +130,22 @@ class Gear:
                 g = self.d.gear_items(t)
                 if g:
                     self.gear_gives.setdefault(g["id"], []).append(c["name"])
+        # the forge's own recipes for untiered items (not the two-of-the-tier-below chains)
+        self.forged = {}
+        for r in self.gen.forge:
+            if not r["chain"]:
+                self.forged.setdefault(r["result"], []).append(r)
+        # untiered items with no source yet are future additions
+        for it in self.items:
+            if it["group"] == "untiered" and not self.sources(it):
+                it["group"] = "future"
+        self.by_slot = {}
+        for it in self.items:
+            self.by_slot.setdefault(it["slot"], []).append(it)
+        order = [g for g, _, _, _ in GROUPS]
+        for lst in self.by_slot.values():
+            lst.sort(key=lambda it: (order.index(it["group"]), it["tier"] if it["group"] == "tiered" else 0,
+                                     it["doomed"], it["name"].lower()))
         self.sheets = {}  # sheet name -> (css class, file, tile w, tile h, sheet w, sheet h)
         self.href = {}    # item id -> its place on its kind's page, from the wiki's root
         for slot, lst in self.by_slot.items():
@@ -169,6 +192,8 @@ class Gear:
                 out["set"] = colour
             elif "(UT)" in label:
                 out["untiered"] = colour
+            elif label == "Ascended items":
+                out["ascended"] = colour
             else:
                 out["special"] = colour
         out["tiers"] = tiers
@@ -176,14 +201,14 @@ class Gear:
 
     def edge(self, it):
         e = self._edges
-        if it["group"] == "tiered":
+        if it["group"] == "tiered" or (it["group"] == "unobtainable" and it["tier"] >= 0):
             for lo, hi, c in e["tiers"]:
                 if lo <= it["tier"] <= hi:
                     return c
             return e.get("top", SPECIAL_EDGE)
-        if it["group"] in ("set", "untiered"):
+        if it["group"] in ("set", "untiered", "ascended"):
             return e.get(it["group"], SPECIAL_EDGE)
-        if it["group"] == "test":
+        if it["group"] in ("test", "future", "reward"):
             return e.get("untiered", SPECIAL_EDGE)
         return e.get("special", SPECIAL_EDGE)
 
@@ -219,7 +244,7 @@ class Gear:
                 names.append("%d more" % (len(drops) - 4))
             rows.append(("Drops from", ", ".join(names)))
         if it["tier_loot"]:
-            ms = self.tier_loot.get((it["tier_loot"], it["tier"]), [])
+            ms = self.tier_loot.get((it["tier_loot"], it["pool_tier"]), [])
             names = []
             for m in ms:
                 n = h.who(d, m)
@@ -234,6 +259,22 @@ class Gear:
         if oid in self.gen.bazaar:
             price, shop = self.gen.bazaar[oid]
             rows.append(("Shop", "Nexus Bazaar (%s), %d fame" % (h.esc(shop), price)))
+        any_done = False
+        for r in self.forged.get(oid, []):
+            # an Ascended item from any item of a tier and kind: one line for all its recipes
+            if r.get("ascended") and r["ascended"]["any"]:
+                if not any_done:
+                    kind, tier = r["ascended"]["any"]
+                    rows.append(("Divine Forge", "any tier %d %s + %s, %s fame" % (
+                        tier, h.esc(kind.lower()), h.esc(d.name(r["items"][1])), "{:,}".format(r["fame"]))))
+                    any_done = True
+                continue
+            counts = {}
+            for i in r["items"]:
+                counts[i] = counts.get(i, 0) + 1
+            items = " + ".join(("%d &times; " % n if n > 1 else "") + h.esc(d.name(i)) for i, n in counts.items())
+            rows.append(("Divine Forge", "%s, %s fame%s" % (items, "{:,}".format(r["fame"]),
+                                                             " (needs a Forge Amulet)" if r["advanced"] else "")))
         if oid in self.starts:
             rows.append(("Starting gear", h.esc(", ".join(self.starts[oid]))))
         if oid in self.gear_gives:
@@ -266,6 +307,9 @@ class Gear:
                                       ("ArmorPiercing", "ignores defense")) if proj.find(tag) is not None]
             for c in proj.findall("ConditionEffect"):
                 flags.append("%s %ss" % ((c.text or "").strip(), num(c.get("duration"), "?")))
+            bleed = proj.find("Bleed")
+            if bleed is not None:
+                flags.append("bleeds %s over %ss" % ((bleed.text or "").strip(), num(bleed.get("duration"), "?")))
             if flags:
                 out.append('<span class="dim">%s</span>' % self.h.esc(", ".join(flags)))
         mp = wd._text(el, "MpCost")
@@ -439,9 +483,10 @@ class Gear:
         h = self.h
         parts = []
         lst = self.by_slot.get(slot, [])
+        shown = (ALWAYS_SHOWN.get(lst[0]["kind"]) or ALWAYS_SHOWN.get(lst[0]["category"], set())) if lst else set()
         for g, title, _, blurb in GROUPS:
             its = [it for it in lst if it["group"] == g]
-            if not its:
+            if not its and g not in shown:
                 continue
             ident = prefix + g
             parts.append('<section class="its-group"><h%d id="%s"><a class="anchor" href="#%s" aria-hidden="true">#</a>'
@@ -456,7 +501,7 @@ class Gear:
         for g, _, tag, _ in GROUPS:
             n = sum(1 for it in lst if it["group"] == g)
             if n:
-                bits.append("%d %s" % (n, "tiered" if g == "tiered" else tag))
+                bits.append("%d %s" % (n, {"tiered": "tiered", "future": "future additions"}.get(g, tag)))
         return " &middot; ".join(bits)
 
     def best(self, slot):
@@ -571,7 +616,9 @@ class Gear:
         edge = self._edges.get("untiered", SPECIAL_EDGE)
         ids = set()
         cards = []
-        for p in sorted(d.pets(), key=lambda p: (-p["dps"], p["name"].lower())):
+        # by size, the biggest first, then the strongest
+        order = {"Admin": 0, "Large": 1, "Medium": 2, "Small": 3}
+        for p in sorted(d.pets(), key=lambda p: (order.get(p["size"], 4), -p["dps"], p["name"].lower())):
             oid = p["item"]
             lines = ['<p class="it-nums">Damage a second <b>%d</b></p>' % p["dps"]] if p["dps"] else []
             pet = d.name(p["pet"]) if p["pet"] else ""
@@ -582,13 +629,16 @@ class Gear:
             if heals:
                 lines.append('<dl class="it-heal"><span>Heals</span>%s</dl>' % "".join(
                     '<div class="%s"><dt>%s</dt><dd>%s</dd></div>' % (what.lower(), what, value) for what, value in heals))
+            for effect in p["effects"]:
+                lines.append('<p class="it-line"><span>Also</span> %s</p>' % h.esc(effect))
             src = self._item_sources(oid)
             if oid in sold and price and not any("Nexus Bazaar" in v for _, v in src):
                 src.append(("Shop", "Nexus Bazaar (pets), %d fame" % price))
             flags = [x for x, on in (("Soulbound", d.objects[oid]["soulbound"]), ("From Doomed Realms", p["doomed"])) if on]
-            search = " ".join([p["name"], pet, "pet generator"] + [re.sub(r"<[^>]+>", "", v) for _, v in src])
+            search = " ".join([p["name"], pet, "pet generator", p["size"]] + p["effects"] + [re.sub(r"<[^>]+>", "", v) for _, v in src])
+            tag = " · ".join(x for x in (p["size"], "%d DPS" % p["dps"] if p["dps"] else "") if x) or "Pet"
             cards.append(self._pet_card(self._anchor("pet-" + oid, ids), d.texture(p["pet"]) or d.texture(oid), edge,
-                                        p["name"], "%d DPS" % p["dps"] if p["dps"] else "Pet", lines,
+                                        p["name"], tag, lines,
                                         d.objects[oid]["desc"].strip(), src, flags, search))
         return (self._filter_box("pet-filter", "Pet, monster or shop", "#pet-list .it")
                 + '<div class="its" id="pet-list">%s</div>' % "".join(cards))
@@ -751,8 +801,11 @@ class Gear:
         for name, (cls, full, tw, th, sw, sh, _, _) in sorted(self.sheets.items(), key=lambda kv: kv[1][0]):
             shutil.copy2(full, os.path.join(out, "sheets", name + ".png"))
             scale = max(1, ICON // max(tw, th))
-            rules.append(".%s{background-image:url(sheets/%s.png);background-size:%dpx %dpx;width:%dpx;height:%dpx}" % (
-                cls, name, sw * scale, sh * scale, tw * scale, th * scale))
+            # the sheet's own hash on its url, so a redrawn sheet isn't served from a browser's cache
+            with open(full, "rb") as f:
+                v = hashlib.sha1(f.read()).hexdigest()[:8]
+            rules.append(".%s{background-image:url(sheets/%s.png?v=%s);background-size:%dpx %dpx;width:%dpx;height:%dpx}" % (
+                cls, name, v, sw * scale, sh * scale, tw * scale, th * scale))
         css = "/* The item sprites on the wiki's gear pages, written by tools/wiki_gear.py */\n" + "\n".join(rules) + "\n"
         with open(os.path.join(out, "icons.css"), "w", encoding="utf-8", newline="\n") as f:
             f.write(css)

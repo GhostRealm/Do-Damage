@@ -1,14 +1,20 @@
 ---
 title: The Oryx chain
 nav: 4
+parent: getting-started
 sprite: skull
 eyebrow: Endgame
-summary: From a closing realm down to the Doomed Cellar: every stage, its boss, and which incantation or key opens the next.
+summary: From a closing realm to Oryx's Elysium: every stage, its boss, and which incantation or key opens the next.
 ---
 When a realm closes, Oryx runs. On this server you can follow him a long way: from his Castle
-through his Chamber, his Wine Cellar, the new Oryx's Sanctuary and the Hash Cellar to the Doomed
-Cellar, the end of the line. Every stage is harder than the last and drops better loot, and every
+through his Chamber, his Wine Cellar, the new Oryx's Sanctuary and Oryx's Inferno up to Oryx's
+Elysium, the end of the line. Every stage is harder than the last and drops better loot, and every
 Oryx's death is announced to the whole server.
+
+> **Oryx's Elysium is sealed for now.** Oryx 5 is being reworked (his island and his fight are
+> new; his guardians and loot are next), so an Oryx's Elysium Incantation (the old Doomed Cellar
+> Incantation) won't open his portal until he's back (it isn't used up if you try), and the shops
+> don't sell it meanwhile. Keep any you have.
 
 ## The stages
 
@@ -26,7 +32,11 @@ player, depending on the stage).
    Doorwarden**, who drops the open portal to **Oryx's Chamber**.
 3. From then on, **each Oryx leaves two portals** when he dies, two tiles either side of his loot:
    a **Realm Portal** back out (open for two minutes) and a **locked portal** to the next stage
-   (open for ten). The locked portal's name says where it leads.
+   (open for ten). The locked portal's name says where it leads; Oryx 2's, Oryx 3's and Oryx 4's
+   look like the gateway they open into, still and dark: the Sanctuary's in grey stone, the
+   Inferno's a horned maw of charred rock round a vortex of fire, the Elysium's a marble temple
+   door round a swirl of light. Each stage's incantation is a seal in its colours: a gold crescent
+   on navy for the Sanctuary, a flame for the Inferno, a winged star for the Elysium.
 4. **To open a locked portal**, someone uses the right **incantation** within 25 tiles of it, in
    that Oryx's dungeon. It turns into the open portal for five minutes, and the dungeon is told who
    opened it. Entering the locked portal without one tells you which incantation it needs. An
@@ -58,17 +68,66 @@ Janus and is sold in the Nexus Bazaar.
   and his gaze. Below 20% he grows and chases you.
 - **Oryx 2** (Wine Cellar) calls his guards at 55% health, with silencing and weakening spinners,
   then fights faster.
-- **Oryx 3** (Sanctuary): first fight through his nobles and his court (kill the Deacon first: he
-  heals the others) until the Sanctum's gate opens. When he shouts **"KNEEL!"**, get more than
-  eight tiles away, or you're stunned. At half health his three Protectors must die before he can
-  be hurt again; after that his attacks get stronger, and below 20% he hunts players down.
-- **Oryx 4** (Hash Cellar) is Oryx 1's fight made harder, with Knights of Doom, six orbiting White
-  Moons and a weakening ring he warns you about. The fires along the path burn anyone standing
-  right next to them.
-- **Oryx 5** (Doomed Cellar) can't be hurt until the twenty **Trees of Doom** around him are cut
-  down, and the castle's Stone Guardians stand with him. Then he cycles fire, a blade charge, star
-  spirals and new Knights and Trees (each living tree heals him), turns faster below 60% and makes
-  a last stand below 20%.
+- **Oryx 3**, Oryx the Celestial Mad God (Sanctuary): first fight through his nobles and his court
+  (kill the Deacon first: he heals the others) until the Sanctum's gate opens. He waits in the
+  middle of the Sanctum, chases you while he fires missiles, charges about leaving spinning wheels
+  behind him, and backs away while he throws bombs. Before some attacks he turns invulnerable and
+  dashes back to the middle. When he shouts **"KNEEL!"**, get more than eight tiles from the
+  middle, or you're stunned. At half health his three Protectors circle him and must die before he
+  can be hurt again; after that his attacks get stronger, and below 20% he hunts players down.
+- **Oryx 4**, Oryx the Infernal Mad God (Oryx's Inferno): a burning copy of the Sanctuary. The
+  Burning Path winds through four chambers held by his Infernal Court, Oryx 3's court with Oryx
+  2's minions' tricks and a little stronger: the Infernal Officer (confusing shuriken), the
+  Brimstone Major (charges, and a cone of fire up close), the Cinder Cleric (heals the others and
+  throws blasters: kill it first) and the Doom Cardinal (paralysing spears, and a Vintner at its
+  side). Oryx 4 waits in the middle of the Pyre at its end: Oryx 1's fight made harder, with
+  hellfire, his court called back to his side, red Infernal Elements circling him (four close,
+  four further out), six orbiting White Moons and a weakening ring he warns you about. Mind the
+  lava pools on the floor.
+- **Oryx 5**, Oryx the Ascended God (Oryx's Elysium): a holy island of gold, marble and turquoise
+  sea, where he wears white and gold and carries a spear. From the Landing the road forks round the
+  island, held by his **Ascended Host**, Oryx 3's court ascended with attacks of their own: the
+  Noble (wavering gold missiles, rings of halos), the Aristocrat (dazing lances that come back), the
+  Sergeant (lines of stakes, the fastest breaking armour), the Officer (silencing rings), the Major
+  (charges behind waves that pass cover), the Deacon (heals the others: kill it first), the Cleric
+  (a dazing nova up close) and the Cardinal (paralysing spears). The two sides of the island show
+  what's to come. West, the **Ascended Totem**, a statue of Oryx's staff, stands on the islet in the
+  Oasis, for the Ascended items. East, the Pyramid has fallen to the Void, which seeps out over the
+  roads round it, and the **Void Entity** waits there: it doesn't attack yet and drops no loot, only
+  three **Trees of Doom** when it dies. With three more Trees on each road, all nine and the Void
+  Entity must fall before the **Holy Gates** to his temple open. Inside, his three **Ascended Wardens** circle
+  him; he wakes when they fall.
+  - **Judgement** (to 60%): three patterns. The **Radiant Cross**: he follows you but keeps about
+    six tiles off, firing twin lances along four lines and gold arrowheads along the four between,
+    then the same turned. The **Firmament**: from the middle he raises twelve stars in a cross that
+    turns slowly round him; touching one slows you, and they shoot slowing, bleeding and swift
+    motes. The **Divine Hunt**: he chases the nearest player with a shotgun in front and a slowing
+    fan behind, throwing bleeding bombs round the arena; every ten seconds he stops, names a player
+    and hunts them instead. At 80% he calls his Host down beside him, and from then on picks his
+    patterns at random.
+  - **Transcendence** (60%): he heals everyone to full. The Cross comes faster, the outer stars
+    blight (sicken) instead, and while he hunts the whole arena is slowed, the fan behind him
+    bleeds and his Host rise beneath him, though he's slower.
+  - **Apotheosis** (20%): he turns gold, and a ring of Halo Orbs circles the edge of the arena,
+    firing in at its middle. He chases without stopping, the Cross (now aimed at you) and the Hunt
+    in turn.
+  - **Last Judgement** (10%): he goes to the middle and can't be hurt. The Holy Gates shut, and
+    Pillars of Heaven ring the arena, firing bleeding, blighting and armour-breaking rays straight
+    across it, while he throws his great spear and fires his Radiant Cross again, slowed right
+    down so it fills the arena, every second volley turned to fall between the last one's lines.
+    After 30 seconds he concedes: the gates open and he falls back through every Oryx he was, from
+    Oryx 4 down to Oryx 1, ending as small as Oryx 1, and only then can he be killed. He leaves a
+    Nexus Portal: the chain ends here.
+  - Minions he summons can't be hurt and hold their fire for their first two seconds, and the
+    Firmament's stars vanish as soon as it ends.
+  - Below 90%, every second time he changes pattern he throws two splats of **Divine Ichor**. Each
+    hatches an **Ichor Sprite**: it has little health, and its shots barely hurt but slow you.
+
+While the **Oryx 4 and Oryx 5 event** is on, Oryx the Infernal Mad God and Oryx the Ascended God
+deal 20% less damage with their shots and bombs, and so does everything they bring into the
+fight: the court they summon, Oryx 4's elements and moons, and Oryx 5's stars, Halo Orbs, Pillars
+of Heaven and Ichor Sprites. The monsters in the rooms on the way hit as hard as ever. The Nexus
+tells you when you arrive if it's on.
 
 ## The loot
 
@@ -76,10 +135,29 @@ Loot rises with each stage: more stat potions, more Potions of Life and Mana, an
 from tier 10-12 at the Castle to tier 14-15 at Oryx 5. Potions of Oryx and the white-bag items are
 the real prizes:
 
-- **Oryx 3** can drop Oryx's Escutcheon and Potions of Oryx.
-- **Oryx 4 and 5** drop the **Oryx set**: Ring of Oryx, Oryx Hide Armor, Oryx Hide Robe, Oryx
-  Scale Armor, Oryx Tooth Sword, Doom Dirk, Flying Doom Daggers and Tome of Noble Assault, in white
-  bags announced to everyone.
-- **Oryx 5** also drops Doom Poison, the Sword of Dark Enchantment and the Crown.
+- **Every Oryx** always drops a Potion of Attack and of Defense (Oryx 5 Speed and Dexterity too),
+  with more stat potions on top: about 4 from Oryx 1 up to about 8 from Oryx 5. Oryx 2 always drops
+  a Potion of Life, Oryx 3 and later Life and Mana, and Oryx 5 two of each.
+- **Oryx 2** can drop the Doom Bow.
+- **Oryx 3, 4 and 5** drop the **Oryx set**: Doom Dirk, Flying Doom Daggers and Tome of Noble
+  Assault, in white bags announced to everyone, and Potions of Oryx. Oryx 3 can also drop Oryx's
+  Escutcheon. The Ring of Oryx, Oryx Hide Armor, Oryx Hide Robe and Oryx Scale Armor no longer drop
+  anywhere: they're unobtainable.
+- **Oryx 4** drops his own untiered items in white bags: the **Infernal Brimstone Poison** (2,000 poison
+  damage that curses, with a stasis blast, but it silences you for 2 seconds), the **Infernal Cloak of
+  Bloodshed** (it makes you bleed for a moment), the **Infernal Bloodletter** and the **Infernal Gems
+  of Adoration and Tenderness**. **Oryx 5** drops the Sword of Dark Enchantment, and his own
+  **Ascended Gem of Adoration** (+400 Vitality for 3 seconds when your health drops below 20%) and
+  **Ascended Gem of Tenderness** (each ability use: a 35% chance of +50 Wisdom for 4 seconds), as
+  often as Oryx 4's gems. The Burning Amulet is unobtainable.
+- **Tier 7 abilities and rings** come from Oryx 3, 4 and 5; Oryx 5 is the only place for tier 8.
+- **Oryx 5** alone drops the **tier 16 armours**, in his colours: Hide of the Firmament, Armor of
+  Ascension and Robe of Absolution, in white bags. The Divine Forge doesn't make them.
+- **Forge shards**: Oryx 4 drops the four Infernal shards and Oryx 5 the four Ascended shards, each
+  half as often as that Oryx's Potion of Oryx. The Ascended shards forge Oryx 5's Ascended items
+  (see [The Divine Forge](forge.html#forge-shards-and-the-forge-storage)).
+
+Everyone who does a fair share of the damage gets the full loot: 5% of the damage is enough for the
+gear and the Oryx set, and 3% for the extra stat potions.
 
 The [Dungeons](dungeons.html#the-oryx-chain) page lists each stage's notable drops.

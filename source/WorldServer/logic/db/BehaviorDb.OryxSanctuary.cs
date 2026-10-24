@@ -1,3 +1,4 @@
+using System.Linq;
 using Shared.resources;
 using WorldServer.logic.behaviors;
 using WorldServer.logic.loot;
@@ -5,10 +6,14 @@ using WorldServer.logic.transitions;
 
 namespace WorldServer.logic
 {
-    // Oryx's Sanctuary (tools/build_oryx_sanctuary.py): stage 5 of the Oryx chain. Players fight
+    // Oryx's Sanctuary (tools/build_oryx_sanctuary.py): stage 5 of the Oryx chain, Oryx the Celestial
+    // Mad God. Players fight
     // through his nobles and court to a gate that opens once the court is dead, then face Oryx the
     // Mad God 3 in the Sanctum. His attacks use the "White" projectiles until half health and the
-    // stronger "Exalted" ones after. He drops the portal to the Hash Cellar (Oryx 4).
+    // stronger "Exalted" ones after. He drops the portal to Oryx's Inferno (Oryx 4).
+    // His taunts go to chat only (no bubbles over his attacks). He stands at the Sanctum's centre. His missiles chase the players, his wheels charge about,
+    // his bombs flee from them, and before the Kneel ring and the spinners he turns invulnerable
+    // and dashes back to the centre.
     partial class BehaviorDb
     {
         private static readonly string[] SanctuaryCourt =
@@ -17,14 +22,76 @@ namespace WorldServer.logic
             "Oryx Noble", "Oryx Aristocrat"
         };
 
+        // Oryx 3's first half, the White attacks, in turn; p goes before the states' names
+        private static IStateChildren[] O3White(string p) => new IStateChildren[]
+        {
+            new State(p + "Missiles",
+                new Prioritize(new StayCloseToSpawn(0.6, 14), new Follow(0.45, 25, 4)),
+                new Shoot(25, 5, 14, projectileIndex: 0, predictive: 0.3, coolDown: 1400),
+                new Shoot(25, 3, 8, projectileIndex: 1, coolDown: 1000, coolDownOffset: 500),
+                new Shoot(25, projectileIndex: 4, coolDown: 1800),
+                new Shoot(25, projectileIndex: 5, coolDown: 1800),
+                new Shoot(25, projectileIndex: 6, coolDown: 1800),
+                new TimedTransition(8000, p + "Wheels")
+            ),
+            // he charges about, leaving his wheels where he passed for eight seconds,
+            // and keeps firing his big balls at the players as he goes
+            new State(p + "Wheels",
+                new Taunt("Mind your step.") { Bubble = false },
+                new Charge(1.6, 15, 1600),
+                new Shoot(0, fixedAngle: 0, projectileIndex: 2, coolDown: 250),
+                new Shoot(25, 6, projectileIndex: 9, coolDown: 1500),
+                new TimedTransition(8000, p + "Kneel")
+            ),
+            // a telegraphed stunning ring: be more than eight tiles away when it lands
+            new State(p + "Kneel",
+                new ReturnToSpawn(2.5),
+                new ConditionEffectBehavior(ConditionEffectIndex.Invulnerable),
+                new Flash(0xFFFFFFFF, 0.4, 6),
+                new Taunt("KNEEL!") { Bubble = false },
+                new TimedTransition(2500, p + "Kneel Blast")
+            ),
+            new State(p + "Kneel Blast",
+                new Shoot(0, 36, fixedAngle: 0, projectileIndex: 7, coolDown: 10000),
+                new Shoot(0, 12, fixedAngle: 15, projectileIndex: 3, coolDown: 10000),
+                new TimedTransition(500, p + "Bombs")
+            ),
+            new State(p + "Bombs",
+                new Taunt("My artifacts burn brighter than your sun!") { Bubble = false },
+                new Prioritize(new StayCloseToSpawn(0.6, 13), new StayBack(0.45, 9), new Wander(0.25)),
+                new TossObject("O3 Bomb Artifact", 12, coolDown: 1600),
+                new Shoot(25, 2, 30, projectileIndex: 13, coolDown: 900),
+                new TimedTransition(8000, p + "Recenter")
+            ),
+            new State(p + "Recenter",
+                new ConditionEffectBehavior(ConditionEffectIndex.Invulnerable),
+                new ReturnToSpawn(2.5),
+                new TimedTransition(1200, p + "Spinners")
+            ),
+            new State(p + "Spinners",
+                new ReturnToSpawn(1),
+                new Shoot(0, 6, fixedAngle: 0, rotateAngle: 10, projectileIndex: 14, coolDown: 450),
+                new Shoot(25, projectileIndex: 16, predictive: 0.5, coolDown: 1200),
+                new TimedTransition(7000, p + "Missiles")
+            )
+        };
+
         private _ OryxSanctuary = () => Behav()
             .Init("Oryx the Mad God 3",
                 new State(
+                    new BossStats(75000, 45, 1.0, 0.3, arena: true),
                     new BossStats(180000, 45, 1.0, 0.3),
-                    new DropPortalOnDeath("Locked Wine Cellar Portal", 1.0, timeout: 600, xAdjustment: 2,
-                        name: "Locked: Hash Cellar", lockedHint: "This portal is locked. Use a Hash Cellar Incantation beside it to open it."),
+                    new DropPortalOnDeath("Locked Oryx's Inferno Portal", 1.0, timeout: 600, xAdjustment: 2,
+                        name: "Locked: Oryx's Inferno", lockedHint: "This portal is locked. Use an Oryx's Inferno Incantation beside it to open it."),
                     new DropPortalOnDeath("Realm Portal", 1.0, timeout: 120, xAdjustment: -2),
-                    new AnnounceOnDeath("{PL_LIST} broke Oryx the Mad God in his Sanctuary! His spirit sinks into the Hash Cellar, sealed by a Hash Cellar Incantation..."),
+                    new AnnounceOnDeath("{PL_LIST} broke Oryx the Celestial Mad God in his Sanctuary! His spirit sinks into his Inferno, sealed by an Oryx's Inferno Incantation..."),
+                    new State("Where",
+                        new ArenaTransition("Arena Wake"),
+                        new ArenaTransition("Dormant", false)
+                    ),
+                    // in an arena: only the White attacks (no Protectors, no Exalted form)
+                    ArenaWake("Twice you have humbled me. Not here.", "Arena Missiles"),
+                    new State("Arena White", O3White("Arena ")),
                     new State("Dormant",
                         new ConditionEffectBehavior(ConditionEffectIndex.Invulnerable),
                         new PlayerWithinTransition(17, "Awaken 1")
@@ -32,76 +99,31 @@ namespace WorldServer.logic
                     new State("Awaken 1",
                         new ConditionEffectBehavior(ConditionEffectIndex.Invulnerable),
                         new Flash(0xFFFFFFFF, 0.5, 12),
-                        new Taunt(true, "So. You have butchered my court and walked into my Sanctum."),
+                        new Taunt(true, "So. You have butchered my court and walked into my Sanctum.") { Bubble = false },
                         new TimedTransition(3000, "Awaken 2")
                     ),
                     new State("Awaken 2",
                         new ConditionEffectBehavior(ConditionEffectIndex.Invulnerable),
-                        new Taunt(true, "Twice you have humbled me. There will be no third time."),
+                        new Taunt(true, "Twice you have humbled me. There will be no third time.") { Bubble = false },
                         new TimedTransition(3000, "Awaken 3")
                     ),
                     new State("Awaken 3",
                         new ConditionEffectBehavior(ConditionEffectIndex.Invulnerable),
-                        new Taunt(true, "KNEEL, AND BE ERASED!"),
+                        new Taunt(true, "KNEEL, AND BE ERASED!") { Bubble = false },
                         new TimedTransition(1500, "Missiles")
                     ),
 
                     // ---- first half: the White attacks ----
                     new State("Phase 1",
-                        new HpLessTransition(0.5, "Protectors"),
-                        new State("Missiles",
-                            new StayCloseToSpawn(0.4, 5),
-                            new Wander(0.2),
-                            new Shoot(25, 5, 14, projectileIndex: 0, predictive: 0.3, coolDown: 1400),
-                            new Shoot(25, 3, 8, projectileIndex: 1, coolDown: 1000, coolDownOffset: 500),
-                            new Shoot(25, projectileIndex: 4, coolDown: 1800),
-                            new Shoot(25, projectileIndex: 5, coolDown: 1800),
-                            new Shoot(25, projectileIndex: 6, coolDown: 1800),
-                            new TimedTransition(8000, "Wheels")
-                        ),
-                        // he charges about, leaving his wheels where he passed for eight seconds
-                        new State("Wheels",
-                            new Taunt("Mind your step."),
-                            new Charge(1.2, 15, 2500),
-                            new Shoot(0, fixedAngle: 0, projectileIndex: 2, coolDown: 250),
-                            new Shoot(25, 6, projectileIndex: 9, coolDown: 1500),
-                            new TimedTransition(8000, "Kneel")
-                        ),
-                        // a telegraphed stunning ring: be more than eight tiles away when it lands
-                        new State("Kneel",
-                            new ReturnToSpawn(1.5),
-                            new ConditionEffectBehavior(ConditionEffectIndex.Invulnerable),
-                            new Flash(0xFFFFFFFF, 0.4, 6),
-                            new Taunt("KNEEL!"),
-                            new TimedTransition(2500, "Kneel Blast")
-                        ),
-                        new State("Kneel Blast",
-                            new Shoot(0, 36, fixedAngle: 0, projectileIndex: 7, coolDown: 10000),
-                            new Shoot(0, 12, fixedAngle: 15, projectileIndex: 3, coolDown: 10000),
-                            new TimedTransition(500, "Bombs")
-                        ),
-                        new State("Bombs",
-                            new Taunt("My artifacts burn brighter than your sun!"),
-                            new Wander(0.25),
-                            new StayCloseToSpawn(0.4, 6),
-                            new TossObject("O3 Bomb Artifact", 12, coolDown: 1600),
-                            new Shoot(25, 2, 30, projectileIndex: 13, coolDown: 900),
-                            new TimedTransition(8000, "Spinners")
-                        ),
-                        new State("Spinners",
-                            new ReturnToSpawn(1),
-                            new Shoot(0, 6, fixedAngle: 0, rotateAngle: 10, projectileIndex: 14, coolDown: 450),
-                            new Shoot(25, projectileIndex: 16, predictive: 0.5, coolDown: 1200),
-                            new TimedTransition(7000, "Missiles")
-                        )
+                        new IStateChildren[] { new HpLessTransition(0.5, "Protectors") }.Concat(O3White("")).ToArray()
                     ),
 
                     // ---- at half health: he hides behind his three Protectors ----
                     new State("Protectors",
                         new ConditionEffectBehavior(ConditionEffectIndex.Invulnerable),
-                        new ReturnToSpawn(1.5),
+                        new ReturnToSpawn(2.5),
                         new Flash(0xFF8000FF, 0.5, 8),
-                        new Taunt(true, "Protectors! Shield your master!"),
+                        new Taunt(true, "Protectors! Shield your master!") { Bubble = false },
                         new Spawn("O3 Protector 1", 1, 1, 90000000),
                         new Spawn("O3 Protector 2", 1, 1, 90000000),
                         new Spawn("O3 Protector 3", 1, 1, 90000000),
@@ -117,7 +139,7 @@ namespace WorldServer.logic
                     new State("Exalt",
                         new ConditionEffectBehavior(ConditionEffectIndex.Invulnerable),
                         new Flash(0xFFFFD700, 0.3, 10),
-                        new Taunt(true, "Enough games. Behold the EXALTED form of your god!"),
+                        new Taunt(true, "Enough games. Behold the EXALTED form of your god!") { Bubble = false },
                         new TimedTransition(3000, "X Missiles")
                     ),
 
@@ -125,8 +147,7 @@ namespace WorldServer.logic
                     new State("Phase 2",
                         new HpLessTransition(0.2, "Final"),
                         new State("X Missiles",
-                            new StayCloseToSpawn(0.4, 6),
-                            new Wander(0.25),
+                            new Prioritize(new StayCloseToSpawn(0.7, 14), new Follow(0.55, 25, 3)),
                             new Shoot(25, 5, 14, projectileIndex: 30, predictive: 0.4, coolDown: 1200),
                             new Shoot(25, 3, 8, projectileIndex: 31, coolDown: 900, coolDownOffset: 450),
                             new Shoot(25, projectileIndex: 34, coolDown: 1500),
@@ -135,16 +156,16 @@ namespace WorldServer.logic
                             new TimedTransition(7000, "X Wheels")
                         ),
                         new State("X Wheels",
-                            new Charge(1.5, 15, 2000),
+                            new Charge(1.9, 15, 1300),
                             new Shoot(0, fixedAngle: 0, projectileIndex: 32, coolDown: 200),
                             new Shoot(25, 8, projectileIndex: 39, coolDown: 1400),
                             new TimedTransition(7000, "X Kneel")
                         ),
                         new State("X Kneel",
-                            new ReturnToSpawn(1.5),
+                            new ReturnToSpawn(2.5),
                             new ConditionEffectBehavior(ConditionEffectIndex.Invulnerable),
                             new Flash(0xFFFFD700, 0.3, 7),
-                            new Taunt("KNEEL BEFORE YOUR GOD!"),
+                            new Taunt("KNEEL BEFORE YOUR GOD!") { Bubble = false },
                             new TimedTransition(2000, "X Kneel Blast")
                         ),
                         new State("X Kneel Blast",
@@ -153,12 +174,16 @@ namespace WorldServer.logic
                             new TimedTransition(500, "X Bombs")
                         ),
                         new State("X Bombs",
-                            new Wander(0.3),
-                            new StayCloseToSpawn(0.4, 7),
+                            new Prioritize(new StayCloseToSpawn(0.7, 13), new StayBack(0.55, 9), new Wander(0.3)),
                             new TossObject("O3 Bomb Artifact", 12, coolDown: 1100),
                             new TossObject("O3 Bomb Artifact", 12, coolDown: 1100, coolDownOffset: 550, probability: 0.6),
                             new Shoot(25, 2, 30, projectileIndex: 43, coolDown: 800),
-                            new TimedTransition(7000, "X Spinners")
+                            new TimedTransition(7000, "X Recenter")
+                        ),
+                        new State("X Recenter",
+                            new ConditionEffectBehavior(ConditionEffectIndex.Invulnerable),
+                            new ReturnToSpawn(2.5),
+                            new TimedTransition(1000, "X Spinners")
                         ),
                         new State("X Spinners",
                             new ReturnToSpawn(1),
@@ -172,9 +197,9 @@ namespace WorldServer.logic
                     // ---- below 20%: he hunts the players down ----
                     new State("Final",
                         new ConditionEffectBehavior(ConditionEffectIndex.Invulnerable),
-                        new ReturnToSpawn(1.5),
+                        new ReturnToSpawn(2.5),
                         new Flash(0xFFFF0000, 0.3, 10),
-                        new Taunt(true, "I AM ETERNAL! I AM THE REALM ITSELF!"),
+                        new Taunt(true, "I AM ETERNAL! I AM THE REALM ITSELF!") { Bubble = false },
                         new TimedTransition(3000, "Rage")
                     ),
                     new State("Rage",
@@ -185,7 +210,7 @@ namespace WorldServer.logic
                         new Shoot(25, projectileIndex: 45, predictive: 0.5, coolDown: 1700),
                         new Shoot(25, 3, 15, projectileIndex: 41, coolDown: 1300, coolDownOffset: 650),
                         new TossObject("O3 Bomb Artifact", 12, coolDown: 2000),
-                        new Taunt(0.5, 7000, "Your gods have abandoned you!", "There is no escape from my Sanctum!", "I will unmake you!")
+                        new Taunt(0.5, 7000, "Your gods have abandoned you!", "There is no escape from my Sanctum!", "I will unmake you!") { Bubble = false }
                     )
                 ),
                 // everyone who did 1% of the damage: the sure drops
@@ -203,18 +228,21 @@ namespace WorldServer.logic
                     new ItemLoot("Potion of Dexterity", 0.55),
                     new ItemLoot("Potion of Vitality", 0.55),
                     new ItemLoot("Potion of Wisdom", 0.55),
-                    new ItemLoot("Shattered Rune of Oryx", 0.25),
                     new ItemLoot("Oryx Scroll", 0.02),
                     new ItemLoot("Doomed Cellar Incantation", 0.05),
                     new ItemLoot("Oryx's Escutcheon", 0.025),
-                    new ItemLoot("Ring of Oryx", 0.004),
-                    new ItemLoot("Oryx Hide Armor", 0.004),
-                    new ItemLoot("Oryx Hide Robe", 0.004),
-                    new ItemLoot("Oryx Scale Armor", 0.004),
-                    new ItemLoot("Oryx Tooth Sword", 0.004),
-                    new ItemLoot("Doom Dirk", 0.004),
-                    new ItemLoot("Flying Doom Daggers", 0.004),
-                    new ItemLoot("Tome of Noble Assault", 0.004)
+                    new ItemLoot("Tome of Noble Assault", 0.004),
+                    new ItemLoot("Battalion Banner", 0.004),
+                    new ItemLoot("Chancellor's Cranium", 0.004),
+                    new ItemLoot("Collector's Monocle", 0.004),
+                    new ItemLoot("Divine Coronation", 0.004),
+                    new ItemLoot("Exalted God's Horn", 0.004),
+                    new ItemLoot("Avarice", 0.004),
+                    new ItemLoot("Superior", 0.004),
+                    new ItemLoot("Lumiaire", 0.004),
+                    new ItemLoot("Divinity", 0.004),
+                    new ItemLoot("Chaotic Scripture", 0.004),
+                    new ItemLoot("Ballistic Star", 0.004)
                 ),
                 // 5% of the damage: the gear
                 new Threshold(0.05,
@@ -250,7 +278,7 @@ namespace WorldServer.logic
                 )
             )
 
-            // Protectors orbit Oryx and must all die before he can be hurt again
+            // Protectors circle Oryx and must all die before he can be hurt again
             .Init("O3 Protector 1", Protector(1, 0))
             .Init("O3 Protector 2", Protector(2, 1))
             .Init("O3 Protector 3", Protector(3, 2))
@@ -400,9 +428,8 @@ namespace WorldServer.logic
         private static State Protector(int n, int slot) =>
             new State(
                 new BossStats(15000, 30, 1.5, 0.25),
-                new Prioritize(
-                    new Orbit(0.6, 5 + slot, 20, "Oryx the Mad God 3", speedVariance: 0, radiusVariance: 0, orbitClockwise: n % 2 == 0),
-                    new Wander(0.3)),
+                // no wandering off: they circle him wherever he is in the Sanctum
+                new Orbit(1.0, 5 + slot, 45, "Oryx the Mad God 3", speedVariance: 0, radiusVariance: 0, orbitClockwise: n % 2 == 0),
                 new Shoot(12, 3, 15, projectileIndex: 0, coolDown: 1000, coolDownOffset: slot * 300),
                 new Shoot(12, projectileIndex: 1, predictive: 0.5, coolDown: 2400, coolDownOffset: slot * 500)
             );
@@ -416,7 +443,8 @@ namespace WorldServer.logic
             new ItemLoot("Greater Potion of Life", 0.008),
             new TierLoot(12, ItemType.Weapon, 0.04),
             new TierLoot(13, ItemType.Armor, 0.03),
-            new TierLoot(5, ItemType.Ability, 0.03)
+            new TierLoot(5, ItemType.Ability, 0.03),
+            new ItemLoot("Bounty Hunter's Dagger", 0.001)
         };
     }
 }

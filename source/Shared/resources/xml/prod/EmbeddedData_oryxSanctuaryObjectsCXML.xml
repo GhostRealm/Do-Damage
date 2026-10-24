@@ -2,7 +2,7 @@
 
 <Objects>
    <Object type="0xb133" id="Oryx the Mad God 3">
-      <DisplayId>Oryx the Mad God</DisplayId>
+      <DisplayId>Oryx the Celestial Mad God</DisplayId>
       <Enemy/>
       <Class>Character</Class>
       <Portrait>
@@ -5983,15 +5983,15 @@
       <Item/>
       <DisplayId>Oryx's Sanctuary Incantation</DisplayId>
       <Texture>
-         <File>oryxSanctuaryObjects8x8</File>
-         <Index>0x48</Index>
+         <File>oryxIncantations16x16</File>
+         <Index>0</Index>
       </Texture>
       <SlotType>10</SlotType>
       <Description>Unlocks the portal Oryx leaves behind in his Wine Cellar, leading to Oryx's Sanctuary.</Description>
       <Sound>use_key</Sound>
       <Consumable/>
       
-      <Activate radius="25" targetId="Locked Wine Cellar Portal" newId="Oryx's Sanctuary Portal" onlyInArea="Wine Cellar" customString="Oryx's Sanctuary unlocked by">ChangeObject</Activate>
+      <Activate radius="25" targetId="Locked Oryx's Sanctuary Portal" newId="Oryx's Sanctuary Portal" onlyInArea="Wine Cellar" customString="Oryx's Sanctuary unlocked by">ChangeObject</Activate>
       <feedPower>200</feedPower>
       <BagType>7</BagType>
       <Track/>

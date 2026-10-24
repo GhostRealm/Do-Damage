@@ -11,6 +11,10 @@ with a sidebar, links between the pages and a search over all of them.
   (GENERATORS below: the dungeon list, the classes, the commands, the Oryx chain, the shops, the
   pets and more), and `{{v:<name>}}` in the text by a number read from the code (VALUES), so the
   pages stay true as the game changes. Run `python tools/wiki_data.py` to see what the data says.
+- The sidebar groups pages: one with `group: <name>` in its front matter heads a group of that
+  name and opens on itself; pages with `parent: <its slug>` are listed under it while one of the
+  group is showing.
+- The Gear statistics page (gear-statistics.md) takes its tables from tools/wiki_balance.py.
 - The gear pages (wiki/gear/, one per kind of item, and wiki/classes/, one per class) are built
   whole from the game's data by tools/wiki_gear.py, with the item sprites (wiki/icons.css and
   wiki/sheets/).
@@ -28,6 +32,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import wiki_data as wd  # noqa: E402
+import wiki_balance  # noqa: E402
 import wiki_gear  # noqa: E402
 
 ROOT = wd.ROOT
@@ -42,14 +47,12 @@ COMMAND_HELP = {
     "godlands": "To the Godlands, the realm's richest and most dangerous part. Works from anywhere: outside a realm it takes you to the busiest one first.",
     "vault": "To your vault.",
     "guildhall": "To your guild's hall.",
-    "arena": "To the arena.",
+    "arena": "Into the Arena's next game, the one its Nexus portal leads to.",
     "gear": "Free starter gear for your class, and a couple of boosters. See below for its limits.",
     "shop": "Opens a shop: weapons, abilities, armor, rings, consumables, keys and pets for fame. With no name it lists the shops.",
-    "sellfame": "Sells items for fame: <code>/sellfame &lt;slot&gt; ...</code> with inventory slots 1-8 (backpack 9-16).",
-    "forge": "Forges items together: <code>/forge &lt;slot&gt; &lt;slot&gt; ...</code>, then <code>/yes</code> or <code>/no</code>.",
-    "forgelist": "What you can forge: <code>/forgelist</code>, <code>/forgelist &lt;item&gt;</code> or <code>/forgelist all</code>.",
-    "yes": "Confirms a forge.",
-    "no": "Cancels a forge.",
+    "sellfame": "Selling items for fame is now done at the Divine Forge in the Nexus; this points you to it.",
+    "forge": "Forging is now done at the Divine Forge in the Nexus; this points you to it.",
+    "forgelist": "The recipes are in the Divine Forge's window, in the Nexus; this points you to it.",
     "trade": "Asks a player to trade: <code>/trade &lt;name&gt;</code>. Needs 2 rank stars; clicking a player's name and choosing Trade doesn't.",
     "tell": "Whispers to a player: <code>/tell &lt;name&gt; &lt;message&gt;</code> (or press <kbd>Tab</kbd>).",
     "guild": "Says something in guild chat (or press <kbd>G</kbd>).",
@@ -81,10 +84,10 @@ COMMAND_HELP = {
     "unignore": "Shows an ignored player's chat again.",
     "lock": "Locks a player (they show first in your lists); <code>/unlock</code> undoes it.",
     "unlock": "Unlocks a player.",
-    "afk": "Pauses you while no monster is near (not in arenas). Again to unpause.",
+    "afk": "Pauses you while no monster is near (not in the Arena). Again to unpause.",
     "pause": "The same as /afk.",
-    "arenas": "Lists the arena games running now.",
-    "leaderboard": "The best Battle Arena waves.",
+    "arenas": "Lists the Arena games running now.",
+    "leaderboard": "The best Arena waves.",
     "gleaderboard": "The guilds with the most fame.",
     "uptime": "How long the server has been up.",
     "restartwhen": "When the world server next restarts.",
@@ -240,11 +243,11 @@ WHO = {"Hermit portal maker": "Hermit God", "Encounter Altar": "The Statues", "T
 
 
 def who(d, m):
-    """A monster's name for players; Oryx's stages all share a display name, so number them."""
+    """A monster's name for players; Oryx's stages that share a display name are numbered."""
     if m in WHO:
         return WHO[m]
     st = re.match(r"Oryx the Mad God (\d)$", m)
-    return "Oryx %s" % st.group(1) if st else d.name(m)
+    return "Oryx %s" % st.group(1) if st and d.name(m) == "Oryx the Mad God" else d.name(m)
 
 
 def with_article(name):
@@ -280,9 +283,8 @@ BOSS_OVERRIDE = {"Tomb of the Ancients": "Tomb Defender", "Elder Tomb of the Anc
 BOSS_PROPS = re.compile(r"Spawner|spawner|Wall|Sarcophagus|Present|Chest|Anchor|Gate|Tooky|Totem$")
 EQUIP_SLOTS = set(wd.SLOT_NAMES)
 ORYX_CHAIN = ["Oryx's Castle", "Oryx's Chamber", "Chicken Chamber", "Wine Cellar", "Oryx's Sanctuary",
-              "Hash Cellar", "Doomed Cellar"]
-SKIP_WORLDS = {"Admin Room", "Admin Arena", "Shop", "?????", "Lair of Shaitan New Auru", "Battle Arena",
-               "Free Battle Arena"}
+              "Oryx's Inferno", "Oryx's Elysium"]
+SKIP_WORLDS = {"Admin Room", "Admin Arena", "Shop", "?????", "Lair of Shaitan New Auru", "Arena"}
 # difficulty from the boss's health: the upper bound of each of six steps
 DIFFICULTY = [6000, 20000, 45000, 90000, 160000]
 DIFFICULTY_WORDS = ["Beginner", "Easy", "Medium", "Hard", "Very hard", "Endgame"]
@@ -316,6 +318,138 @@ class Gen:
     def gen_gear(self, used):
         return self.equip.overview(used)
 
+    # --- the Divine Forge (wiki_data.forge_recipes, as ForgeRecipes.cs builds them) -----------
+    @property
+    def forge(self):
+        if getattr(self, "_forge", None) is None:
+            self._forge = self.d.forge_recipes()
+        return self._forge
+
+    def forge_item(self, oid, count=1):
+        """An item's icon and name, linked to its gear page entry, with "2 ×" for a pair."""
+        eq = self.equip
+        it = next((i for i in eq.items if i["id"] == oid), None)
+        ico = eq.icon(it) if it else eq.sprite(self.d.texture(oid), wiki_gear.SPECIAL_EDGE)
+        name = esc(self.d.name(oid))
+        href = eq.href.get(oid)
+        if href:
+            name = '<a href="%s">%s</a>' % (href, name)
+        n = '<span class="fr-n">%d &times;</span>' % count if count > 1 else ""
+        return '<span class="fr-item">%s%s<span class="fr-name">%s</span></span>' % (n, ico, name)
+
+    def gen_forge_banner(self, used):
+        return ('<figure class="banner"><img src="forge.webp" width="1040" height="700" alt="The Divine Forge\'s '
+                'window: the sword recipes, with Skysplitter Sword picked: two Archon Swords and 800 fame">'
+                '<figcaption>The Divine Forge\'s window, forging a Skysplitter Sword (T11) from two Archon '
+                'Swords (T10)</figcaption></figure>')
+
+    def gen_forge_example(self, used):
+        r = next((r for r in self.forge if r["result"] == "Skysplitter Sword" and r["chain"]), None) or \
+            next(r for r in self.forge if r["chain"])
+        return '<p class="fr-recipe">%s<span class="fr-arrow">&rarr;</span>%s<span class="fr-fame">%s fame</span></p>' % (
+            self.forge_item(r["items"][0], 2), self.forge_item(r["result"]), "{:,}".format(r["fame"]))
+
+    def gen_forge_tiers(self, used):
+        """The two-for-one upgrades' fame by tier, a row for each set of kinds that share a price list."""
+        eq = self.equip
+        ladders = {}
+        for r in self.forge:
+            if r["chain"]:
+                o = self.d.objects[r["result"]]
+                ladders.setdefault(o["slot"], {})[o["tier"]] = r["fame"]
+        order = [s for cat in ("weapons", "armor", "abilities", "rings") for s in eq.kinds.get(cat, [])]
+        order += sorted(s for s in ladders if s not in order)
+        rows = []
+        for slot in order:
+            if slot not in ladders:
+                continue
+            ladder = ladders[slot]
+            row = next((r for r in rows if r[1] == ladder), None)
+            if row:
+                row[0].append(slot)
+            else:
+                rows.append(([slot], ladder))
+        top = max(t for _, lad in rows for t in lad)
+        head = "<th>Kind</th>" + "".join("<th>T%d</th>" % t for t in range(1, top + 1))
+        body = []
+        for slots, lad in rows:
+            names = ", ".join('<a href="gear/%s">%s</a>' % (eq.kind_file(s), esc(wiki_gear.plural(eq.kind_name(s))))
+                              for s in slots)
+            cells = "".join("<td>%s</td>" % ("{:,}".format(lad[t]) if t in lad else "&ndash;")
+                            for t in range(1, top + 1))
+            body.append('<tr><th scope="row">%s</th>%s</tr>' % (names, cells))
+        return ('<div class="table-wrap wide fr-tiers"><table><thead><tr>%s</tr></thead><tbody>%s</tbody></table></div>'
+                % (head, "".join(body)))
+
+    def gen_forge_special(self, used):
+        """The other recipes, by what they make: the Doomed Realms forge's own."""
+        eq = self.equip
+        cat_of = {i["id"]: i["category"] for i in eq.items}
+        groups = [("weapons", "Weapons"), ("abilities", "Abilities"), ("armor", "Armor"), ("rings", "Rings"),
+                  (None, "Potions and the rest")]
+        slot_order = [s for cat, _ in groups if cat for s in eq.kinds.get(cat, [])]
+        out = []
+        for cat, title in groups:
+            rs = [r for r in self.forge if not r["chain"] and not r.get("ascended") and cat_of.get(r["result"]) == cat]
+            if not rs:
+                continue
+            o = self.d.objects
+            rs.sort(key=lambda r: (slot_order.index(o[r["result"]]["slot"]) if o[r["result"]]["slot"] in slot_order
+                                   else 99, r["fame"], r["result"]))
+            rows = []
+            for r in rs:
+                counts = {}
+                for i in r["items"]:
+                    counts[i] = counts.get(i, 0) + 1
+                ing = "".join(self.forge_item(i, n) for i, n in counts.items())
+                note = ' <span class="tag" style="--c:%s">Forge Amulet</span>' % wiki_gear.SPECIAL_EDGE if r["advanced"] else ""
+                rows.append('<tr><td>%s%s</td><td class="fr-ing">%s</td><td class="fr-fame">%s</td></tr>' % (
+                    self.forge_item(r["result"]), note, ing, "{:,}".format(r["fame"])))
+            out.append('<h3 id="%s">%s</h3><div class="table-wrap fr-list"><table><thead><tr><th>Makes</th>'
+                       '<th>From</th><th>Fame</th></tr></thead><tbody>%s</tbody></table></div>' % (
+                           "forge-" + slugify(title), esc(title), "".join(rows)))
+            used.add("forge-" + slugify(title))
+        return "\n".join(out)
+
+    def gen_forge_ascended(self, used):
+        """The Ascended items, a row each: an item of his top tier (its slot's, or any of its kind) and
+        an Ascended shard."""
+        rows, seen = [], set()
+        for r in self.forge:
+            a = r.get("ascended")
+            if not a or r["result"] in seen:
+                continue
+            seen.add(r["result"])
+            if a["any"]:
+                kind, tier = a["any"]
+                frm = '<span class="fr-item"><span class="fr-name">any tier %d %s</span></span>' % (
+                    tier, esc({"Ability": "ability", "Ring": "ring", "Armor": "armor"}.get(kind, kind.lower())))
+            else:
+                frm = self.forge_item(r["items"][0])
+            rows.append('<tr><td>%s</td><td class="fr-ing">%s%s</td><td class="fr-fame">%s</td></tr>' % (
+                self.forge_item(r["result"]), frm, self.forge_item(r["items"][1]), "{:,}".format(r["fame"])))
+        return ('<div class="table-wrap fr-list"><table><thead><tr><th>Makes</th><th>From</th><th>Fame</th></tr>'
+                '</thead><tbody>%s</tbody></table></div>' % "".join(rows))
+
+    # --- the Gear statistics page (tools/wiki_balance.py) ------------------------------------
+    @property
+    def balance(self):
+        if getattr(self, "_balance", None) is None:
+            self._balance = wiki_balance.Balance(self)
+        return self._balance
+
+    def gen_tier_tables(self, used):
+        return self.balance.tier_tables(used)
+
+    def gen_class_dps(self, used):
+        return self.balance.class_dps(used)
+
+    def gen_class_ehp(self, used):
+        return self.balance.class_ehp(used)
+
+    def gen_class_totals(self, used):
+        return self.balance.class_totals(used)
+
     def item_links(self, ids, up="", limit=None):
         """Item names, each a link to its entry on the gear pages."""
         out, seen = [], set()
@@ -336,6 +470,8 @@ class Gen:
         gift = self.d.objects.get("XP Gift", {})
         crate = wd.mystery_crate()
         return {
+            "forge_recipes": "{:,}".format(len(self.forge)), "forge_chains": "{:,}".format(sum(r["chain"] for r in self.forge)),
+            "forge_cap": "{:,}".format(wd.Data.FORGE_TIERED_CAP), "name_change": "{:,}".format(wd.name_change_fame()),
             "char_slots": a["char_slots"], "vault_chests": a["vault_chests"],
             "slot_cost": "%d %s" % (a["slot_cost"], a["slot_currency"]),
             "vault_chest_price": a["vault_chest_price"], "potion_stack": a["potion_stack"],
@@ -422,7 +558,8 @@ class Gen:
         d = self.d
         bot = set(self.bot["portals"])
         out = []
-        locked_by = self.idx.get("Locked Wine Cellar Portal", [])
+        # the bosses that drop a locked portal (the shared one, or a stage's own)
+        locked_by = [mc for oid in d.objects if oid.startswith("Locked ") for mc in self.idx.get(oid, [])]
         for wid, w in d.worlds.items():
             if wid in SKIP_WORLDS:
                 continue
@@ -443,8 +580,6 @@ class Gen:
                     price = self.bazaar.get(k)
                     if kd or price:
                         keys.append((k, kd, price))
-            enchanted = [(k, self.bazaar[k][0]) for p in portals for k in self.keys.get(p, [])
-                         if "Enchanted" in k and k in self.bazaar]
             special = []
             unlock = []
             for p in portals:
@@ -466,7 +601,7 @@ class Gen:
                      else "doomed" if "DoomedRealms" in w["file"] else "realm")
             out.append({
                 "id": wid, "name": w["name"], "group": group, "sources": sources, "keys": keys,
-                "enchanted": enchanted, "special": special, "unlock": unlock, "bot": on_bot,
+                "special": special, "unlock": unlock, "bot": on_bot,
                 "boss": boss, "hp": hp, "loot": loot, "random": w["random"],
                 "level": self.level(hp),
             })
@@ -570,8 +705,9 @@ class Gen:
             rows.append(("Opens", " ".join(esc(s) for s in x["special"])))
         for item, areas, bosses in x["unlock"]:
             beaten = " or ".join(esc(who(d, b)) for b in bosses) or "The boss"
-            rows.append(("Opens", "%s leaves a locked portal behind (%s). Use a <strong>%s</strong> beside it." % (
-                beaten, joined([esc(a) for a in areas]), esc(d.name(item)))))
+            name = d.name(item)
+            rows.append(("Opens", "%s leaves a locked portal behind (%s). Use %s<strong>%s</strong> beside it." % (
+                beaten, joined([esc(a) for a in areas]), with_article(name)[:-len(name)], esc(name))))
         if src:
             rows.append(("Portal from", ", ".join(src)))
         if x["bot"]:
@@ -587,8 +723,6 @@ class Gen:
                     names.append("%d more" % (len(kd) - 3))
                 bits.append("drops from " + ", ".join(names))
             rows.append(("Key", "<strong>%s</strong>: %s" % (esc(d.name(k)), "; ".join(bits))))
-        for k, price in x["enchanted"]:
-            rows.append(("Enchanted key", "%s, %d fame (also gives a Mystery ST Crate)" % (esc(d.name(k)), price)))
         if x["boss"]:
             rows.append(("Boss", "%s, %s health" % (esc(who(d, x["boss"])), "{:,}".format(x["hp"]))))
         if x["loot"]:
@@ -718,30 +852,6 @@ class Gen:
         return '<ul class="price-list">%s</ul>' % "".join(
             "<li><span>%s</span><span>%s</span></li>" % (esc(n), ("%.1f%%" % (100 * w / total)).replace(".0%", "%"))
             for n, w in sorted(merged.items(), key=lambda x: -x[1]))
-
-    def gen_enchanted(self, used):
-        ks = sorted([(i, p) for i, (p, s) in self.bazaar.items() if s == "Enchanted Keys"], key=lambda x: x[1])
-        return '<ul class="price-list cols">%s</ul>' % "".join(
-            "<li><span>%s</span><span>%d fame</span></li>" % (esc(i), p) for i, p in ks)
-
-    def gen_sets(self, used):
-        d = self.d
-        rows = []
-        for s in d.sets():
-            pieces = [p for p in s["pieces"] if p in d.objects]
-            if len(pieces) != 4 or "Legacy" in s["id"]:
-                continue
-            src = []
-            for p in pieces:
-                for m, c in self.idx.get(p, []):
-                    if not HIDDEN_MONSTER.search(m) and c and d.name(m) not in src:
-                        src.append(d.name(m))
-            if not src:
-                continue
-            rows.append("<tr><td><strong>%s</strong></td><td>%s</td><td>%s</td></tr>" % (
-                esc(s["id"]), esc(nice(pieces, d)), esc(", ".join(src[:4]))))
-        return ('<div class="table-wrap"><table><thead><tr><th>Set</th><th>Pieces</th><th>Dropped by</th></tr></thead>'
-                '<tbody>%s</tbody></table></div>' % "".join(rows))
 
     # the pets: their cards have sprites, so they're built with the gear pages (tools/wiki_gear.py)
     def gen_pets(self, used):
@@ -920,12 +1030,26 @@ def build(out_root, values=None):
     def render(url, current, title, summary, body, pager, eyebrow, toc=""):
         """A page at wiki/<url>; `current` is the guide it's marked under in the page list."""
         up = "../" * url.count("/")
-        nav = []
-        for _, s2, m2, _ in pages:
+        def item(s2, m2, label=None):
             u2 = up + ("./" if s2 == "index" else s2 + ".html")
             cur = ' aria-current="page"' if s2 == current else ""
-            nav.append('<li><a href="%s"%s><i class="sprite" data-sprite="%s" data-px="2"></i>%s</a></li>' % (
-                u2, cur, esc(m2.get("sprite", "portal")), esc(m2.get("title", s2))))
+            return '<a href="%s"%s><i class="sprite" data-sprite="%s" data-px="2"></i>%s</a>' % (
+                u2, cur, esc(m2.get("sprite", "portal")), esc(label or m2.get("title", s2)))
+
+        # A page with `group:` heads a group named that, and opens on itself; the pages with
+        # `parent: <it>` are its sub-pages, listed under it while one of the group is showing.
+        nav = []
+        for _, s2, m2, _ in pages:
+            if m2.get("parent"):
+                continue
+            kids = [(s3, m3) for _, s3, m3, _ in pages if m3.get("parent") == s2]
+            if not kids:
+                nav.append("<li>%s</li>" % item(s2, m2))
+                continue
+            here = current == s2 or any(s3 == current for s3, _ in kids)
+            sub = "".join("<li>%s</li>" % item(s3, m3) for s3, m3 in kids) if here else ""
+            nav.append('<li class="group%s">%s%s</li>' % (" open" if here else "", item(s2, m2, m2.get("group")),
+                                                          '<ul class="sub">%s</ul>' % sub if sub else ""))
         head_title = "{{NAME}} wiki" if url == "index.html" else title + ": {{NAME}} wiki"
         page = TEMPLATE.format(head_title=head_title, title=title, summary=esc(summary), nav="".join(nav), toc=toc,
                                body=body, pager=pager, eyebrow=eyebrow, site=up + "../", wiki=up, home=up or "./")

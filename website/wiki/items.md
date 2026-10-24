@@ -1,6 +1,7 @@
 ---
 title: Items
-nav: 6
+nav: 7
+parent: classes
 sprite: chest
 eyebrow: Gear and stuff
 summary: Item tiers and their colours, UT and ST items, keys and mystery boxes, your vault and potion storage, trading, the marketplace and the shops.
@@ -27,27 +28,23 @@ by class, with their numbers and where they come from.
 - **Untiered (UT)** items have no tier. They come from specific bosses, each with its own effect
   or stats, and they're often better than tiered items of the same kind, or different in a way
   that suits a class. The [Dungeons](dungeons.html) page lists each boss's notable drops.
-- **Set (ST)** items belong to a set of four for one class (weapon, ability, armor and ring), and
-  usually drop from one boss.
+- **Set (ST)** items belong to a set of four for one class (weapon, ability, armor and ring).
+  **None can be found for now**: no monster drops them and nothing sells them. They're future
+  additions, like the untiered items with no source yet ([Gear](gear.html)).
+- **Reward** items are given by the staff (their description says "Rewarded by DODMG"): nothing
+  drops or sells them.
 
 > **Set bonuses don't work yet.** The game's data lists extra stats for wearing two, three or all
 > four pieces of a set, but this server doesn't apply them. Each piece's own stats count as
 > normal.
-
-Sets you can find, and where:
-
-{{gen:sets}}
-
-The [Mystery ST Crate](#enchanted-keys-and-mystery-boxes) and the Mystery ST Chest also give set
-pieces.
 
 ## Loot bags
 
 Loot drops in bags. Their colour says how rare the best thing inside is, from brown for common
 loot up to **white**, the rarest: a white bag is announced to everyone. Bags with
 good loot are **soulbound**: only you can see and open them, and you need to have done enough of
-the monster's damage to get one. The Oryx set, Doom Poison and the Sword of Dark Enchantment drop
-in white bags; Potions of Oryx and Potions of Power in their own special bag.
+the monster's damage to get one. The Oryx set, the tier 16 armours, Oryx 4's and Oryx 5's untiered items and
+the Sword of Dark Enchantment drop in white bags; Potions of Oryx and Potions of Power in their own special bag.
 
 ## Potions
 
@@ -70,6 +67,9 @@ Nexus spawn. In it:
   items out but not put them in.
 - The **Potion Storage**, the Armoire and the Guild Chronicle.
 - A portal to the **marketplace**.
+- A **Training Dummy** beside the spawn. Shoot it and, 5 seconds after your first hit, the chat
+  tells you (and only you) your damage and damage a second, your pet's included. It never dies and
+  gives no experience. [Gear statistics](gear-statistics.html) has every class's numbers on it.
 
 The Nexus also has four **shared vault chests** in its south yard. Anyone can use them, so treat
 them as a place to hand things to friends, not to store them.
@@ -80,8 +80,11 @@ switches between them. Like everything a character carries, it's lost when the c
 ## Trading and the marketplace
 
 **Trading:** click a player's name (in the nearby list, on the minimap or in chat) and choose
-Trade, or type `/trade <name>` (which needs 2 rank stars). Both of you put items in and accept.
-Soulbound items can't be traded.
+Trade, or type `/trade <name>` (which needs 2 rank stars). Both of you put items in and accept;
+your backpack's items show in the trade window too, and what you get can go into your backpack
+when your inventory is full. Almost every item can be traded, sold and dropped for other players,
+Soulbound ones included. Only admin items and a few overpowered or test items can't: their
+tooltips say "Untradeable".
 
 **The marketplace** sells items to other players for fame, even when you're offline. Its portal is
 in your vault. Inside, use the market to:
@@ -91,7 +94,7 @@ in your vault. Inside, use the market to:
   less a 5% tax, and a message says so;
 - see **your offers** and take back what hasn't sold.
 
-Soulbound items can't be listed. You can't trade, drop items or go to your vault while you're in
+Untradeable items can't be listed. You can't trade, drop items or go to your vault while you're in
 the marketplace.
 
 ## The shops
@@ -99,12 +102,12 @@ the marketplace.
 Every shop here sells for fame; there's no way to earn gold.
 
 - The **Nexus Bazaar**, the market wards either side of the Nexus spawn: stat potions, consumables,
-  specials, dungeon keys, Elder and Doomed keys, Enchanted Keys, pet generators
+  specials, dungeon keys, Elder and Doomed keys, pet generators
   ({{v:pet_price}} fame) and cloth and dyes. Its stalls rotate through each shop's items. Guests
   can't buy.
 - `/shop` opens the Doomed Realms shops: weapons, abilities, armor, rings, consumables, dyes, keys
   and pets.
-- `/sellfame <slot>` sells items for fame.
+- The Divine Forge in the Nexus buys items for fame (its Sell for fame tab).
 
 The Nexus Bazaar's specials and consumables:
 
@@ -116,10 +119,8 @@ Dungeon keys and their prices are on the [Dungeons](dungeons.html) page, and sta
 ## Enchanted Keys and mystery boxes
 
 An **Enchanted Key** opens its dungeon like the regular key **and** gives you a **Mystery ST
-Crate**, into your inventory (or your gift chests if it's full). They cost twice the regular key
-plus 250 fame:
-
-{{gen:enchanted}}
+Crate**, into your inventory (or your gift chests if it's full). The Nexus Bazaar doesn't sell them
+any more, as set (ST) pieces can't be found for now; one you already have still works.
 
 Using a **Mystery ST Crate** gives one of these, with these chances:
 

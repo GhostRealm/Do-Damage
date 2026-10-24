@@ -184,7 +184,7 @@ namespace WorldServer.logic
                 ),
                 new Threshold(0.005,
                     new ItemLoot("Potion of Wisdom", 1),
-                    new ItemLoot("Conducting Wand", 0.005),
+                    new ItemLoot("Conducting Wand", 0.05),
                     new ItemLoot("Scepter of Fulmination", 0.005),
                     new ItemLoot("Robe of the Mad Scientist", 0.005),
                     new ItemLoot("Experimental Ring", 0.01)
@@ -498,11 +498,7 @@ namespace WorldServer.logic
                     )
                 ),
             new Threshold(0.01,
-                new ItemLoot("Potion of Wisdom", 1),
-                new ItemLoot("SorcererST0", 0.005),
-                new ItemLoot("SorcererST1", 0.005),
-                new ItemLoot("SorcererST2", 0.005),
-                new ItemLoot("SorcererST3", 0.005)
+                new ItemLoot("Potion of Wisdom", 1)
                 )
             );
     }

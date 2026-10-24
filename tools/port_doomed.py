@@ -330,7 +330,28 @@ def convert(o, new_type, sheets, remotes):
             use = remotes.setdefault(rid, {"animated": False, "static": False, "right": False})
             use["animated" if animated else "static"] = True
             use["right"] = use["right"] or child.find("Right") is not None
+    # betterSkillys' own sprite in place of the Doomed Realms one
+    if o.get("id") in TEXTURE_OVERRIDES:
+        sheet, index = TEXTURE_OVERRIDES[o.get("id")]
+        tex = next(t for t in o if t.tag in ("AnimatedTexture", "Texture"))
+        tex.find("File").text, tex.find("Index").text = sheet, str(index)
+    if o.get("id") in DISPLAY_OVERRIDES:
+        name = o.find("DisplayId")
+        if name is None:
+            name = ET.Element("DisplayId")
+            o.insert(0, name)
+        name.text = DISPLAY_OVERRIDES[o.get("id")]
+    for proj in o.findall("Projectile"):
+        new = PROJECTILE_OVERRIDES.get(o.get("id"), {}).get(proj.get("id"))
+        if new:
+            proj.find("ObjectId").text = new
     return o
+
+
+# Classes that start with the lowest tier of their weapon and ability, as the betterSkillys classes
+# do, in place of what Doomed Realms gave them: the Monk started with Fists of Broken Bones (a boss
+# drop) and Power of the Fountains (T7), which also kept /gear from upgrading its weapon.
+STARTS_AT_LOWEST_TIER = {"Monk"}
 
 
 def fix_class_references(converted, dr, bs, types):
@@ -370,7 +391,8 @@ def fix_class_references(converted, dr, bs, types):
                 if code not in ("-1", "") and int(code, 16) in dr_by_type:
                     t, _ = new_type(dr_by_type[int(code, 16)])
                 # weapon and ability: replace a missing or wrong-slot starting item
-                if i < 2 and i < len(slots) and (t is None or slot_of.get(t.lower()) != slots[i]):
+                if i < 2 and i < len(slots) and (t is None or slot_of.get(t.lower()) != slots[i]
+                                                 or o.get("id") in STARTS_AT_LOWEST_TIER):
                     t = starter.get(slots[i], (0, None))[1]
                 codes.append(t or "-1")
             eq.text = ", ".join(codes)
@@ -392,6 +414,39 @@ MINIGAME_SPAWNS = {"Zombie", "Hell Hound", "Crawler", "Zombie of Draconis", "Reg
 # sprite donors for objects whose remote sprite is gone and whose name matches nothing in betterSkillys
 SPRITE_DONORS = {"Elder Beach Portal": "Beachzone Portal"}
 
+# objects drawn anew here: id -> (sheet, index). Oryx 4 burns (tools/build_hash_cellar.py). (Oryx 5
+# is a new object, Oryx the Ascended God, made by tools/build_elysium.py; this one is left unused.)
+TEXTURE_OVERRIDES = {"Oryx the Mad God 4": ("hashCellarOryx16x16", 0),
+                     # the incantations' seals (tools/draw_oryx_gates.py, INCANTATION_CELLS)
+                     "Hash Cellar Incantation": ("oryxIncantations16x16", 1),
+                     "Doomed Cellar Incantation": ("oryxIncantations16x16", 2),
+                     # Oryx 5's colours (tools/draw_t15_weapons.py): the T15 staff, and the T16 armours
+                     "Staff of Endless Energy": ("t15Weapons8x8", 7),
+                     "Sphinx Leather Armor": ("t16Armors8x8", 0),
+                     "Armor of the Pyramid": ("t16Armors8x8", 1),
+                     "Robe of the Nile": ("t16Armors8x8", 2),
+                     # Oryx 4's daggers, red in their shading (tools/draw_oryx_uts.py)
+                     "Doom Dirk": ("oryxUts8x8", 0),
+                     "Flying Doom Daggers": ("oryxUts8x8", 1)}
+# projectiles drawn anew: id -> {projectile id: object}. Oryx 4's first phase shoots hellfire.
+PROJECTILE_OVERRIDES = {"Oryx the Mad God 4": {"2": "Hellfire Bolt", "4": "Hellfire Star"},
+                        # Oryx 5's weapons (their projectiles have no id; tools/draw_oryx_uts.py): the
+                        # Elysian Staff shoots his Celestial Bolt in his colours, the Sword of Dark
+                        # Enchantment a black and red slash (it shot sheep)
+                        "Staff of Heavens": {None: "Elysian Bolt"},
+                        "Sword of Dark Enchantment": {None: "Dark Enchantment Slash"}}
+# names for players: each Oryx after the Chamber is named for his theme
+DISPLAY_OVERRIDES = {"Oryx the Mad God 4": "Oryx the Infernal Mad God", "Hash Cellar Incantation": "Oryx's Inferno Incantation",
+                     "Doomed Cellar Incantation": "Oryx's Elysium Incantation", "Staff of Heavens": "Elysian Staff",
+                     # the T16 armours are Oryx 5's own (SETUP-LOCAL.md, "T16 armours"); their ids stay so
+                     # ones players hold keep working
+                     "Sphinx Leather Armor": "Hide of the Firmament", "Armor of the Pyramid": "Armor of Ascension",
+                     "Robe of the Nile": "Robe of Absolution",
+                     # Oryx 4's poison, in his Inferno's name (the Oryx UT pass)
+                     "Doom Poison": "Infernal Brimstone Poison",
+                     # the portal to the Arena (port_doomed_worlds.WORLD_NAMES)
+                     "Battle Arena Portal": "Arena Portal"}
+
 
 # Loot bags (<BagType>): Doomed Realms numbered its bags differently, so its rarest items dropped
 # in brown or blue bags. Here 6 is the white bag (announced to the server) and 7 the bag of special
@@ -402,6 +457,7 @@ BAG_TYPES = {
     "Doom Poison": 6, "Sword of Dark Enchantment": 6,
     "Potion of Oryx": 7, "Potion of Power": 7,
     "Potion of Max Life": 6,
+    "Sphinx Leather Armor": 6, "Armor of the Pyramid": 6, "Robe of the Nile": 6,
 }
 
 
@@ -414,19 +470,257 @@ ITEM_STORE = {
 }
 
 
+# The untiered rings pass (SETUP-LOCAL.md, "Untiered rings"). Admin items: untradeable and listed with
+# the staff's gear (Doomed Realms' admin gear and rewards, with far more stats than anything else).
+# Ring of the Abyss's numbers are in GEAR_TUNING.
+ADMIN_ITEMS = ["Doomie Amulet", "Doomed Hero Badge", "Fallen Crown", "God Rushing", "Doomed Gods",
+               "Doomie Staff", "Doomie Yolo"]
+# rewards the staff give (<Reward/>, which only the wiki reads)
+REWARD_ITEMS = ["America Sword", "America Shield"]
+# items nothing gives any more (<Unobtainable/>: the client's tooltip and the wiki say so): the T20
+# Oryx set and armours, taken out of the drops (port_doomed_monsters.LOOT_CHANGES, the Oryx behaviours)
+UNOBTAINABLE_ITEMS = ["Ring of Oryx", "Oryx Hide Armor", "Oryx Hide Robe", "Oryx Scale Armor", "Soul Spawned Armor",
+                      # the Oryx UT pass: the old forge materials (the forge shards took their place),
+                      # the Forge Amulet (the forge no longer takes it) and the Burning Amulet
+                      "Shattered Rune of Oryx", "Broken Oryx Armor", "Purified Doom Saliva", "Forge Amulet",
+                      "Burning Amulet"]
+# loot in a private bag (the T16 armours, as the T15s they top)
+SOULBOUND_ITEMS = ["Sphinx Leather Armor", "Armor of the Pyramid", "Robe of the Nile"]
+DESCRIPTIONS = {
+    "Santa's Hat": "A hat that protects Santa from even death itself. A blow that would kill its wearer breaks "
+                   "the hat instead, and sends them back to the Nexus.",
+    "Staff of Heavens": "Raised over Oryx's Elysium in his last stand, it fires the holy bolts of the Ascended God, "
+                        "and now and then calls one of his halos to circle its bearer.",
+    "Sword of Dark Enchantment": "A fatal sword enchanted with the black magic of the dark mages. Its strikes "
+                                 "now and then tear loose a small dark orb that zaps whatever is near.",
+    "Doom Poison": "Brimstone from the deepest fires of Oryx's Inferno. It curses all it burns, but its fumes "
+                   "leave the one who throws it silenced for a moment.",
+    "America Sword": "Rewarded by DODMG: America!",
+    "America Shield": "Rewarded by DODMG: America!",
+    "Sphinx Leather Armor": "Leather cut from the open sky over Oryx's Elysium, light as a cloud and as hard to strike. "
+                            "Only Oryx the Ascended God drops it.",
+    "Armor of the Pyramid": "Plate forged for the Ascended God's own guard, purple steel trimmed in gold. "
+                            "Only Oryx the Ascended God drops it.",
+    "Robe of the Nile": "Woven for the priests of Oryx's last temple, it hums with the light of the Elysium. "
+                        "Only Oryx the Ascended God drops it.",
+}
+
+
+# The tiered gear changes (SETUP-LOCAL.md, "Tiered weapon rebalance" and "Tiered abilities").
+# Weapons: the Dual Blades all
+# reach exactly 5 tiles (speed 200, LifetimeMS 250), get +2 Defense a tier from T11 and +2 Speed a tier
+# from T12; Rage Claw Blades (T9) lose their 1.5x rate of fire for damage between T8's and T10's.
+# Fists of Broken Bones, a boss drop, is untiered: the Monk's tiered fists are in CustomItems.xml,
+# with the T13 and T14 Dual Blades.
+# Abilities: the Doomed Realms copies in the betterSkillys classes' ability slots, which never
+# dropped (the tier drops leave them out), are untiered, so each tier has the one ability that
+# drops; so are Oceanic Curse (T9, no source) and Oceanic Nova (T10, a boss drop). Power of the
+# Fountains, the Monk's only ability, moves from T1 to T7, where its numbers belong; the missing
+# tiers of the Doomed Realms classes' abilities are in CustomItems.xml.
+# The Pirate's cannons had no tier, so they never dropped: Rusty to Wave Cannon are T0-T5 as their
+# numbers stand, and Nature, Shade and Fragment Cannon (copies of Wave Cannon with Vitality and
+# Wisdom) become T6-T8, climbing as the quivers do (cannons sit about 15 damage above the quiver of
+# their tier). Doom Cannon stays untiered.
+# id -> {speed, lifetime, rof, damage: (min, max), wave: (amplitude, frequency), pierce, mp,
+# stats: {stat: amount}, activates: [(effect, {attribute: value it has}, {new values} or None)],
+# untier, tier}
+DEF, SPD, VIT, WIS, DEX = "21", "22", "26", "27", "28"
+UNTIERED_ABILITIES = [
+    "1940s Orb", "Azure Trap", "Bile Poison", "Bloodorc Quiver", "Class Test", "Cloak of Dimensions",
+    "Cloak of the Phantom", "Ent Ancient Quiver", "Flaming Blade", "Fury Orb", "Helm of the Holy Warrior",
+    "Helm of the Leviathan General", "Lightning Fury", "Lizard Cut", "Magma Shield", "Mobstopper Trap",
+    "Prism of the Bloody Surprise", "Prism of the Soul Stealer", "Quiver of Artemis", "Roar of the Raging Dragon",
+    "Scepter of Vorv", "Scepter of the Grand Sorcerer", "Seal of Mass Power", "Seal of War", "Shadow Slash",
+    "Shield of Death", "Skull of the Twizted", "Skull of the Undead King", "Snake's Fang", "Souleater Skull",
+    "Space Deterioration Spell", "Spell of the Eternal Void", "Strike of Mass Devestation", "Sword Shield",
+    "Tome of the Ancients", "Tome of the Fountains", "Toothpaste Poison", "Oceanic Curse", "Oceanic Nova",
+]
+CANNON_TIERS = ["Rusty Cannon", "Pirate Cannon", "Reinforced Cannon", "Iron Cannon", "Heavy Cannon",
+                "Wave Cannon", "Nature Cannon", "Shade Cannon", "Fragment Cannon"]
+CANNON_TUNING = {
+    "Nature Cannon": {"damage": (335, 395), "mp": 80, "stats": {VIT: 2, WIS: 2, DEX: 6}},
+    "Shade Cannon": {"damage": (380, 440), "mp": 85, "stats": {VIT: 3, WIS: 3, DEX: 7}},
+    "Fragment Cannon": {"damage": (435, 470), "mp": 90, "stats": {VIT: 4, WIS: 4, DEX: 8}},
+}
+# The Doomed Realms classes' tiered abilities drop in the bags the betterSkillys abilities of their
+# tier use (T0-T8), T7 and T8 Soulbound as theirs are. Slot types as betterSkillys numbers them.
+DOOMED_ABILITY_SLOTS = {30, 32, 37, 126, 128, 130, 5000, 5005}
+# The Blademaster: every Dual Blades shot ignores defense (<ArmorPiercing/>), and its T3-T8 jackets
+# also give it Attack for a while (StatBoostSelf, which shows the Att Boost status): (amount, seconds).
+DUAL_BLADES_SLOT = "36"
+JACKET_BOOSTS = {"Lightweight Jacket": (3, 3), "Murderous Jacket": (5, 4), "Invincibility Jacket": (7, 5),
+                 "Jacket of Sorrows": (10, 6), "Skyfall Jacket": (12, 7), "Jacket of Bloodrut Nature": (15, 8)}
+ABILITY_BAGS = [1, 1, 1, 2, 2, 4, 4, 9, 9]
+GEAR_TUNING = {
+    **{oid: {"speed": 200, "lifetime": 250} for oid in (
+        "Bronze Daggers", "Invert Blades", "Dusky Blades", "Duo Blades", "Silver Blades", "Half Blades",
+        "Obsidian Blades", "Mithril Blades", "Infinity Blades", "Emerald Malevolence Blades")},
+    "Rage Claw Blades": {"speed": 200, "lifetime": 250, "rof": "1", "damage": (105, 168)},
+    "Eldricht Blades": {"speed": 200, "lifetime": 250, "stats": {DEF: 2}},
+    "Master Blades": {"speed": 200, "lifetime": 250, "stats": {DEF: 4, SPD: 2}},
+    "Fists of Broken Bones": {"untier": True},
+    "Ring of the Abyss": {"stats": {"0": 120, DEF: 10}},  # was 500 health and 24 Defense
+    # was 405-1045 at rate 1, its shots barely waving
+    "Soul Tipped Dirk": {"damage": (120, 230), "rof": "0.9", "wave": ("0.6", "1")},
+    "Staff of Tainted Light": {"damage": (95, 105)},  # was 190-210: a better Staff of Extreme Prejudice
+    # the staves' T15, a step over the T14's 75-115 (was 120-180), and T15's +10 Defense
+    "Staff of Endless Energy": {"damage": (100, 135), "stats": {DEF: 10}},
+    # the T16 armours: their kind's T15 a tenth better, rounded up (health and mana to the next 5)
+    "Sphinx Leather Armor": {"stats": {DEF: 24, DEX: 8, SPD: 5}},             # Leviathan Armor 21, 7, 4
+    "Armor of the Pyramid": {"stats": {DEF: 31, "0": 85, VIT: 9}},            # Annihilation Armor 28, 75, 8
+    "Robe of the Nile": {"stats": {"3": 105, "20": 7, DEF: 19, WIS: 9, "0": 55}},  # Robe of the Ancient Intellect 95, 6, 17, 8, 48
+    # was 380-410, and T15: a very rare drop of its own, not a step of the staves' tiers (or the forge
+    # would make it from two T14 staves)
+    "Eternal Sword": {"damage": (180, 180), "pierce": True, "untier": True},
+    "Platinum Sword": {"lifetime": 800},  # range 8 (was 5)
+    # T20 and T22, which no tier reaches: no source for now, listed with the future additions
+    "Oryx Tooth Sword": {"untier": True},
+    "Sword of the Angelic Soul": {"untier": True},
+    # the abilities pass (SETUP-LOCAL.md, "Untiered abilities")
+    "Cloak of Dimensions": {"stats": {VIT: 20}},  # was +3 Vitality
+    # the T6 poison's numbers (Baneserpent Poison; was 2,500 over 10.5 s)
+    "Tome of Poison": {"activates": [("PoisonGrenade", {}, {"impactDamage": "230", "totalDamage": "1035", "duration": "4.5"})]},
+    "Tome of Noble Assault": {"activates": [("TomeDamage", {}, {"totalDamage": "800"})]},  # was 500
+    # the Oryx 5 weapons pass: a chance with each shot of a helper (BehaviorDb.Allies.cs): the sword's
+    # dark orb, about a fifth more damage, and the staff's halo
+    "Sword of Dark Enchantment": {"add_xml": [
+        "<OnPlayerShootActivate cooldown=\"2\" objectId=\"Dark Enchantment Orb\" proc=\"0.15\">Pet</OnPlayerShootActivate>",
+        "<ExtraTooltipData><EffectInfo name=\"Dark Orb\" description=\"Each shot: a 15% chance (at most every 2 seconds) of a dark orb that zaps the nearest enemy for 220-280 every 0.5 seconds for 4 seconds\" /></ExtraTooltipData>",
+    ]},
+    # its shots weave twice, as the other staves' do (they weaved five times: jittery)
+    "Staff of Heavens": {"wave": ("0.5", "2"), "add_xml": [
+        "<OnPlayerShootActivate cooldown=\"6\" objectId=\"Elysian Halo\" proc=\"0.1\">Pet</OnPlayerShootActivate>",
+        "<ExtraTooltipData><EffectInfo name=\"Halo\" description=\"Each shot: a 10% chance (at most every 6 seconds) of a halo that circles you for 5 seconds, firing two Holy Orbs at the nearest enemy every second for 120-150 each\" /></ExtraTooltipData>",
+    ]},
+    # the Oryx UT pass: 2,000 poison damage (was 15,000), cursing instead of dazing, and its thrower
+    # silenced 2 s; Oryx 4's alone (no shop)
+    "Doom Poison": {"activates": [("PoisonGrenade", {}, {"totalDamage": "2000", "condEffect": "Curse"})],
+                    "add_activates": [("ConditionEffectSelf", {"effect": "Silenced", "duration": "2"})],
+                    "no_shop": True},
+    "Sword Shield": {"damage": (175, 225)},  # was 350-450
+    "Seal of the Fallen Angel": {"activates": [("ConditionEffectSelf", {"effect": "Invulnerable"}, {"duration": "2"})]},  # was 10 s
+    "Tome of Shining Stars": {"activates": [("ConditionEffectAura", {"effect": "Invulnerable"}, None)]},
+    "Scepter of Zeus": {"activates": [("Lightning", {}, {"condDuration": "1"})]},  # was 3 s
+    "Power of the Fountains": {"tier": "7"},
+    **{oid: {"untier": True} for oid in UNTIERED_ABILITIES},
+    **{oid: {"tier": str(t), **CANNON_TUNING.get(oid, {})} for t, oid in enumerate(CANNON_TIERS)},
+}
+
+
+# Class stats changed from Doomed Realms': class -> {stat element: (starting value, highest)}. The
+# Sharklord's highest Attack is 70 (was 80), its start 13 (was 15) so a level 20 one is as far
+# along as before; it still gains 1-2 a level.
+CLASS_STATS = {"Sharklord": {"Attack": ("13", "70")}}
+
+
+def tune_classes(dr):
+    for oid, stats in CLASS_STATS.items():
+        o = dr.get(oid)
+        if o is None:
+            continue
+        for tag, (start, top) in stats.items():
+            e = o.find(tag)
+            if e is not None:
+                e.text, e.attrib["max"] = start, top
+
+
+def tune_gear(dr):
+    for oid, t in GEAR_TUNING.items():
+        o = dr.get(oid)
+        if o is None:
+            continue
+        p = o.find("Projectile")
+        if "speed" in t:
+            p.find("Speed").text = str(t["speed"])
+        if "lifetime" in t:
+            p.find("LifetimeMS").text = str(t["lifetime"])
+        if "damage" in t:
+            p.find("MinDamage").text, p.find("MaxDamage").text = map(str, t["damage"])
+        if "rof" in t:
+            o.find("RateOfFire").text = t["rof"]
+        # (effect, the attributes it has, its new attributes or None to remove it)
+        for effect, has, new in t.get("activates", []):
+            for a in [a for a in o.findall("Activate") if (a.text or "").strip() == effect
+                      and all(a.get(k) == v for k, v in has.items())]:
+                if new is None:
+                    o.remove(a)
+                else:
+                    a.attrib.update(new)
+        # Activates added after the last one: (effect, its attributes)
+        for effect, attrs in t.get("add_activates", []):
+            acts = o.findall("Activate")
+            e = ET.Element("Activate", attrs)
+            e.text = effect
+            o.insert(list(o).index(acts[-1]) + 1 if acts else len(o), e)
+        # elements added before the BagType (or at the end), as XML text
+        for text in t.get("add_xml", []):
+            at_bag = list(o).index(o.find("BagType")) if o.find("BagType") is not None else len(o)
+            o.insert(at_bag, ET.fromstring(text))
+        if t.get("no_shop") and o.find("Shop") is not None:
+            o.remove(o.find("Shop"))
+        if t.get("pierce") and p.find("ArmorPiercing") is None:
+            ET.SubElement(p, "ArmorPiercing")
+        if "wave" in t:  # the shots weave side to side: (amplitude in tiles, frequency)
+            p.find("Amplitude").text, p.find("Frequency").text = t["wave"]
+        if "mp" in t:
+            o.find("MpCost").text = str(t["mp"])
+        if t.get("untier") and o.find("Tier") is not None:
+            o.remove(o.find("Tier"))
+        if "tier" in t:
+            if o.find("Tier") is None:
+                o.insert(list(o).index(o.find("Item")) + 1, ET.Element("Tier"))
+            o.find("Tier").text = t["tier"]
+        at = list(o).index(o.find("BagType")) if o.find("BagType") is not None else len(o)
+        for stat, amount in t.get("stats", {}).items():
+            e = next((a for a in o.findall("ActivateOnEquip") if a.get("stat") == stat), None)
+            if e is not None:
+                e.set("amount", str(amount))
+                continue
+            e = ET.Element("ActivateOnEquip", {"stat": stat, "amount": str(amount)})
+            e.text = "IncrementStat"
+            o.insert(at, e)
+            at += 1
+    for oid, (amount, secs) in JACKET_BOOSTS.items():
+        o = dr.get(oid)
+        if o is not None and not any(a.text == "StatBoostSelf" for a in o.findall("Activate")):
+            acts = o.findall("Activate")
+            e = ET.Element("Activate", {"stat": "20", "amount": str(amount), "duration": str(secs)})
+            e.text = "StatBoostSelf"
+            o.insert(list(o).index(acts[-1]) + 1 if acts else len(o), e)
+    for o in dr.values():
+        if o.findtext("SlotType") == DUAL_BLADES_SLOT and o.find("Projectile") is not None                 and o.find("Projectile").find("ArmorPiercing") is None:
+            ET.SubElement(o.find("Projectile"), "ArmorPiercing")
+    for o in dr.values():
+        slot = SLOT_TYPE_REMAP.get(o.findtext("SlotType") or "", o.findtext("SlotType") or "")
+        tier = o.findtext("Tier")
+        if (slot.isdigit() and int(slot) in DOOMED_ABILITY_SLOTS and tier and tier.isdigit() and int(tier) <= 8
+                and o.find("BagType") is not None):
+            o.find("BagType").text = str(ABILITY_BAGS[int(tier)])
+            if int(tier) >= 7 and o.find("Soulbound") is None:
+                ET.SubElement(o, "Soulbound")
+
+
 # The Oryx chain's incantations: each unlocks the locked portal the Oryx before it drops, in that
 # Oryx's dungeon only (Player.AEChangeObject), instead of opening its dungeon anywhere like a key.
-# (incantation, the dungeon it works in, the portal it opens, what it says)
+# (incantation, the dungeon it works in, the portal it opens, what it says); the locked portal it
+# opens is the stage's own where INCANTATION_LOCKS names one (tools/build_hash_cellar.py draws them)
+# Oryx 4's dungeon is Oryx's Inferno (the Doomed Realms "Hash Cellar"; port_doomed_worlds.WORLD_NAMES),
+# entered by a burnt Sanctuary portal (tools/build_hash_cellar.py); Oryx 5's is Oryx's Elysium (the
+# "Doomed Cellar"), entered by a gold one (tools/build_elysium.py).
 INCANTATIONS = {
-    "Hash Cellar Incantation": ("Oryx's Sanctuary", "Hash Cellar Portal",
-                                "Unlocks the portal Oryx leaves behind in his Sanctuary, leading down to the Hash Cellar."),
-    "Doomed Cellar Incantation": ("Hash Cellar", "Doomed Cellar Portal",
-                                  "Unlocks the portal Oryx leaves behind in the Hash Cellar, leading to his last stand in the Doomed Cellar."),
+    "Hash Cellar Incantation": ("Oryx's Sanctuary", "Oryx's Inferno Portal",
+                                "Unlocks the portal Oryx leaves behind in his Sanctuary, leading down into Oryx's Inferno."),
+    "Doomed Cellar Incantation": ("Oryx's Inferno", "Oryx's Elysium Portal",
+                                  "Unlocks the portal Oryx leaves behind in his Inferno, leading up to his last stand in Oryx's Elysium."),
 }
+INCANTATION_LOCKS = {"Hash Cellar Incantation": "Locked Oryx's Inferno Portal",
+                     "Doomed Cellar Incantation": "Locked Oryx's Elysium Portal"}
 
 
 def fix_doomed_data(dr):
     """Mistakes in the Doomed Realms data, fixed before porting."""
+    tune_gear(dr)
+    tune_classes(dr)
     for oid, bag in BAG_TYPES.items():
         o = dr.get(oid)
         if o is not None and o.find("BagType") is not None:
@@ -440,6 +734,16 @@ def fix_doomed_data(dr):
                 a.set("storeAmount", stored)
         if o.find("Description") is not None:
             o.find("Description").text = text
+    for tag, oids in (("Admin", ADMIN_ITEMS), ("Reward", REWARD_ITEMS), ("Unobtainable", UNOBTAINABLE_ITEMS),
+                      ("Soulbound", SOULBOUND_ITEMS)):
+        for oid in oids:
+            o = dr.get(oid)
+            if o is not None and o.find(tag) is None:
+                o.insert(list(o).index(o.find("SlotType")) + 1, ET.Element(tag))
+    for oid, text in DESCRIPTIONS.items():
+        o = dr.get(oid)
+        if o is not None and o.find("Description") is not None:
+            o.find("Description").text = text
     for oid, (area, portal, text) in INCANTATIONS.items():
         o = dr.get(oid)
         if o is None or o.find("Activate") is None:
@@ -447,7 +751,7 @@ def fix_doomed_data(dr):
         act = o.find("Activate")
         act.attrib.clear()
         act.set("radius", "25")
-        act.set("targetId", "Locked Wine Cellar Portal")
+        act.set("targetId", INCANTATION_LOCKS.get(oid, "Locked Wine Cellar Portal"))
         act.set("newId", portal)
         act.set("onlyInArea", area)
         act.set("customString", portal.replace(" Portal", "") + " unlocked by")
@@ -681,15 +985,16 @@ def write_assets(sheets, remotes, images_dir):
         name = remote_sheet(rid)
         embed(name, remote_file(rid))
         w, h = png_size(remote_file(rid))
+        # remote character sprites are mostly a strip of 7 frames, as the old client loaded them;
+        # a single picture (Cookie, Reaper, Aceaku's Pet) is one frame, not 7 slivers of it
+        strip = w == 7 * h
+        tile_w = w // 7 if strip else w
         if use["animated"]:
-            # remote character sprites are a strip of 7 frames, as the old client loaded them
             lines.append('         AnimatedChars.add("%s", new %s().bitmapData, null, %d, %d, %d, %d, AnimatedChar.%s);'
-                         % (name, name, max(1, w // 7), h, w, h, "RIGHT" if use["right"] else "DOWN"))
+                         % (name, name, tile_w, h, w, h, "RIGHT" if use["right"] else "DOWN"))
         if use["static"]:
             # an item that shares a character's strip (e.g. a pet generator), or whose own sprite is
             # such a strip (the Elder Draconis Key), shows its first frame
-            strip = use["animated"] or (w == 7 * h)
-            tile_w = max(1, w // 7) if strip else w
             lines.append('         AssetLibrary.addImageSet("%s", new %s().bitmapData, %d, %d);' % (name, name, tile_w, h))
 
     with open(CLIENT_ASSETS_AS, "w", encoding="utf-8", newline="\r\n") as f:

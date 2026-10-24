@@ -52,6 +52,18 @@ def _int(value, default=0):
             return default
 
 
+def _without_calls(text, call):
+    """`text` without each `call` (like "ElderLoot(") and its arguments."""
+    while call in text:
+        i = text.index(call)
+        depth, j = 1, i + len(call)
+        while depth and j < len(text):
+            depth += {"(": 1, ")": -1}.get(text[j], 0)
+            j += 1
+        text = text[:i] + text[j:]
+    return text
+
+
 class Data:
     def __init__(self):
         self.objects = {}       # id -> dict (every Object in the server's XML)
@@ -162,21 +174,28 @@ class Data:
                 continue
             with open(path, encoding="utf-8-sig") as f:
                 text = f.read()
+            # a file's own loot lists (private static MobDrops[] CourtLoot() => new MobDrops[] {...}),
+            # which its monsters call
+            helpers = dict(re.findall(r'static MobDrops\[\]\s+(\w+)\(\)\s*=>\s*new MobDrops\[\]\s*\{(.*?)\};', text, re.S))
             marks = list(start.finditer(text))
             for i, m in enumerate(marks):
                 end = marks[i + 1].start() if i + 1 < len(marks) else len(text)
                 block = text[m.start():end]
+                block += "".join(helpers[h] for h in re.findall(r'\b(\w+)\(\)', block) if h in helpers)
                 name = m.group(3)
                 if m.group(1):
                     d = re.search(r'DoomedMonsterDefs\.(M_\w+)', block)
                     if d:
                         doomed_names[name] = d.group(1)
                     continue
-                inits.setdefault(name, []).append(block)
-                # E("x") builds "x" and "Elder x" from one block when the file takes an elder flag
+                # E("x") builds "x" and "Elder x" from one block when the file takes an elder flag;
+                # its ElderLoot(...) is the Elder one's only
                 if m.group(2) == "E(":
                     inits.setdefault("Elder " + name, []).append(block)
+                    block = _without_calls(block, "ElderLoot(")
+                inits.setdefault(name, []).append(block)
         self.doomed = {}
+        self.elder_loot = {}  # hand-written Elder monsters' loot, from their generated definition
         defs = os.path.join(LOGIC, "doomed", "DoomedMonsters.cs")
         if os.path.isfile(defs):
             with open(defs, encoding="utf-8-sig") as f:
@@ -189,10 +208,40 @@ class Data:
             for name, mid in doomed_names.items():
                 if name not in inits and mid in bodies:
                     self.doomed[name] = bodies[mid]
+            # Elder("x") in a hand-written block takes the loot of the generated Elder x (ElderDrops)
+            for name, blocks in inits.items():
+                mid = "M_" + re.sub(r"\W", "_", name)
+                if name.startswith("Elder ") and mid in bodies and any('Elder("' in b for b in blocks):
+                    self.elder_loot[name] = bodies[mid]
+        # loot DoomedSetup.Drops adds to the generated monsters (DoomedExtraLoot.Extra): {monster: its entry}
+        self.extra_loot = {}
+        extra = os.path.join(LOGIC, "doomed", "DoomedExtraLoot.cs")
+        if os.path.isfile(extra):
+            with open(extra, encoding="utf-8-sig") as f:
+                text = f.read()
+            marks = list(re.finditer(r'\["([^"]+)"\]\s*=\s*\(\)\s*=>', text))
+            for i, m in enumerate(marks):
+                end = marks[i + 1].start() if i + 1 < len(marks) else text.find("};", m.end())
+                self.extra_loot[m.group(1)] = text[m.end():end]
         return inits
 
     def monsters(self):
         return set(self.inits) | set(self.doomed)
+
+    # TierLoot(5, ItemType.Weapon ...) or TierLoot(tier: 5, type: ItemType.Weapon ...)
+    # ItemLoot("x", 0.01) or ItemLoot(item: "x", probability: 0.01)
+    ITEM_LOOT = re.compile(r'ItemLoot\(\s*(?:item:\s*)?"([^"]+)"\s*,\s*(?:probability:\s*)?([0-9.]+)')
+    ITEM_LOOT_ID = re.compile(r'ItemLoot\(\s*(?:item:\s*)?"([^"]+)"')  # with or without a chance
+    TIER_LOOT = re.compile(r'TierLoot\(\s*(?:tier:\s*)?(\d+)\s*,\s*(?:type:\s*)?ItemType\.(\w+)')
+
+    def _loot_templates(self):
+        """{name: source of its list} for the shared drop lists in MobDrops.cs (LootTemplates:
+        MountainDrop, the godlands gods'; BasicDrop and StrongerDrop, many dungeon bosses')."""
+        if not hasattr(self, "_templates"):
+            with open(os.path.join(LOGIC, "loot", "MobDrops.cs"), encoding="utf-8-sig") as f:
+                text = f.read()
+            self._templates = dict(re.findall(r'public static MobDrops\[\] (\w+)\(\)(.*?)\];', text, re.S))
+        return self._templates
 
     def drops(self, monster, _seen=None):
         """[(kind, id, chance)] a monster drops: kind is 'portal', 'item' or 'tier'. Loot a boss
@@ -204,6 +253,9 @@ class Data:
             for m in re.finditer(r'(?:TransformOnDeath|Spawn|TossObject)\(\s*"([^"]*(?:Loot|Chest|Balloon|Treasure)[^"]*)"', block):
                 if m.group(1) not in seen and self.objects.get(m.group(1), {}).get("class") != "Portal":
                     out.extend(x for x in self.drops(m.group(1), seen) if x[0] != "portal")
+        for spawner in self.chest_spawners().get(monster, []):
+            if spawner not in seen:
+                out.extend(x for x in self.drops(spawner, seen) if x[0] != "portal")
         for block in self.inits.get(monster, []):
             elder = monster.startswith("Elder ")
             for m in re.finditer(r'DropPortalOnDeath\(\s*(?:target:\s*)?(?:elder\s*\?\s*"([^"]+)"\s*:\s*)?"([^"]+)"\s*(?:,\s*(?:probability:\s*)?([^,)]+))?', block):
@@ -218,19 +270,40 @@ class Data:
                 o = self.objects.get(m.group(1))
                 if o and o["class"] == "Portal":
                     out.append(("portal", m.group(1), 1.0))
-            for m in re.finditer(r'ItemLoot\(\s*"([^"]+)"\s*,\s*([0-9.]+)', block):
+            block += "".join(self._loot_templates().get(t, "")
+                             for t in re.findall(r'LootTemplates\.(\w+)\(\)', block))
+            for m in self.ITEM_LOOT.finditer(block):
                 out.append(("item", m.group(1), float(m.group(2))))
-            for m in re.finditer(r'TierLoot\(\s*(\d+)\s*,\s*ItemType\.(\w+)', block):
+            for m in self.TIER_LOOT.finditer(block):
                 out.append(("tier", (m.group(2), int(m.group(1))), None))
-        block = self.doomed.get(monster)
+        block = self.doomed.get(monster) or self.elder_loot.get(monster)
         if block:
-            for m in re.finditer(r'DeathPortal\(\s*T\("([^"]+)"\)\s*,\s*([0-9.]+)', block):
-                out.append(("portal", m.group(1), min(1.0, float(m.group(2)) / 100)))
+            if monster in self.doomed:
+                for m in re.finditer(r'DeathPortal\(\s*T\("([^"]+)"\)\s*,\s*([0-9.]+)', block):
+                    out.append(("portal", m.group(1), min(1.0, float(m.group(2)) / 100)))
             for m in re.finditer(r'Tuple\.Create\(\s*([0-9.]+)\s*,\s*\(ILoot\)\s*new ItemLoot\("([^"]+)"', block):
                 out.append(("item", m.group(2), float(m.group(1))))
             for m in re.finditer(r'new TierLoot\(\s*(\d+)\s*,\s*ItemType\.(\w+)', block):
                 out.append(("tier", (m.group(2), int(m.group(1))), None))
+        if monster in self.doomed or monster in self.elder_loot:  # DoomedSetup.Drops, as ElderDrops is too
+            for m in self.ITEM_LOOT.finditer(self.extra_loot.get(monster, "")):
+                out.append(("item", m.group(1), float(m.group(2))))
         return out
+
+    def chest_spawners(self):
+        """{boss: [its chest spawners]}: a "Chest Spawner" opens (its loot balloon or chest) once the
+        bosses its (Entity|Entities)NotExistsTransition waits for are gone (the Shatters')."""
+        if not hasattr(self, "_chest_spawners"):
+            self._chest_spawners = {}
+            for name, blocks in self.inits.items():
+                if "Chest Spawner" not in name:
+                    continue
+                for b in blocks:
+                    for m in re.finditer(r'Entit(?:y|ies)NotExistsTransition\(([^)]*)\)', b):
+                        for boss in re.findall(r'"([^"]+)"', m.group(1)):
+                            if boss in self.inits and self.objects.get(boss, {}).get("enemy"):
+                                self._chest_spawners.setdefault(boss, []).append(name)
+        return self._chest_spawners
 
     def drops_index(self):
         """{portal or item id: [(monster, chance)]}, from every behaviour."""
@@ -242,6 +315,177 @@ class Data:
                     if not any(m == monster for m, _ in lst):
                         lst.append((monster, chance))
         return idx
+
+    # --- the Divine Forge ---------------------------------------------------------------------
+    # The fame for a tiered result by tier on the weapons' 0-14 scale, and its cap (ForgeRecipes.cs)
+    FORGE_TIER_FAME = [0, 10, 30, 50, 70, 90, 100, 200, 300, 400, 500, 800, 1000, 2000, 2000]
+    FORGE_TIERED_CAP = 2000
+    FORGE_UNTIERED_CAP = 3000  # ForgeRecipes.UntieredCap
+
+    def forge_recipes(self):
+        """Every recipe the Divine Forge knows, as ForgeRecipes.Build makes them: [{result, fame,
+        advanced, items, chain}]. `chain` marks the two-of-the-tier-below recipes (the Doomed Realms
+        list's own included), `advanced` the ones that need a worn Forge Amulet."""
+        src = _read(os.path.join(SRC, "Shared", "resources", "Item.cs"))
+        m = re.search(r'OpItems\s*=\s*new HashSet<string>\s*\{(.*?)\};', src, re.S)
+        op = set(re.findall(r'"([^"]+)"', m.group(1) if m else ""))
+        items = {}  # the tradeable items: Equipment (and Dye) objects without <Admin/> or OpItems
+        for oid, o in self.objects.items():
+            if o["class"] in ("Equipment", "Dye") and oid not in op and self.elements[oid].find("Admin") is None:
+                items[oid] = o
+
+        # tiered items only their boss gives, which no recipe makes (ForgeRecipes.NeverForged); they
+        # still count for their slot's price scale
+        m = re.search(r'NeverForged\s*=\s*new HashSet<string>\s*\{([^}]*)\}', _read(os.path.join(COMMANDS, "doomed", "ForgeRecipes.cs")))
+        never = set(re.findall(r'"([^"]+)"', m.group(1) if m else ""))
+
+        # what some monster drops: its named loot and every item of the tier pools it rolls
+        loot = tier_loot_types()
+        kinds = {**loot["types"], 10: "Potion"}
+        pools = {}
+        for oid, o in items.items():
+            doomed = 0xD000 <= o["type"] <= 0xDFFF
+            if o["slot"] not in kinds or (doomed and (o["slot"] not in loot["doomed"] or o["tier"] < 0)
+                                          and oid not in loot["doomed_items"]):
+                continue
+            tier = loot["extra_items"].get(oid, o["tier"])  # TierLoot.ExtraPoolItems join the pool of their tier
+            pools.setdefault((kinds[o["slot"]], tier), []).append(oid)
+        blocks = ([b for bs in self.inits.values() for b in bs] + list(self.doomed.values())
+                  + list(self.elder_loot.values()))
+        blocks.append(_read(os.path.join(LOGIC, "doomed", "DoomedExtraLoot.cs")))
+        templates = self._loot_templates()
+        seasonal = set()
+        dropped = set()
+        for b in blocks:
+            b = re.sub(r"//[^\n]*", "", b)
+            for t in re.findall(r'LootTemplates\.(\w+)\(\)', b):
+                b += templates.get(t, "")
+            # a seasonal drop's items (SeasonalThreshold): the forge never makes them
+            for sm in re.finditer(r'SeasonalThreshold\(', b):
+                depth, j = 1, sm.end()
+                while depth and j < len(b):
+                    depth += {"(": 1, ")": -1}.get(b[j], 0)
+                    j += 1
+                seasonal.update(self.ITEM_LOOT_ID.findall(b[sm.end():j]))
+            dropped.update(self.ITEM_LOOT_ID.findall(b))
+            for tier, kind in self.TIER_LOOT.findall(b):
+                dropped.update(pools.get((kind, int(tier)), []))
+        dropped -= seasonal
+        winter = re.search(r'WinterBossDrops\s*=\s*\{(.*?)\};', _read(os.path.join(LOGIC, "loot", "Loots.cs")), re.S)
+        seasonal.update(re.findall(r'\("([^"]+)"', winter.group(1) if winter else ""))
+
+        slots, ability_slots = set(), set()
+        for oid, o in self.objects.items():
+            if o["class"] == "Player":
+                st = [_int(x) for x in (_text(self.elements[oid], "SlotTypes", "") or "").split(",")[:4]]
+                slots.update(st)
+                if len(st) > 1:
+                    ability_slots.add(st[1])
+        slots.discard(0)
+        # each slot's items by tier, and the fame for each tier it can forge: the price scale runs to
+        # the top of the unbroken chain from the lowest tier
+        chains = {}
+        for slot in sorted(slots):
+            by_tier = {}
+            for oid, o in sorted(items.items(), key=lambda kv: kv[1]["type"]):
+                if o["slot"] == slot and o["tier"] >= 0:
+                    by_tier.setdefault(o["tier"], []).append(oid)
+            if not by_tier:
+                continue
+            top = min(by_tier)
+            while top + 1 in by_tier:
+                top += 1
+            # the weapons' scale still ends at T14, as it did before their T15s: those cost the top price
+            scale_top = min(top, 14) if loot["types"].get(slot) == "Weapon" else top
+            fames = {}
+            for tier in by_tier:
+                if tier <= top and tier - 1 in by_tier:
+                    scaled = round(tier * 14.0 / max(scale_top, 1))
+                    fames[tier] = min(self.FORGE_TIER_FAME[max(1, min(scaled, len(self.FORGE_TIER_FAME) - 1))],
+                                      self.FORGE_TIERED_CAP)
+            chains[slot] = (by_tier, fames)
+
+        def ability_chain_fame(res, ing):
+            """An ability's two of the tier below costs its tier's price on the scale."""
+            r, f = items.get(res), items.get(ing[0]) if ing else None
+            if (not r or r["tier"] < 1 or r["slot"] not in ability_slots or len(ing) != 2 or ing[0] != ing[1]
+                    or not f or f["slot"] != r["slot"] or f["tier"] != r["tier"] - 1 or r["slot"] not in chains):
+                return None
+            return chains[r["slot"]][1].get(r["tier"])
+
+        econ = _read(os.path.join(COMMANDS, "doomed", "DoomedEconomyData.cs"))
+        m = re.search(r'Recipes\s*=\s*\{(.*?)\};', econ, re.S)
+        recipes = []
+        for res, fame, adv, ing in re.findall(
+                r'\("([^"]+)",\s*(\d+),\s*(true|false),\s*new\[\]\s*\{([^}]*)\}\)', m.group(1) if m else ""):
+            ing = re.findall(r'"([^"]+)"', ing)
+            fame = int(fame)
+            if ability_chain_fame(res, ing) is not None:
+                fame = ability_chain_fame(res, ing)
+            elif res in items and items[res]["tier"] >= 0:
+                fame = min(fame, self.FORGE_TIERED_CAP)
+            else:
+                fame = min(fame, self.FORGE_UNTIERED_CAP)
+            recipes.append({"result": res, "fame": fame, "advanced": adv == "true", "items": ing})
+        # the items only the forge makes, which no monster drops (ForgeRecipes.ForgeOnly)
+        m = re.search(r'ForgeOnly\s*=\s*\{(.*?)\};', _read(os.path.join(COMMANDS, "doomed", "ForgeRecipes.cs")), re.S)
+        forge_only = set()
+        for res, fame, adv, ing in re.findall(
+                r'\("([^"]+)",\s*(\d+),\s*(true|false),\s*new\[\]\s*\{([^}]*)\}\)', m.group(1) if m else ""):
+            forge_only.add(res)
+            recipes.append({"result": res, "fame": int(fame), "advanced": adv == "true", "items": re.findall(r'"([^"]+)"', ing)})
+
+        # the Ascended items (ForgeRecipes.Ascended): an item of a tier, of its slot or (slot 0) of any
+        # slot of its kind, and an Ascended shard; `ascended` marks them, with the kind and tier when
+        # any item of them will do, for the forge page
+        forge_src = _read(os.path.join(COMMANDS, "doomed", "ForgeRecipes.cs"))
+        consts = dict(re.findall(r'(\w+Shard)\s*=\s*"([^"]+)"', forge_src))
+        fame_m = re.search(r'AscendedFame\s*=\s*(\d+)', forge_src)
+        m = re.search(r'\bAscended\s*=\s*\{(.*?)\};', forge_src, re.S)
+        for res, kind, tier, slot, shard in re.findall(
+                r'\("([^"]+)",\s*ItemType\.(\w+),\s*(\d+),\s*(\d+),\s*(\w+)\)', m.group(1) if m else ""):
+            tier, slot = int(tier), int(slot)
+            forge_only.add(res)
+            for oid, o in sorted(items.items(), key=lambda kv: kv[1]["type"]):
+                if o["tier"] == tier and (o["slot"] == slot if slot else loot["types"].get(o["slot"]) == kind):
+                    recipes.append({"result": res, "fame": int(fame_m.group(1)), "advanced": False,
+                                    "items": [oid, consts[shard]],
+                                    "ascended": {"any": (kind, tier) if slot == 0 else None}})
+        # and the ones from one item (ForgeRecipes.AscendedFrom)
+        m = re.search(r'\bAscendedFrom\s*=\s*\{(.*?)\};', forge_src, re.S)
+        for res, frm, shard in re.findall(r'\("([^"]+)",\s*"([^"]+)",\s*(\w+)\)', m.group(1) if m else ""):
+            forge_only.add(res)
+            recipes.append({"result": res, "fame": int(fame_m.group(1)), "advanced": False,
+                            "items": [frm, consts[shard]], "ascended": {"any": None}})
+
+        def key(r):
+            return r["result"] + "=" + "+".join(sorted(r["items"]))
+        known = {key(r) for r in recipes}
+        for slot, (by_tier, fames) in chains.items():
+            for tier, results in by_tier.items():
+                if tier not in fames:
+                    continue
+                below = by_tier[tier - 1]
+                for res in results:
+                    last = res.rsplit(" ", 1)[-1]
+                    frm = below[0] if len(below) == 1 else next(
+                        (b for b in below if b.rsplit(" ", 1)[-1] == last), below[0])
+                    r = {"result": res, "fame": fames[tier], "advanced": False, "items": [frm, frm]}
+                    if key(r) not in known:
+                        known.add(key(r))
+                        recipes.append(r)
+
+        out = []
+        for r in recipes:
+            if (r["result"] in items and r["result"] not in never
+                    and (r["result"] in dropped or r["result"] in forge_only) and r["result"] not in seasonal
+                    and all(i in items for i in r["items"])):
+                res = items[r["result"]]
+                a, b = (r["items"] + [None, None])[:2]
+                r["chain"] = (len(r["items"]) == 2 and a == b and res["tier"] >= 1
+                              and items[a]["slot"] == res["slot"] and items[a]["tier"] == res["tier"] - 1)
+                out.append(r)
+        return out
 
     # --- the Nexus Bazaar --------------------------------------------------------------------
     def bazaar(self):
@@ -259,11 +503,6 @@ class Data:
             prices = re.findall(r'\("([^"]+)",\s*(\d+)\)', m.group(1) if m else "")
             for name, price in prices:
                 out[name] = (int(price), shop)
-        m = re.search(r'EnchantedKeyDungeons\s*=\s*\{(.*?)\};', text, re.S)
-        for d in re.findall(r'"([^"]+)"', m.group(1) if m else ""):
-            base = out.get(d + " Key")
-            if base:
-                out[d + " Enchanted Key"] = (base[0] * 2 + 250, "Enchanted Keys")
         m = re.search(r'petGenerators\.Add\(new ShopItem\(i\.ObjectId,\s*(\d+)\)', text)
         self.pet_generator_price = int(m.group(1)) if m else None
         return out
@@ -347,8 +586,9 @@ class Data:
         return out
 
     def pets(self):
-        """Pet generators with their PermaPet numbers: [(item, pet, dps, hp, hpms, mp, mpms)];
-        hp and mp are what one heal restores, as written ("10-60" or "76"), empty for none."""
+        """Pet generators with their PermaPet numbers: [(item, pet, dps, hp, hpms, mp, mpms, size,
+        effects)]; hp and mp are what one heal restores, as written ("10-60" or "76"), empty for
+        none; size is Small, Medium, Large or Admin (empty for none) and effects what else it does."""
         out = []
         for oid, o in self.objects.items():
             for a in o["activate_attrs"]:
@@ -359,6 +599,8 @@ class Data:
                         "dps": _int(a.get("petDps")), "hp": (a.get("petHp") or "").strip(),
                         "hpms": _int(a.get("petHpMs")), "mp": (a.get("petMp") or "").strip(),
                         "mpms": _int(a.get("petMpMs")), "doomed": "DoomedRealms" in o["file"],
+                        "size": (a.get("petSize") or "").strip(),
+                        "effects": [e for e in (a.get("petEffects") or "").split("; ") if e],
                     })
         return out
 
@@ -374,11 +616,13 @@ class Data:
 
     def incantations(self):
         """{open portal id: [(item id, [dungeons it works in])]}: items that unlock a locked
-        portal (the XML ChangeObject effect on the Locked Wine Cellar Portal)."""
+        portal (the XML ChangeObject effect on a "Locked ..." portal: the Locked Wine Cellar Portal,
+        or a stage's own, such as the Locked Oryx's Inferno Portal)."""
         out = {}
         for oid, o in self.objects.items():
             for a in o["activate_attrs"]:
-                if a["effect"] == "ChangeObject" and a.get("targetId") == "Locked Wine Cellar Portal" and a.get("newId"):
+                if (a["effect"] == "ChangeObject" and (a.get("targetId") or "").startswith("Locked ")
+                        and a.get("newId")):
                     areas = [x.strip() for x in a.get("onlyInArea", "").split(",") if x.strip()]
                     lst = out.setdefault(a["newId"], [])
                     if not any(i == oid for i, _ in lst):
@@ -390,7 +634,7 @@ class Data:
         category, group, tier, texture, el, ...}]. `category` is where the classes wear its slot
         type (weapons, abilities, armor or rings) and `group` what kind of item it is, as the
         client colours it (tier_edge): admin, legendary, ascended, ethereal, tiered, set, untiered,
-        or test for the test items."""
+        reward for the staff's rewards (<Reward/>), or test for the test items."""
         cats = {RING: "rings"}
         for c in self.classes():
             for i, cat in enumerate(("weapons", "abilities", "armor")):
@@ -408,15 +652,19 @@ class Data:
             if "Test" in o["file"] and el.find("Admin") is None:
                 group = "test"
             else:
-                group = next((t.lower() for t in ("Admin", "Legendary", "Ascended", "Ethereal") if el.find(t) is not None),
+                group = next((t.lower() for t in ("Admin", "Reward", "Unobtainable", "Legendary", "Ascended", "Ethereal")
+                              if el.find(t) is not None),
                              None) or ("tiered" if o["tier"] >= 0 else "set" if el.get("setType") else "untiered")
             doomed = 0xD000 <= o["type"] <= 0xDFFF
             # the random tier drops (Loots.Initialize): no Doomed Realms items but the tiered gear of
             # the Doomed Realms classes' own slots
             drops_as = (loot["types"].get(o["slot"]) if o["tier"] >= 0 and group == "tiered"
-                        and (not doomed or o["slot"] in loot["doomed"]) else None)
+                        and (not doomed or o["slot"] in loot["doomed"] or oid in loot["doomed_items"]) else None)
+            pool_tier = o["tier"]
+            if oid in loot["extra_items"]:  # an untiered item in a tier pool (TierLoot.ExtraPoolItems)
+                drops_as, pool_tier = loot["types"].get(o["slot"]), loot["extra_items"][oid]
             out.append(dict(o, kind=SLOT_NAMES[o["slot"]], category=cat, group=group, el=el, doomed=doomed,
-                            texture=self.texture(oid), tier_loot=drops_as))
+                            texture=self.texture(oid), tier_loot=drops_as, pool_tier=pool_tier))
         return out
 
     def texture(self, oid):
@@ -480,6 +728,13 @@ class Data:
 def _read(path):
     with open(path, encoding="utf-8-sig") as f:
         return f.read()
+
+
+def name_change_fame():
+    """What changing your name costs, in fame (ChooseNameHandler; the first name is free)."""
+    src = _read(os.path.join(SRC, "WorldServer", "core", "net", "handlers", "ChooseNameHandler.cs"))
+    m = re.search(r'NAME_CHANGE_FAME\s*=\s*([\d_]+)', src)
+    return int(m.group(1).replace("_", "")) if m else 0
 
 
 def gear_rules():
@@ -568,7 +823,8 @@ def account():
 
 def tier_loot_types():
     """Which tier drops a slot type comes in (MobDrops.cs): {"types": {slot type: "Weapon" |
-    "Ability" | "Armor" | "Ring"}, "doomed": {the Doomed Realms classes' slot types}}."""
+    "Ability" | "Armor" | "Ring"}, "doomed": {the Doomed Realms classes' slot types}, "doomed_items":
+    {the Doomed Realms items in the pools all the same}}."""
     src = _read(os.path.join(LOGIC, "loot", "MobDrops.cs"))
     types = {}
     for name, kind in (("WeaponT", "Weapon"), ("AbilityT", "Ability"), ("ArmorT", "Armor"), ("RingT", "Ring")):
@@ -576,7 +832,11 @@ def tier_loot_types():
         for n in re.findall(r'\d+', m.group(1) if m else ""):
             types[int(n)] = kind
     m = re.search(r'DoomedClassSlots\s*=\s*new HashSet<int>\s*\{([^}]*)\}', src)
-    return {"types": types, "doomed": {int(n) for n in re.findall(r'\d+', m.group(1) if m else "")}}
+    items = re.search(r'DoomedPoolItems\s*=\s*new HashSet<string>\s*\{([^}]*)\}', src)
+    return {"types": types, "doomed": {int(n) for n in re.findall(r'\d+', m.group(1) if m else "")},
+            "doomed_items": set(re.findall(r'"([^"]+)"', items.group(1) if items else "")),
+            # untiered items in a tier pool: {id: tier}
+            "extra_items": {i: int(t) for i, t in re.findall(r'\["([^"]+)"\]\s*=\s*\((\d+),', src)}}
 
 
 def shop_items():
@@ -636,6 +896,9 @@ def tier_colours():
     m = re.search(r'has\("SlotType"\)\.then_some\(0x([0-9A-Fa-f]{6})\)', body)
     if m:
         out.append(("Untiered items (UT)", "#" + m.group(1)))
+    m = re.search(r'has\("Ascended"\)\s*\{\s*return Some\(0x([0-9A-Fa-f]{6})\)', body)
+    if m:
+        out.append(("Ascended items", "#" + m.group(1)))
     m = re.search(r'\[([^\]]+)\]\.iter\(\)\.any.*?Some\(0x([0-9A-Fa-f]{6})\)', body, re.S)
     if m:
         names = [n for n in re.findall(r'"(\w+)"', m.group(1)) if n != "Admin"]

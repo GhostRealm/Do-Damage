@@ -1,6 +1,7 @@
 ---
 title: Commands
 nav: 2
+parent: getting-started
 sprite: bolt
 eyebrow: Getting started
 summary: Every chat command a player can use, read from the game's code.
@@ -23,19 +24,17 @@ boosters and whatever it replaces go to your inventory, which needs room for the
 
 ## Forging
 
-`/forge` combines items into new ones, Doomed Realms style. Put the ingredients in your inventory,
-type `/forge` with their slots (1 to 8, or 9 to 16 for the backpack), and the game says what you'd
-make and what it costs; then `/yes` or `/no`. `/forgelist` shows what you can make with what you
-have, `/forgelist <item>` searches the recipes and `/forgelist all` lists every one. Wearing a
-Forge Amulet halves the price and unlocks a few advanced recipes, but it breaks when used.
-
-One recipe worth knowing: a **Potion of Oryx** is forged from one of each of the eight stat
-potions.
+The **Divine Forge** in the Nexus's south yard combines items into new ones: two of any tiered
+weapon, ability, armor or ring make one of the next tier, and Doomed Realms' own recipes make
+untiered items and a few potions (a **Potion of Oryx** from one of each of the eight stat
+potions). `/forge` and `/forgelist` just point you there. [The Divine Forge](forge.html) has every
+recipe and what it costs.
 
 ## Shops and selling
 
 - `/shop` lists the shops and `/shop <name>` opens one: weapons, abilities, armor, rings,
   consumables, dyes, keys and pets, for fame.
-- `/sellfame <slot> ...` sells items for fame.
+- The Divine Forge's **Sell for fame** tab buys items: it shows your inventory with what it pays
+  for each one, and you pick what to sell. (`/sellfame` points you there.)
 - The marketplace (through a portal in your vault) sells to other players for fame.
   See [Items](items.html#trading-and-the-marketplace).
