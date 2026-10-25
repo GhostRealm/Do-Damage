@@ -179,6 +179,9 @@
 		<Width>256</Width>
 		<Height>256</Height>
 		<MapJM>Dungeons/Manor of the Immortals.jm</MapJM>
+		<RandomLayout passage="4" corridor="3">
+			<Goal>Lord Ruthven</Goal>
+		</RandomLayout>
 		<VisibilityType>1</VisibilityType>
 		<Dungeon/>
 	</World>
@@ -201,6 +204,14 @@
 		<Height>256</Height>
 		<MapJM>Dungeons/Lair of Shaitan.jm</MapJM>
 		<VisibilityType>1</VisibilityType>
+		<Dungeon/>
+	</World>
+	<World id="Lair of Draconis">
+		<Width>119</Width>
+		<Height>119</Height>
+		<MapJM>Dungeons/Lair of Draconis.jm</MapJM>
+		<VisibilityType>1</VisibilityType>
+		<DisableTeleport/>
 		<Dungeon/>
 	</World>
 	<World id="The Ivory Wyvern">
@@ -384,13 +395,6 @@
 		<RandomLayout passage="4" corridor="3">
 			<Goal>Epic Larva</Goal>
 		</RandomLayout>
-		<VisibilityType>1</VisibilityType>
-		<Dungeon/>
-	</World>
-	<World id="Lair of Shaitan New Auru">
-		<Width>256</Width>
-		<Height>256</Height>
-		<MapJM>Dungeons/Lair of Shaitan New Auru.jm</MapJM>
 		<VisibilityType>1</VisibilityType>
 		<Dungeon/>
 	</World>

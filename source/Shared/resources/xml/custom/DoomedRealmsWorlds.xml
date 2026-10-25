@@ -68,8 +68,8 @@
 		<Dungeon/>
 	</World>
 	<World id="Lair of Elder Draconis">
-		<Width>138</Width>
-		<Height>148</Height>
+		<Width>119</Width>
+		<Height>119</Height>
 		<MapJM>Doomed/Lair of Elder Draconis.jm</MapJM>
 		<VisibilityType>1</VisibilityType>
 		<DisableTeleport/>
@@ -83,10 +83,13 @@
 		<Dungeon/>
 	</World>
 	<World id="Elder Manor">
-		<Width>32</Width>
-		<Height>32</Height>
+		<Width>64</Width>
+		<Height>87</Height>
 		<MapJM>Doomed/Elder Manor.jm</MapJM>
 		<VisibilityType>1</VisibilityType>
+		<RandomLayout corridor="3" passage="4">
+			<Goal>Elder Lord Ruthven</Goal>
+		</RandomLayout>
 		<Dungeon/>
 	</World>
 	<World id="Elder Ocean Trench">

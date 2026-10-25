@@ -12,6 +12,101 @@ Keep each version short: changes go under `### ` group headings (Oryx 5, Arena, 
 on), one line per change players notice, summed up rather than item by item (the wiki has the
 details). Add to a group's line when a change adds to it, rather than adding another line.
 
+## 2.2.0 (2026-10-25)
+
+### Quests and achievements
+- Quests: every day you get three daily quests, every week three weekly ones and every month three
+  monthly ones (slay monsters or gods, clear dungeons, defeat realm events or Oryx, beat Arena
+  waves, earn fame and more), each worth fame and some potions or keys, plus a bonus for finishing
+  them all. Don't like one? Swap it, once a period. They reset at midnight UTC.
+- A daily reward for logging in: a 28-day track with bigger rewards every seventh day. Missing a
+  day never loses your place.
+- Achievements: 22 of them, each with Bronze, Silver, Gold and Ember tiers, for everything from
+  kills and dungeons to trades and white bags. Each tier gives fame and points; points raise your
+  rank, and ranks unlock chat name colours. Your kills, fame and levels from before count.
+- Press J, or the new Quests button beside the Nexus button, to open the quest log; the button
+  shows how many rewards are waiting, and a popup tells you when you finish something. The
+  Tinkerer and the Chronicler by the Nexus spawn keep your quests and your deeds. /quests lists it
+  all in the chat.
+
+### Lair of Draconis
+- The Lair of Draconis is open. The Rock Dragon drops its portal (and the Lair of Shaitan's half
+  the time), and the Draconis Key opens it: it's in the Nexus Bazaar's key stalls for 300 fame. Step onto a dragon's soul by the altar to face Nikao,
+  Pyyr, Limoz or Feargus in its lair; pop the loot balloon it leaves and the way back opens. Slay
+  all four and the altar opens the Ivory Wyvern, and half the time the Elder Lair too.
+- The Elder Lair of Draconis is the same lair, darker, with Elder dragons: twice the health, harder
+  hits and faster attacks, and better loot, including a potion that maxes the dragon's stat and its
+  Elder armour or bow. Before, it was Doomed Realms' unfinished map.
+- Each dragon drops its stat potions, top-tier gear and a relic; the four relics forge into an Elder
+  Draconis Key at the Divine Forge.
+
+### Manor of the Immortals
+- The Manor is a whole house now: you arrive in the Foyer and fight through its gallery, library,
+  kennels, crypt, chapel and dining hall (a different set and order each visit) to Lord Ruthven's
+  hall, instead of starting next to him. The Elder Manor is built the same way.
+- Lord Ruthven has a full fight: he wakes when you come near, stalks you with daggers, rises to fire
+  rings of shots, and turns into a swarm of bats that sends swarmers after you, faster and with more
+  daggers at 60% and 25% health. He leaves his Coffin, which lets out bats and Nosferatu as you break
+  it and holds the loot: the Manor's special items, Attack and Dexterity potions and tiered gear.
+  The Elder Manor's Coffin can also drop a Potion of Max Attack.
+- The Manor's bats only bite up close, and its Nosferatu and Rock Bombs fire properly.
+
+### Lair of Shaitan and the Avatar
+- The Lair of Shaitan has a new arena: a rocky island in a sea of lava, made by Aurusenth. The fight
+  can be won now: Shaitan's hands could never be hurt before. His loot balloon drops its loot (it
+  dropped nothing) and the way out, and the Skull of Endless Torment drops 1 time in 100, not every
+  time.
+- The Avatar of the Forgotten King always fights in its own arena, wherever it appears: four Killer
+  Pillars round it (there were eight, half of them out of place) and the blobomb makers its "Blobs,
+  attack!" phase sets off. The Tablet of the King's Avatar drops 1 time in 200, was 1 in 20.
+
+### Items
+- The Doomed Realms classes' tier 6 abilities (Pearl of Wasted Blood, Halo of God's Blessing, Light
+  Turret, Dragon Scroll, Nature Cannon, Jacket of Sorrows) drop in the same bag as other tier 6
+  abilities again, not a white one.
+- A pass over items that were far stronger than the best tiered gear. Each is now a little better
+  than the top tier of its kind, with its own mix of stats: the Elder armours (Raw Hope, Angel's
+  Hope, Wings of Natural Bloodlust, Scaled Robe and the three Elder Draconis ones, which had 100 to
+  200 Defense), the America Armor, the Coral Medallion, Oceans Gift, Ring of the Abyss and Reforged
+  Forgotten Crown, the Lightning Bow, Sword of the Abyss, Sword of the Colossus and the Battle for
+  the Nexus weapons (Robobow, KoalaPOW, Doctor Swordsworth), the Scepter of Zeus (650 damage to 6
+  enemies, was 4,000 to 20), the pD Scepter, the Seal of the Fallen Angel (6-second auras, were
+  15), the Helm of the Pumpkin and the red and blue bee quivers. Items you already have change too.
+- The Chancellor's Cranium and Diplomatic Robe (and the Turncoat Cape and Crystallised Mist) go off on
+  any shot that hits for over their threshold before your defense: in good armour they hardly ever
+  went off before.
+
+### Oryx 5
+- The Holy Gates shut behind you when Oryx the Ascended God wakes and stay shut until he dies;
+  anyone standing in them is moved inside. In his Last Judgement the corridor below the arena fills
+  with gates (anyone hiding there is moved out) and lances sweep across its mouth, so there's no
+  safe corner left.
+- When he picks his patterns at random, he never picks the same one three times in a row.
+- Only Oryx 5 drops Ascended shards: the Void Entity no longer does.
+
+### Oryx 3 and 4
+- From 80% health the four pillars in Oryx 3's Sanctum fire his shots too: armour-piercing pairs in
+  at the middle, and now and then a spear at the nearest player, softer than his own and stronger
+  below half health.
+- Oryx 3's Sanctum gate shuts behind you when he wakes and opens when he dies; anyone standing in it
+  is moved inside.
+- Oryx 4's red butterflies (the Infernal Elements) hit for 20, through armour.
+- Janus the Doorwarden's door opens only once both Stone Guardians are dead and a quarter of the
+  Castle's haunted Suits of Armor are broken; Janus tells you when the armour is all that holds it.
+
+### Divine Forge
+- The Enthroned Robe is forged from the Robe of Absolution (with an Ascended Armor Shard), not from
+  any tier 16 armour.
+  
+### Fixes
+- Summoner scrolls show their summon's damage (a shot, how often, and a second), and that up to 6
+  can be out at once; Mechanic turrets show how often they fire and their damage a second. The
+  wiki's scroll and turret pages show the same.
+- Every item's tooltip says which classes can use it ("Usable by Wizard, Adept"), or "Usable by
+  every class" for rings.
+- A monster that another monster moves on to its next phase drops the shields of the phase before.
+  Some stayed unhittable for good (Shaitan's hands among them).
+
 ## 2.1.1 (2026-10-25)
 
 ### Classes

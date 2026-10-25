@@ -170,6 +170,11 @@ impl Layout {
         self.col_up(GRID_X, NEXUS_UP, NEXUS_W, BURGER)
     }
 
+    /// The quest log's button, beside the Nexus button.
+    pub fn quests_button(&self) -> [f32; 4] {
+        self.col_up(GRID_X + NEXUS_W + SLOT_GAP, NEXUS_UP, GRID8.0 - NEXUS_W - SLOT_GAP, BURGER)
+    }
+
     /// The equipment, over the tabs and potions.
     pub fn equip_box(&self) -> [f32; 4] {
         self.col_up(GRID_X, EQUIP_UP, BAR4.0, BAR4.1)
@@ -692,6 +697,8 @@ pub enum Page {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Button {
     Nexus,
+    /// Open the quest log.
+    Quests,
     Page(Page),
     /// Enter the portal.
     Enter(i32),
@@ -900,6 +907,9 @@ pub struct HudState {
     pub minimap_zoom: usize,
     /// The key bound to the Nexus, for its button.
     pub nexus_key: String,
+    /// The key bound to the quest log, and how many of its rewards wait, for its button.
+    pub quests_key: String,
+    pub quests_ready: usize,
     /// The key bound to Interact, for the portal's Enter button.
     pub interact_key: String,
     /// The key that switches between the inventory and the backpack, shown on their tabs.
@@ -1076,6 +1086,7 @@ impl Panel {
             });
         }
         panel.buttons.push((Button::Nexus, lay.nexus_button()));
+        panel.buttons.push((Button::Quests, lay.quests_button()));
         // The boss history, at the top left while no boss shows there.
         if !boss_showing(world, social.quest) {
             let hl = history_layout(lay, social.history, state);
@@ -1556,6 +1567,35 @@ pub fn draw_panel(ui: &mut Ui, lay: &Layout, world: &World, camera_angle: f64, c
                 object_icon(ui, NEXUS_ICON as u16, x0 + icon_w / 2.0, cy, icon_w);
                 let mid = ui.digit_middle(size, true);
                 ui.label(&state.nexus_key, x0 + icon_w + gap, (cy - mid).round(), size, true, color::TEXT);
+                continue;
+            }
+            Button::Quests => {
+                // Ember while rewards wait, with their count on a gold badge at the corner.
+                let hover = inside(*r, mouse);
+                let ready = state.quests_ready;
+                ui.button(*r, "", if ready > 0 { Kind::Primary } else { Kind::Secondary }, hover, s);
+                let size = lay.font(14.0);
+                let label = "Quests";
+                let lw = ui.measure(label, size, true);
+                let ks = lay.font(12.0);
+                let kw = if state.quests_key.is_empty() { 0.0 } else { ui.measure(&state.quests_key, ks, true) + 6.0 * s };
+                let x0 = (r[0] + (r[2] - lw - kw) / 2.0).round();
+                let cy = r[1] + r[3] / 2.0;
+                let (text, dim) = if ready > 0 { (color::ACCENT_TEXT, color::ACCENT_TEXT) } else { (color::TEXT, color::TEXT_MUTED) };
+                ui.label(label, x0, (cy - ui.digit_middle(size, true)).round(), size, true, text);
+                if !state.quests_key.is_empty() {
+                    ui.label(&state.quests_key, x0 + lw + 6.0 * s, (cy - ui.digit_middle(ks, true)).round(), ks, true, dim);
+                }
+                if ready > 0 {
+                    let d = 17.0 * s;
+                    let br = [r[0] + r[2] - d * 0.7, r[1] - d * 0.35, d, d];
+                    theme::fill(ui.renderer, [br[0] - s, br[1] - s, d + 2.0 * s, d + 2.0 * s], d / 2.0 + s, 0x000000, 0.5);
+                    theme::fill(ui.renderer, br, d / 2.0, color::GOLD, 1.0);
+                    let t = if ready > 9 { "9+".to_owned() } else { ready.to_string() };
+                    let ts = lay.font(11.0);
+                    let tw = ui.measure(&t, ts, true);
+                    ui.label(&t, br[0] + (d - tw) / 2.0, (br[1] + d / 2.0 - ui.digit_middle(ts, true)).round(), ts, true, color::ACCENT_TEXT);
+                }
                 continue;
             }
             Button::Enter(_) if state.interact_key.is_empty() => ("Enter".to_owned(), Kind::Primary),
@@ -2286,10 +2326,18 @@ fn activate_rows(a: &bsk_data::xml::Element) -> (String, Vec<(String, String)>) 
             ("Lightning", r)
         }
         "SamuraiAbility" | "DazeBlast" | "TomeDamage" => ("Blast", vec![row("Damage", num("totalDamage").to_string()), row("Radius", sqrs(area()))]),
-        "BuildTower" => (
-            "Tower",
-            vec![row("Damage", num("totalDamage").to_string()), row("Builds", text("objectId")), row("Lasts", secs(num("duration")))],
-        ),
+        "BuildTower" => {
+            let mut r = ally_shot_rows(a).unwrap_or_else(|| vec![row("Damage", num("totalDamage").to_string())]);
+            r.push(row("Builds", text("objectId")));
+            r.push(row("Lasts", secs(num("duration"))));
+            ("Tower", r)
+        }
+        "Summon" => {
+            let mut r = vec![row("Summons", format!("{} for {}", text("objectId"), secs(num("duration"))))];
+            r.extend(ally_shot_rows(a).unwrap_or_default());
+            r.push(row("", format!("Up to {MAX_SUMMONS} out at once")));
+            ("Summon", r)
+        }
         "Heal" => ("Heal", vec![row("Heals", format!("{} HP", num("amount")))]),
         "Magic" => ("Magic", vec![row("Restores", format!("{} MP", num("amount")))]),
         "HealNova" => ("Heal", vec![row("Heals", format!("{} HP", num("amount"))), row("Range", format!("you and allies within {}", sqrs(num("range"))))]),
@@ -2327,6 +2375,30 @@ fn activate_rows(a: &bsk_data::xml::Element) -> (String, Vec<(String, String)>) 
         }
     }
     (name.to_owned(), rows)
+}
+
+/// How many summons a Summoner keeps out at once (the server's `Player.MaxSummons`).
+const MAX_SUMMONS: u32 = 6;
+
+/// A summon's or turret's shots, which the port writes on the item's activate (allyDamage a shot,
+/// "min-max" if it varies; allyShots a volley; allyMs between volleys): the damage of a shot and
+/// how often, then on one enemy a second, before its defense.
+fn ally_shot_rows(a: &bsk_data::xml::Element) -> Option<Vec<(String, String)>> {
+    let damage = a.attr("allyDamage")?;
+    let shots = a.attr_number("allyShots", 1.0);
+    let ms = a.attr_number("allyMs", 0.0);
+    if ms <= 0.0 {
+        return None;
+    }
+    let mean = match damage.split_once('-') {
+        Some((lo, hi)) => (lo.trim().parse::<f64>().ok()? + hi.trim().parse::<f64>().ok()?) / 2.0,
+        None => damage.trim().parse::<f64>().ok()?,
+    };
+    let volley = if shots > 1.0 { format!("{damage} x{shots}") } else { damage.to_owned() };
+    Some(vec![
+        ("Damage".to_owned(), format!("{volley} every {} secs", ms / 1000.0)),
+        ("Per second".to_owned(), format!("{:.0}", mean * shots * 1000.0 / ms)),
+    ])
 }
 
 pub fn item_tooltip(data: &GameData, item: i32, me: Option<&GameObj>, kind: SlotKind) -> Vec<Line> {
@@ -2512,12 +2584,27 @@ pub fn item_tooltip(data: &GameData, item: i32, me: Option<&GameObj>, kind: Slot
     if xml.has("Unobtainable") {
         note("Unobtainable: nothing drops it any more", ATTR);
     }
-    if let Some(me) = me {
-        let slot_type = xml.int("SlotType", 0);
-        let equips = class_slot_types(data.objects.get(&me.object_type));
-        if (1..=24).contains(&slot_type) && slot_type != 10 && !equips.iter().take(4).any(|&t| t == slot_type) {
-            let class = data.objects.get(&me.object_type).map_or("you", |c| c.display_id.as_str());
-            note(&format!("Not usable by {class}"), 0xFC8642);
+    // Who can equip it: the classes with its slot type among their four equipment slots (10 is
+    // potions and other inventory items).
+    let slot_type = xml.int("SlotType", 0);
+    let users: Vec<&ObjectDesc> = if slot_type > 0 && slot_type != 10 {
+        data.classes.iter().filter_map(|t| data.objects.get(t)).filter(|c| class_slot_types(Some(c)).iter().take(4).any(|&s| s == slot_type)).collect()
+    } else {
+        Vec::new()
+    };
+    if !users.is_empty() {
+        if users.len() == data.classes.len() {
+            note("Usable by every class", ATTR);
+        } else {
+            let names: Vec<&str> = users.iter().map(|c| c.display_id.as_str()).collect();
+            note(&format!("Usable by {}", names.join(", ")), ATTR);
+        }
+        if let Some(me) = me {
+            // (an admin-only class, which holds anything, isn't listed)
+            if data.classes.contains(&me.object_type) && !users.iter().any(|c| c.object_type == me.object_type) {
+                let class = data.objects.get(&me.object_type).map_or("you", |c| c.display_id.as_str());
+                note(&format!("Not usable by {class}"), 0xFC8642);
+            }
         }
     }
     out
