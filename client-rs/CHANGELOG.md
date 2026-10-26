@@ -12,6 +12,29 @@ Keep each version short: changes go under `### ` group headings (Oryx 5, Arena, 
 on), one line per change players notice, summed up rather than item by item (the wiki has the
 details). Add to a group's line when a change adds to it, rather than adding another line.
 
+## 2.2.1 (2026-10-26)
+
+### Classes
+- Summoner: summons are much smaller, the top tiers most of all (the Dragon and Oryx were three
+  times a player's size, now a little over one), and so are their shots, so six of them no longer
+  hide the boss.
+
+### Divine Forge
+- An ingredient taken from your vault shows a little vault chest in its corner instead of the word
+  "vault", and its tooltip says how many your vault holds.
+
+### Fixes
+- Janus leaves the Oryx's Chamber portal beside his loot bags instead of under them, where it
+  was hidden and couldn't be entered, and no Realm Portal beside it.
+- The chat name colour you pick in the quest log now stays with you in every world and after
+  you log out, instead of going back to the usual colour when you change world.
+- In the browser, opening the Graveyard (and the market's time left on offers) no longer freezes
+  the game until you refresh the page.
+
+### Wiki
+- A new Loot Simulation page: pick Oryx 3, 4 or 5, set your share of the damage and your loot
+  boosts, and see every drop's chance, the bags a kill gives, and roll as many kills as you like.
+
 ## 2.2.0 (2026-10-25)
 
 ### Quests and achievements
