@@ -50,6 +50,10 @@ namespace WorldServer.core.worlds
         public bool DefeatToNexus { get; protected set; }
         // each drop's chance is multiplied by this here, after the boosts (Loot.Handle): 0.5 in the arenas
         public double LootRate { get; protected set; } = 1;
+        // the share of the usual fame paid here (FameRates): 0.5 in the arenas
+        public double FameRate { get; protected set; } = 1;
+        // the share of the usual experience, so fame, from kills at level 20 (FameRates): 0.75 in the arenas
+        public double KillFameRate { get; protected set; } = 1;
         private long Lifetime { get; set; }
 
         public bool isWeekend { get; set; } = false;
@@ -103,6 +107,8 @@ namespace WorldServer.core.worlds
             DisableAbilities = resource.DisableAbilities;
             DefeatToNexus = resource.DefeatToNexus;
             LootRate = resource.LootRate;
+            FameRate = resource.FameRate;
+            KillFameRate = resource.KillFameRate;
             CreateInstance = resource.CreateInstance;
 
             IsRealm = false;
