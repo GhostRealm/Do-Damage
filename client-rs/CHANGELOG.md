@@ -12,6 +12,24 @@ Keep each version short: changes go under `### ` group headings (Oryx 5, Arena, 
 on), one line per change players notice, summed up rather than item by item (the wiki has the
 details). Add to a group's line when a change adds to it, rather than adding another line.
 
+## 2.2.2 (2026-10-26)
+
+### Fixes
+- Entering a world puts you in the middle of a free spot where you arrive, instead of on the edge
+  of it, where in Oryx's Chamber you could land half inside a wall and be stuck. You no longer
+  arrive on top of a tree or other blocking thing either, and the Cnidarian Reef, which had no
+  arrival spot, now lets you in on its floor instead of in the void.
+
+### Website
+- The home page shows the players online, the most there were in the last 24 hours and how much of
+  each of the last 7 days the realm was up.
+
+### Discord
+- Do Damage has a Discord server: https://discord.gg/FVhqJe8CG. Every update is posted in
+  #updates as soon as it's out (type `/updates` there to get pinged), #server-status shows who's
+  online, and `/status`, `/online`, `/wiki` and `/play` answer in any channel. The website and the wiki link to it at the
+  top of every page.
+
 ## 2.2.1 (2026-10-26)
 
 ### Classes
