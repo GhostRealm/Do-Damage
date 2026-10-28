@@ -7,6 +7,7 @@ mod audio;
 mod changelog;
 mod connected;
 mod emotes;
+mod events;
 mod game;
 mod ground;
 mod hud;
@@ -30,6 +31,7 @@ mod textedit;
 mod theme;
 #[cfg(not(target_arch = "wasm32"))]
 mod update;
+mod vault;
 mod version;
 mod view;
 #[cfg(target_arch = "wasm32")]
@@ -149,6 +151,8 @@ struct App {
     chat_send: Vec<String>,
     /// Page Up: the chat's history, so many rows back (`TextBox.showMax_`).
     chat_scroll: Option<usize>,
+    /// The chat log kept from the last game, for the next (`Game::chat`).
+    chat_log: Vec<hud::ChatLine>,
     /// Tab's place in the list of people we've whispered with (`TextBox.currentTeller_`).
     teller: usize,
     /// Players' names in the chat as last drawn, and where (a click opens their menu).
@@ -203,7 +207,11 @@ struct App {
     market: market::Market,
     /// The Divine Forge's window, and what it asked of the server on opening.
     forge: forge::Forge,
+    /// The realm's events list at the top left (`events.rs`).
+    events: events::EventsPanel,
     forge_acts: Vec<forge::Act>,
+    /// The vault window: every vault chest's items at once.
+    vault: vault::Vault,
     /// The quest log (quests, daily rewards, achievements) and its popups, and what it asked of
     /// the server on opening.
     quests: quests::Quests,
@@ -238,6 +246,10 @@ struct App {
     resume: Option<update::Resume>,
     #[cfg(not(target_arch = "wasm32"))]
     show_window: Option<update::WindowState>,
+    /// The fullscreen setting the window was last put in (desktop): a change in the options or
+    /// from F11 puts it in the other.
+    #[cfg(not(target_arch = "wasm32"))]
+    fullscreen_applied: Option<bool>,
 }
 
 /// Open the window of the NPC we stand by. True for the character changer: back to the
@@ -449,7 +461,7 @@ fn apply_action(game: &mut Game, panel: &hud::Panel, action: hud::Action, now: i
         Action::Button(Button::TradeAccept) => game.trade_accept(now),
         Action::Button(Button::TradeCancel) => game.trade_cancel(),
         Action::Button(Button::Member(_)) => {}
-        Action::Button(Button::Page(_) | Button::Npc(_) | Button::Quests | Button::Zoom(_) | Button::CardTab(_) | Button::History | Button::HistoryBoss(_)) => {}
+        Action::Button(Button::Page(_) | Button::Npc(_) | Button::Quests | Button::Vault | Button::Zoom(_) | Button::CardTab(_) | Button::History | Button::HistoryBoss(_)) => {}
     }
     None
 }
@@ -842,6 +854,12 @@ impl App {
         if ws.fullscreen {
             window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
         }
+        // The window as the version before had it, and kept so.
+        self.fullscreen_applied = Some(ws.fullscreen);
+        if self.settings.fullscreen != ws.fullscreen {
+            self.settings.fullscreen = ws.fullscreen;
+            self.settings.save();
+        }
         let size = window.inner_size();
         if let Some(loaded) = &mut self.loaded {
             loaded.renderer.resize(size.width, size.height);
@@ -1148,6 +1166,7 @@ impl App {
             key: vec![],
         };
         let mut game = Game::start(endpoint.target(&server.host, server.port), hello, join);
+        game.chat = std::mem::take(&mut self.chat_log);
         // The camera as it was left (Parameters' cameraAngle).
         if let Some(a) = self.settings.camera_angle {
             game.camera_angle = a;
@@ -1158,6 +1177,7 @@ impl App {
         self.game_menu = false;
         self.npcs.close();
         self.quests.reset();
+        self.vault.reset();
         self.npc_request = None;
         self.keys.clear();
     }
@@ -1170,11 +1190,14 @@ impl App {
                 death = Some(game.char_id);
             }
             game.close();
+            // the chat log stays for the next character played
+            self.chat_log = std::mem::take(&mut game.chat);
         }
         self.phase = Phase::Menu;
         self.game_menu = false;
         self.npcs.close();
         self.quests.reset();
+        self.vault.reset();
         self.npc_request = None;
         self.mouse_down = false;
         self.front.message = why.map(|w| (w, true));
@@ -1460,6 +1483,14 @@ impl App {
         format!("/tell {} ", game.tellers[self.teller])
     }
 
+    /// Whether the mouse is over the realm's events list (its wheel scrolls it).
+    fn events_under_mouse(&mut self) -> bool {
+        match &self.phase {
+            Phase::Playing(game) => self.events.wheel(game.realm_events.as_ref(), self.mouse, 0),
+            _ => false,
+        }
+    }
+
     /// Page Up: show the whole recent chat, then older pages; Page Down comes back.
     fn scroll_chat(&mut self, up: bool) {
         const PAGE: usize = 7;
@@ -1492,6 +1523,15 @@ impl App {
         let dt = (now - self.last_frame).clamp(0, 200);
         self.last_frame = now;
         prof::start();
+        // Fullscreen changed in the options or by F11. The window keeps its windowed size and
+        // place to go back to; `Resized` follows, which resizes the surface.
+        #[cfg(not(target_arch = "wasm32"))]
+        if self.fullscreen_applied != Some(self.settings.fullscreen) {
+            if let Some(window) = &self.window {
+                window.set_fullscreen(self.settings.fullscreen.then_some(winit::window::Fullscreen::Borderless(None)));
+                self.fullscreen_applied = Some(self.settings.fullscreen);
+            }
+        }
         if let Some(text) = textedit::clipboard::take_pasted() {
             match (&mut self.chat_input, &self.phase) {
                 (Some(input), _) => input.insert(&text),
@@ -1727,7 +1767,6 @@ impl App {
                 locked: &game.locked,
                 ignored: &game.ignored,
                 now,
-                quest: game.quest,
                 history: &game.boss_history,
                 fame: &game.fame_stats,
             };
@@ -1803,6 +1842,12 @@ impl App {
                         self.quest_acts.extend(self.quests.show(Some(tab)));
                         self.keys.clear();
                     }
+                    Some(Bind::VaultView) if vault::is_vault(game.map_name()) => {
+                        if let Some(act) = self.vault.show(now) {
+                            game.vault(act, now);
+                        }
+                        self.keys.clear();
+                    }
                     // Equip or use what's in that inventory slot (MapUserInput.useItem).
                     Some(Bind::Slot(n)) => {
                         if let Some(p) = &built {
@@ -1817,8 +1862,29 @@ impl App {
                 }
             }
             if game.world.as_ref().is_some_and(|w| w.player().is_some()) {
-                if let Some(kind) = self.npc_test.take().and_then(|c| npc::NpcKind::of_class(&c)) {
+                // --npc Vault: once in the vault (after a --say "/vault")
+                if self.npc_test.as_deref() == Some("Vault") && vault::is_vault(game.map_name()) {
+                    self.npc_test = None;
+                    if let Some(act) = self.vault.show(now) {
+                        game.vault(act, now);
+                    }
+                }
+                if let Some(kind) = self.npc_test.take_if(|c| c != "Vault").and_then(|c| npc::NpcKind::of_class(&c)) {
                     to_chars |= npc_open(kind, game, &mut self.npcs, &mut self.market, &mut self.forge, &mut self.forge_acts, (&mut self.quests, &mut self.quest_acts), self.front.list.as_ref(), data);
+                }
+            }
+            // A click anywhere while the chat box is open closes it, and does nothing else (a
+            // player's name in the chat still opens a whisper).
+            if self.chat_input.is_some() {
+                let names = &self.chat_names;
+                let on_name = |(x, y): (f64, f64)| names.iter().any(|(_, r)| {
+                    let (x, y) = (x as f32, y as f32);
+                    x >= r[0] && y >= r[1] && x < r[0] + r[2] && y < r[1] + r[3]
+                });
+                if self.clicks.iter().any(|&(down, pos)| down && !on_name(pos)) {
+                    self.chat_input = None;
+                    self.clicks.clear();
+                    self.mouse_down = false;
                 }
             }
             // The options window takes the mouse while it's open.
@@ -1870,6 +1936,28 @@ impl App {
             }
             for act in forge_acts {
                 game.forge(act);
+            }
+            // The vault window: the same.
+            self.vault.tick(now, game.map_name());
+            if self.vault.open {
+                for (down, pos) in std::mem::take(&mut self.clicks) {
+                    for act in self.vault.click(down, pos, lay.on_panel(pos.0, pos.1)) {
+                        game.vault(act, now);
+                    }
+                }
+                for pos in std::mem::take(&mut self.right_clicks) {
+                    self.vault.right_click(pos);
+                }
+                self.mouse_down = false;
+            }
+            if let Some(v) = game.vault_contents.take() {
+                self.vault.contents(v, data);
+            }
+            // --type: into the vault's search once it came.
+            if self.vault.open && self.vault.loaded() {
+                if let Some(t) = self.type_text.take() {
+                    self.vault.key(KeyCode::KeyA, Some(&t), data);
+                }
             }
             // The quest log: a click on a popup opens it; while open it takes the mouse.
             if !self.quests.open && !self.options_ui.open && !self.game_menu {
@@ -1960,6 +2048,26 @@ impl App {
                     }
                 }
                 for (down, pos) in std::mem::take(&mut self.clicks) {
+                    // The realm's events list: point the quest arrow, teleport to a waystone, fold it.
+                    if down && self.chat_input.is_none() {
+                        let (taken, act) = self.events.click(&lay, game.realm_events.as_ref(), pos);
+                        match act {
+                            Some(events::Act::Pick(id)) => game.pick_quest(id),
+                            Some(events::Act::Teleport(id)) => game.teleport(id, now),
+                            None => {}
+                        }
+                        if taken {
+                            self.mouse_down = false;
+                            continue;
+                        }
+                        // a waystone on the minimap: teleport there
+                        let waystone = p.minimap().and_then(|mini| events::minimap_click(lay.s, &mini, game.realm_events.as_ref(), pos));
+                        if let Some(id) = waystone {
+                            game.teleport(id, now);
+                            self.mouse_down = false;
+                            continue;
+                        }
+                    }
                     // Ctrl+click: to the first free slot of the other page (onCtrlClick).
                     if let (true, true, Some(slot)) = (down, self.ctrl_held, p.slot_at(pos)) {
                         if slot.item > 0 && matches!(slot.kind, hud::SlotKind::Inventory(_)) {
@@ -2000,6 +2108,12 @@ impl App {
                     if let hud::Action::Button(hud::Button::Quests) = action {
                         let tab = self.quests.best_tab();
                         self.quest_acts.extend(self.quests.show(Some(tab)));
+                        continue;
+                    }
+                    if let hud::Action::Button(hud::Button::Vault) = action {
+                        if let Some(act) = self.vault.show(now) {
+                            game.vault(act, now);
+                        }
                         continue;
                     }
                     if let hud::Action::Button(hud::Button::Npc(kind)) = action {
@@ -2140,7 +2254,19 @@ impl App {
                         renderer.world_done(filter);
                         let mut ui = hud::Ui { renderer: &mut *renderer, sprites, data, redrawer: &mut *redrawer, fonts, text: &mut *text };
                         self.signs.draw(&mut ui, world, &camera);
-                        hud::draw_quest(&mut ui, &lay, world, &camera, game.quest, &game.keys, &game.dealt, game.quest_damage.as_ref(), &game.boss_history, &self.hud, mouse);
+                        self.vault.draw_marker(&mut ui, world, &camera, (lay.view_w(), lay.h));
+                        // The top left, down: the quest's health (and who hit it, near it), the
+                        // realm's events (only their count near the quest), then the boss history
+                        // and the keys.
+                        let mut y = hud::draw_quest(&mut ui, &lay, world, &camera, game.quest, &game.dealt, game.quest_damage.as_ref());
+                        let near = hud::boss_showing(world, game.quest) && hud::quest_near(world, game.quest);
+                        match game.realm_events.as_ref() {
+                            Some(info) => {
+                                y = self.events.draw(&mut ui, &lay, y, near, world.player().map(|p| (p.x, p.y)), game.quest, info, mouse) + 4.0 * lay.s;
+                            }
+                            None => self.events.hide(),
+                        }
+                        self.hud.history_y = hud::draw_history_and_keys(&mut ui, &lay, y, &game.keys, &game.boss_history, &self.hud, mouse);
                         prof::mark("quest");
                     }
                     if let Some(p) = &panel {
@@ -2151,13 +2277,13 @@ impl App {
                             locked: &game.locked,
                             ignored: &game.ignored,
                             now,
-                            quest: game.quest,
                             history: &game.boss_history,
                             fame: &game.fame_stats,
                         };
                         self.hud.nexus_key = options::key_label(self.settings.key(options::Bind::Nexus));
                         self.hud.quests_key = options::key_label(self.settings.key(options::Bind::Quests));
                         self.hud.quests_ready = self.quests.ready();
+                        self.hud.in_vault = vault::is_vault(game.map_name());
                         self.hud.interact_key = self.settings.key(options::Bind::Interact).map_or(String::new(), |k| options::key_label(Some(k)));
                         self.hud.tabs_key = self.settings.key(options::Bind::SwitchTabs).map_or(String::new(), |k| options::key_label(Some(k)));
                         self.hud.potion_keys = [
@@ -2166,6 +2292,9 @@ impl App {
                         ];
                         prof::mark("pre-panel");
                         hud::draw_panel(&mut ui, &lay, world, game.camera_angle, &mut self.map_colors, p, &self.hud, &social, mouse);
+                        if let Some(mini) = p.minimap() {
+                            events::draw_minimap_marks(&mut ui, lay.s, &mini, game.realm_events.as_ref(), mouse);
+                        }
                         prof::mark("panel");
                     }
                 }
@@ -2209,7 +2338,6 @@ impl App {
                     locked: &game.locked,
                     ignored: &game.ignored,
                     now,
-                    quest: game.quest,
                     history: &game.boss_history,
                     fame: &game.fame_stats,
                 };
@@ -2217,6 +2345,8 @@ impl App {
                 self.npcs.draw(&mut ui, &lay, world.player(), mouse, now);
                 self.market.draw(&mut ui, &lay, world.player(), mouse, now);
                 self.forge.draw(&mut ui, &lay, world.player(), mouse, now);
+                let inv: Vec<(u8, [f32; 4])> = p.slots.iter().filter(|s| matches!(s.kind, hud::SlotKind::Inventory(_))).map(|s| (s.index, s.rect())).collect();
+                self.vault.draw(&mut ui, &lay, world.player(), &inv, mouse, now);
                 self.quests.draw(&mut ui, &lay, world.player(), mouse, now);
                 self.quests.draw_toasts(&mut ui, &lay, now);
                 prof::mark("chat..windows");
@@ -2234,6 +2364,7 @@ impl App {
             && !self.changelog.open
             && !self.market.open
             && !self.forge.open
+            && !self.vault.open
             && !self.quests.open
             && !self.quests.on_toast(mouse)
             && self.npcs.window.is_none()
@@ -2390,6 +2521,10 @@ impl ApplicationHandler<UserEvent> for App {
                 Some((w, h)) => attributes.with_inner_size(winit::dpi::PhysicalSize::new(w, h)),
                 None => attributes.with_inner_size(winit::dpi::LogicalSize::new(1280.0, 800.0)),
             }
+            .with_fullscreen(
+                (self.settings.fullscreen && size.is_none() && self.resume.is_none())
+                    .then_some(winit::window::Fullscreen::Borderless(None)),
+            )
             .with_window_icon(window_icon(false))
             // A scripted test run opens behind the window in use, so it doesn't take the keyboard.
             .with_active(!args.iter().any(|a| matches!(a.as_str(), "--shot" | "--hold" | "--mouse-script")))
@@ -2409,6 +2544,11 @@ impl ApplicationHandler<UserEvent> for App {
         #[cfg(not(target_arch = "wasm32"))]
         let attributes = attributes.with_visible(self.resume.is_none());
         let window = Arc::new(event_loop.create_window(attributes).expect("create window"));
+        // A `--size` test run stays windowed whatever the setting; a change from there on applies.
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.fullscreen_applied = Some(self.settings.fullscreen);
+        }
         self.window = Some(window.clone());
 
         let proxy = self.proxy.clone();
@@ -2481,10 +2621,17 @@ impl ApplicationHandler<UserEvent> for App {
                     a.wake();
                 }
                 let pressed = event.state == ElementState::Pressed;
-                // F11 or Alt+Enter: fullscreen (borderless) and back.
+                // F11 or Alt+Enter: fullscreen (borderless) and back, kept for the next run.
                 if pressed && !event.repeat && (code == KeyCode::F11 || (self.alt_held && code == KeyCode::Enter)) {
                     if let Some(window) = &self.window {
                         let full = window.fullscreen().is_some();
+                        #[cfg(not(target_arch = "wasm32"))]
+                        {
+                            self.settings.fullscreen = !full;
+                            self.settings.save();
+                        }
+                        // The browser's fullscreen needs this key press: not kept.
+                        #[cfg(target_arch = "wasm32")]
                         window.set_fullscreen((!full).then_some(winit::window::Fullscreen::Borderless(None)));
                     }
                     return;
@@ -2553,6 +2700,15 @@ impl ApplicationHandler<UserEvent> for App {
                     if pressed {
                         if let Some(l) = &self.loaded {
                             self.forge.key(code, event.text.as_deref(), &l.data);
+                        }
+                    }
+                    self.keys.remove(&code);
+                    return;
+                }
+                if self.vault.open && matches!(self.phase, Phase::Playing(_)) {
+                    if pressed {
+                        if let Some(l) = &self.loaded {
+                            self.vault.key(code, event.text.as_deref(), &l.data);
                         }
                     }
                     self.keys.remove(&code);
@@ -2672,6 +2828,46 @@ impl ApplicationHandler<UserEvent> for App {
                 self.wheel -= notches;
                 self.quests.scroll(-notches as i32);
             }
+            WindowEvent::MouseWheel { delta, .. } if self.vault.open && matches!(self.phase, Phase::Playing(_)) => {
+                // The vault's chests scroll a row a notch.
+                let lines = match delta {
+                    winit::event::MouseScrollDelta::LineDelta(_, y) => y,
+                    winit::event::MouseScrollDelta::PixelDelta(p) => (p.y / 40.0) as f32,
+                };
+                self.wheel += lines;
+                let notches = self.wheel.trunc();
+                self.wheel -= notches;
+                self.vault.scroll(-notches as i32);
+            }
+            WindowEvent::MouseWheel { delta, .. }
+                if matches!(&self.phase, Phase::Playing(g) if g.realm_events.is_some()) && self.events_under_mouse() =>
+            {
+                // the realm's events list scrolls a row a notch
+                let lines = match delta {
+                    winit::event::MouseScrollDelta::LineDelta(_, y) => y,
+                    winit::event::MouseScrollDelta::PixelDelta(p) => (p.y / 40.0) as f32,
+                };
+                self.wheel += lines;
+                let notches = self.wheel.trunc();
+                self.wheel -= notches;
+                if let Phase::Playing(game) = &self.phase {
+                    self.events.wheel(game.realm_events.as_ref(), self.mouse, notches as i32);
+                }
+            }
+            WindowEvent::MouseWheel { delta, .. }
+                if (self.chat_input.is_some() || self.chat_scroll.is_some()) && matches!(self.phase, Phase::Playing(_)) =>
+            {
+                // three rows a notch through the chat's history
+                let lines = match delta {
+                    winit::event::MouseScrollDelta::LineDelta(_, y) => y,
+                    winit::event::MouseScrollDelta::PixelDelta(p) => (p.y / 40.0) as f32,
+                };
+                self.wheel += lines;
+                let notches = self.wheel.trunc() as i64;
+                self.wheel -= notches as f32;
+                let at = self.chat_scroll.unwrap_or(0) as i64 + notches * 3;
+                self.chat_scroll = if at <= 0 && self.chat_input.is_some() { Some(0) } else if at <= 0 { None } else { Some(at as usize) };
+            }
             WindowEvent::MouseWheel { delta, .. } if self.forge.open && matches!(self.phase, Phase::Playing(_)) => {
                 // The forge's recipes scroll a row a notch.
                 let lines = match delta {
@@ -2774,6 +2970,7 @@ fn main() {
         pressed: Vec::new(),
         chat_input: None,
         chat_scroll: None,
+        chat_log: Vec::new(),
         teller: 0,
         chat_names: Vec::new(),
         chat_send: Vec::new(),
@@ -2814,9 +3011,11 @@ fn main() {
         options_ui: Default::default(),
         market: Default::default(),
         forge: Default::default(),
+        events: Default::default(),
         quests: Default::default(),
         quest_acts: Vec::new(),
         forge_acts: Vec::new(),
+        vault: Default::default(),
         type_text: text_arg("--type"),
         npc_test: text_arg("--npc"),
         quests_test: text_arg("--quests"),
@@ -2835,6 +3034,8 @@ fn main() {
         resume: update::read_resume(),
         #[cfg(not(target_arch = "wasm32"))]
         show_window: None,
+        #[cfg(not(target_arch = "wasm32"))]
+        fullscreen_applied: None,
     };
     #[cfg(not(target_arch = "wasm32"))]
     {

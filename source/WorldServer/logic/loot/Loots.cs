@@ -260,6 +260,18 @@ namespace WorldServer.logic.loot
             if (playersAvaliable == null)
                 return;
 
+            // OnePlayerLoot: one roll for the kill, and the item to one of those past its threshold
+            var lucky = new Dictionary<LootDef, Player>();
+            foreach (var i in possDrops)
+            {
+                if (i.OnePlayer <= 0 || Random.Shared.NextDouble() >= Chance(i.OnePlayer, 1, rate))
+                    continue;
+                var eligible = playersAvaliable.Where(t => t.Item1?.World != null && t.Item1.Client != null
+                    && i.Threshold < Math.Round(t.Item2 / (double)enemy.DamageCounter.TotalDamage, 4)).ToArray();
+                if (eligible.Length > 0)
+                    lucky[i] = eligible[Random.Shared.Next(eligible.Length)].Item1;
+            }
+
             var privDrops = new Dictionary<Player, IList<Item>>();
             foreach (var tupPlayer in playersAvaliable)
             {
@@ -273,11 +285,11 @@ namespace WorldServer.logic.loot
                 if (enemy.IsLegendary) enemyBoost = .75;
 
                 var dmgBoost = Math.Round(tupPlayer.Item2 / (double)enemy.DamageCounter.TotalDamage, 4);
-                var ldBoost = player.LDBoostTime > 0 ? 0.5 : 0;
                 // only on weekends, as /boosts and the login message say (it applied every day)
                 var wkndBoost = player.World.isWeekend ? player.Client.GameServer.Configuration.serverSettings.wkndBoost : 0;
                 var eventBoost = player.Client.GameServer.Configuration.serverSettings.lootEvent;
-                var totalBoost = 1 + (ldBoost + wkndBoost + dmgBoost + enemyBoost + eventBoost);
+                var boosts = LootBoosts.Total(player.LDBoostTime > 0, player.IsLegend, wkndBoost, eventBoost);
+                var totalBoost = 1 + (boosts + dmgBoost + enemyBoost);
 
                 var gameData = enemy.GameServer.Resources.GameData;
 
@@ -311,7 +323,7 @@ namespace WorldServer.logic.loot
                             continue;
                         }
 
-                        if (c >= probability)
+                        if (c >= probability && !(lucky.TryGetValue(i, out var luckyOne) && luckyOne == player))
                             continue;
 
                         if (item == null)
@@ -454,6 +466,7 @@ namespace WorldServer.logic.loot
         public double Threshold;
         public int Tier;
         public ItemType ItemType;
+        public double OnePlayer;        // OnePlayerLoot: one player's sure chance
 
         public LootDef(string item, double probabilty, double threshold, int tier = -1, ItemType itemType = ItemType.None)
         {

@@ -286,6 +286,19 @@ fn imprint_messages_match_imprint_handlers() {
 }
 
 #[test]
+fn vault_messages_match_vault_contents_handler() {
+    // VaultContentsHandler reads nothing; VaultContents.Write: a short count of chests (id, x,
+    // y, gift), then a short count of items (chest, slot, item, three imprints).
+    assert_eq!(ClientMessage::from(VaultContentsRequest {}).to_frame(), B::default().frame(114));
+    let body = B::default().i16(2).i32(77).f32(10.5).f32(4.5).u8(0).i32(-1).f32(-1.0).f32(-1.0).u8(1).i16(1).i16(1).u8(6).i16(0x0a01).u8(0).u8(0).u8(0).0;
+    let ServerMessage::VaultContents(v) = ServerMessage::decode(115, &body).unwrap() else { panic!() };
+    assert_eq!((v.chests.len(), v.chests[0].id, v.chests[0].x, v.chests[0].y, v.chests[1].id), (2, 77, 10.5, 4.5, -1));
+    assert_eq!((v.chests[0].gift, v.chests[1].gift), (false, true));
+    let g = &v.items[0];
+    assert_eq!((g.chest, g.slot, g.item), (1, 6, 0x0a01));
+}
+
+#[test]
 fn quest_messages_match_quest_handlers() {
     // QuestsData.Write: now, rank, points, colour rank, ranks (name, points, colour), periods
     // (period, resets, swaps left, bonus claimed, bonus), quests (period, id, title, text,
@@ -323,4 +336,18 @@ fn quest_messages_match_quest_handlers() {
     let frame = ClientMessage::from(QuestClaim { kind: 3, id: "oryx".into() }).to_frame();
     assert_eq!(frame, B::default().u8(3).utf("oryx").frame(105));
     assert_eq!(ClientMessage::from(QuestsRequest {}).to_frame(), B::default().frame(103));
+}
+
+#[test]
+fn realm_event_messages_match_realm_events() {
+    // RealmEventsSubscribeHandler reads nothing; QuestPickHandler the object id.
+    assert_eq!(ClientMessage::from(RealmEventsSubscribe {}).to_frame(), B::default().frame(116));
+    assert_eq!(ClientMessage::from(QuestPick { object_id: 1234 }).to_frame(), B::default().i32(1234).frame(118));
+    // RealmEvents.Write: defeated, needed, picked, a byte count of entries (kind, object id, type,
+    // name, x, y).
+    let body = B::default().i32(3).i32(13).i32(77).u8(1).u8(1).i32(77).i16(0xb030u16 as i16).utf("Lost Sentry").f32(512.5).f32(300.0).0;
+    let ServerMessage::RealmEvents(r) = ServerMessage::decode(117, &body).unwrap() else { panic!() };
+    assert_eq!((r.defeated, r.needed, r.picked), (3, 13, 77));
+    let e = &r.entries[0];
+    assert_eq!((e.kind, e.object_id, e.object_type, e.name.as_str(), e.x, e.y), (1, 77, 0xb030, "Lost Sentry", 512.5, 300.0));
 }

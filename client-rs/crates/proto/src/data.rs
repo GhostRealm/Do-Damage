@@ -84,8 +84,21 @@ wire_struct! {
 }
 
 wire_struct! {
-    /// An Enthroned item in the account's vault (`ImprintVault`): its chest and slot, its type and
-    /// its imprints (Offensive, Defensive, Misc; 0 for none).
+    /// One of a realm's events (`RealmEvents`): an event that counts toward closing it (kind 0), a
+    /// side quest (1, the Lost Sentry) or a Realm 2 waystone to teleport to (2), with where it is.
+    pub struct RealmEventEntry {
+        pub kind: u8,
+        pub object_id: i32,
+        pub object_type: u16,
+        pub name: String,
+        pub x: f32,
+        pub y: f32,
+    }
+}
+
+wire_struct! {
+    /// An item in the account's vault (`ImprintVault`, the Enthroned ones; `VaultContents`, all):
+    /// its chest and slot, its type and its imprints (Offensive, Defensive, Misc; 0 for none).
     pub struct VaultGear {
         pub chest: u16,
         pub slot: u8,
@@ -93,6 +106,17 @@ wire_struct! {
         pub offensive: u8,
         pub defensive: u8,
         pub misc: u8,
+    }
+}
+
+wire_struct! {
+    /// A vault or gift chest (`VaultContents`): its object id and where it stands, in our own
+    /// vault (-1 for all three elsewhere), and whether it's a gift chest.
+    pub struct VaultChest {
+        pub id: i32,
+        pub x: f32,
+        pub y: f32,
+        pub gift: bool,
     }
 }
 
