@@ -52,13 +52,15 @@ namespace WorldServer.core.net.handlers
             // container isn't always the player's inventory, it's given by the SlotObject's ObjectId
             if (slot.ObjectId != player.Id)
             {
-                if (player.World.GetEntity(slot.ObjectId) is Player)
+                // only a bag beside the player that is theirs or everyone's
+                var entity = player.World.GetEntity(slot.ObjectId);
+                if (entity == null || !CanTakeFrom(player, entity))
                 {
                     player.Client.SendPacket(new InvResult() { Result = 1 });
                     return;
                 }
 
-                con = player.World.GetEntity(slot.ObjectId) as IContainer;
+                con = entity as IContainer;
             }
             else
                 con = player;
@@ -92,7 +94,8 @@ namespace WorldServer.core.net.handlers
                 }
             }
 
-            var isSoulbound = item.Untradeable;
+            // admin and OP items, and Oryx 5's own gear (the Enthroned items): in a bag only its owner sees
+            var isSoulbound = item.Untradeable || item.Ascended;
             var container = new Container(player.GameServer, isSoulbound ? soulBag : normBag, 60000, true);
 
             if (isSoulbound) //TODOS LOS ITEMS SE DROPEAN EN SOULBOUND BAG

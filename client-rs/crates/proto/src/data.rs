@@ -84,6 +84,19 @@ wire_struct! {
 }
 
 wire_struct! {
+    /// An Enthroned item in the account's vault (`ImprintVault`): its chest and slot, its type and
+    /// its imprints (Offensive, Defensive, Misc; 0 for none).
+    pub struct VaultGear {
+        pub chest: u16,
+        pub slot: u8,
+        pub item: u16,
+        pub offensive: u8,
+        pub defensive: u8,
+        pub misc: u8,
+    }
+}
+
+wire_struct! {
     /// A forge shard in the forge storage (`ForgeShards`), or an item in the vault (`ForgeVault`),
     /// and how many are there.
     pub struct ForgeShard {
@@ -160,6 +173,19 @@ wire_struct! {
         pub goals: List8<i32>,
         pub next_points: i32,
         pub next_rewards: List8<QuestReward>,
+    }
+}
+
+wire_struct! {
+    /// A gift for a while (`QuestsData`): every account claims it once, until `ends_at` (Unix
+    /// seconds).
+    pub struct QuestGiftInfo {
+        pub id: String,
+        pub title: String,
+        pub text: String,
+        pub ends_at: i32,
+        pub claimed: bool,
+        pub rewards: List8<QuestReward>,
     }
 }
 
