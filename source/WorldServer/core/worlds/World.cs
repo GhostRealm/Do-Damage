@@ -34,7 +34,7 @@ namespace WorldServer.core.worlds
         public string IdName { get; set; }
         public string DisplayName { get; set; }
         public WorldResourceInstanceType InstanceType { get; private set; }
-        public bool Persist { get; private set; }
+        public bool Persist { get; protected set; }
         public int MaxPlayers { get; protected set; }
         public bool CreateInstance { get; private set; }
         public bool IsRealm { get; set; }
@@ -796,6 +796,10 @@ namespace WorldServer.core.worlds
                 var active = WakesBySight ? EnemiesCollision.GetChunksAround(SightCentres()) : EnemiesCollision.GetActiveChunks(PlayersCollision);
                 foreach (var entity in active)
                 {
+                    // static objects share this map for collision but tick in their own loop above:
+                    // ticking them here too ran their behaviour timers twice as fast near players
+                    if (entity is not Enemy)
+                        continue;
                     entity.Tick(ref time);
                     if (entity.Dead)
                         EntitiesToRemove.Add(entity);

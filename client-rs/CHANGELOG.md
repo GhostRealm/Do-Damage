@@ -12,6 +12,57 @@ Keep each version short: changes go under `### ` group headings (Oryx 5, Arena, 
 on), one line per change players notice, summed up rather than item by item (the wiki has the
 details). Add to a group's line when a change adds to it, rather than adding another line.
 
+## 2.3.1 (2026-10-28)
+
+### Lost Halls
+- The Lost Halls are finished, close to the original: a maze of marble rooms laid out anew every
+  run, held by the Crusade, Oryx's army, the Grotto's bats, rats and slimes, the golems, the ghosts
+  over the bridges, the Agonized Titan and the trap halls, with a room of treasure
+  pots (some hold an evil spirit). At the end four Marble Defenders guard the Marble Colossus, which
+  now fights to its death instead of getting stuck invulnerable; one run in four the way to the
+  Cultist Hideout opens there instead.
+- The Marble Colossus drops like Oryx 3: sure stat potions, tier 13-15 gear, and its sword,
+  breastplate, seal and lodestone more often. The rooms' leaders drop gear too, and the Tormented
+  Golem now and then a piece of the Lost Golem set.
+
+### Cultist Hideout and the Void
+- The Cultist Hideout is finished: Malus' followers and demons hold its halls, and in his ritual
+  hall Malus wakes his four cultists one at a time, summons Molek and three-headed Balaam, then
+  takes his cultists' powers for himself. He drops the cult's gear and the Vial of Pure Darkness.
+- The Void is open: use a Vial of Pure Darkness where the Marble Colossus fell in the Lost Halls to
+  face the Void Entity, for the Void's bow, quiver, armour and ring.
+- Quiver of the Shadows fires 3 arrows instead of 5, and the Staff of Unholy Sacrifice hits a
+  quarter less hard, in line with the best tiered gear.
+
+### Realm 2
+- The Nexus's Realm 2 stays open while nobody is in it, instead of vanishing and leaving a portal
+  that led nowhere; when it closes, its portal goes and a new Realm 2 opens.
+- Entering Realm 2 beside a waystone makes you invulnerable for a few seconds, as teleporting to one
+  does.
+
+### Arena
+- Between waves, a panel under the wave box replaces typing GO: press Next wave to start the next
+  wave, which starts once at least half of you have pressed it (GO in chat still counts). Pick +1,
+  +2 or +5 to fight several waves at once and get through the early ones faster: it needs more
+  than half of you, and the panel shows who voted for what. Combined waves pay the same fame as
+  playing them one by one, and from wave 30 waves come one at a time.
+- Two Arena Chests stand just south of the middle: leave items there for the others to take. They
+  stay while the Arena is open, but anything left when everyone has left is lost. Soulbound items
+  can't go in.
+
+### Game
+- Options, Visuals has a Chat size: make the chat smaller (or bigger), its text, width and height
+  together.
+
+### Fixes
+- The Shatters' Bridge Sentinel can be beaten again: the bridge's Titanums no longer stay
+  invulnerable for good when a hidden object that switches them was shot down during the fight.
+- Chatting no longer disconnects you when someone nearby is leaving the world at that moment.
+- Objects that run on a timer keep their proper pace when players are near, instead of running
+  twice as fast: Battalion Banners, Wisps, the Elysian Halo, the Dark Enchantment Orb and the Eye
+  of Marble last their full time, Shaitan's lava pools stay 5 seconds, Oryx 5's Pillars of Heaven
+  fire half as often, and the Void's portal stays open its full 5 minutes.
+
 ## 2.3.0 (2026-10-28)
 
 ### Realm 2
