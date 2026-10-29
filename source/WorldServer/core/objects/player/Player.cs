@@ -1,5 +1,6 @@
 ﻿using Shared;
 using Shared.database;
+using Shared.database.guild;
 using Shared.database.party;
 using Shared.resources;
 using System;
@@ -153,6 +154,18 @@ namespace WorldServer.core.objects
 			set => _guild?.SetValue(value);
         }
 
+        public bool InGuild => !string.IsNullOrEmpty(Guild);
+        // the guild's hall (1-4, 0 outside a guild) and so its buffs (GuildHalls.BuffsOf)
+        public int GuildHall { get; private set; }
+        public HallBuffs GuildBuffs => InGuild ? GuildHalls.BuffsOf(GuildHall) : default;
+
+        // on making, joining, leaving or upgrading a guild: its hall's buffs change, stats included
+        public void SetGuildHall(int hall)
+        {
+            GuildHall = hall;
+            Stats?.ReCalculateValues();
+        }
+
         private StatTypeValue<int> _guildRank;
         public int GuildRank
         {
@@ -302,6 +315,7 @@ namespace WorldServer.core.objects
             {
                 Guild = guild.Name;
                 GuildRank = account.GuildRank;
+                GuildHall = GuildHalls.HallOf(guild.Level);
             }
 
             PetId = character.PetId;
@@ -319,7 +333,7 @@ namespace WorldServer.core.objects
             _ = GameServer.Database.IsLegend(AccountId).ContinueWith(t =>
             {
                 IsLegend = t.IsCompletedSuccessfully && t.Result;
-                Glow = IsLegend && account.GlowColor == 0 ? 0xFF0000 : account.GlowColor;
+                UpdateGlow();
             });
 
             if (account.Hidden)
@@ -385,6 +399,7 @@ namespace WorldServer.core.objects
 
             FameCounter = new FameCounter(this);
             Quests = new quests.QuestTracker(this);
+            InitChampion();
             FameGoal = GetFameGoal(FameCounter.ClassStats[ObjectType].BestFame);
             ExperienceGoal = GetExpGoal(Client.Character.Level);
 
@@ -489,6 +504,7 @@ namespace WorldServer.core.objects
                 TickSlotCooldowns(time);
                 FameCounter.Tick(time);
                 Quests?.Tick(ref time);
+                TickChampion(time.DeltaTime);
                 if (TickCount % 5 == 0)
                     PassiveEffects();
                 TickCount++;

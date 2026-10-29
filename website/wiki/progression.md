@@ -174,8 +174,9 @@ from wave 30 an Elder dungeon boss joins Oryx's. The chat says which wave has be
 - **Losing doesn't kill you.** A hit that would kill you in the Arena sends you to the Nexus at full
   health, with your gear and fame: no grave, and it doesn't count as a death.
 - **The leaderboard:** the golden trophy beside the Arena portal shows the best run (its wave,
-  how long it took and who took part) as you walk by; stand on it for the top ten. `/leaderboard`
-  lists them too.
+  how long it took and who took part) as you walk by; stand on it for the top ten, solo runs and
+  group runs on their own tabs. `/leaderboard` lists both. The best solo and group players also
+  stand in the [Hall of Champions](champions.html).
 
 ## Dying
 
@@ -191,6 +192,9 @@ the last 20 characters to die, with what killed them and where. A player with a 
 top 20 of the week, the month or all time is a legend: their characters glow red in the game and
 get a 1% loot boost (`/boosts` shows it), from the next time they enter a world. Pushed off every
 top 20, they lose both the same way.
+
+The living have their own boards: the [Hall of Champions](champions.html) in the Nexus, whose top 10s
+hold rewards of their own.
 
 So store what you can't afford to lose before a risky run, and don't take your best gear
 somewhere you aren't ready for.

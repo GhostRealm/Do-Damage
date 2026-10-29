@@ -1,14 +1,15 @@
 //! The NPCs of the Nexus and the guild hall, and the windows they open (the AIR client's
 //! `CharacterChangerPanel`, `ReskinPanel`, `NameChangerPanel`, `Guild*Panel` and
 //! `PotionsPanel`, and their frames): the Armoire's skins, choosing a name, creating or leaving
-//! a guild, the guild board and member list, potion storage, and the Nexus's arena leaderboard.
+//! a guild, the guild board and member list, potion storage, the Nexus's arena leaderboard, and
+//! its Hall of Champions (drawn by `champions.rs`).
 //!
 //! One window is open at a time, over the world. It takes the mouse and the keyboard until it
 //! closes (Escape, its close button, or a click outside it).
 
 use crate::hud::{Layout, Ui};
 use crate::theme::{self, color, Kind};
-use bsk_net::account::{ArenaRun, GuildMember};
+use bsk_net::account::{ArenaRun, Guild};
 use bsk_world::GameObj;
 use winit::keyboard::KeyCode;
 
@@ -50,6 +51,10 @@ pub enum NpcKind {
     QuestMaster,
     /// The Chronicler by the Nexus spawn: the quest log's daily rewards and achievements.
     Chronicler,
+    /// The Champions Monument south of the Nexus spawn: the Hall of Champions' boards.
+    ChampionsBoard,
+    /// A champion's statue round it: the Hall, at its board.
+    ChampionStatue,
 }
 
 impl NpcKind {
@@ -68,6 +73,8 @@ impl NpcKind {
             "Enchanter" => Self::Enchanter,
             "QuestMaster" => Self::QuestMaster,
             "Chronicler" => Self::Chronicler,
+            "ChampionsBoard" => Self::ChampionsBoard,
+            "ChampionStatue" => Self::ChampionStatue,
             _ => return None,
         })
     }
@@ -126,6 +133,8 @@ pub fn interact_text(kind: NpcKind, me: &GameObj, rank_req: i32) -> (String, Opt
         NpcKind::Enchanter => open("The Divine Workbench: imprint your gear", "Open"),
         NpcKind::QuestMaster => open("Daily, weekly and monthly quests", "Quests"),
         NpcKind::Chronicler => open("Daily rewards and achievements", "Open"),
+        NpcKind::ChampionsBoard => open("The living's best, and their rewards", "View"),
+        NpcKind::ChampionStatue => open("A champion of the Hall", "View"),
     }
 }
 
@@ -174,10 +183,12 @@ pub enum Window {
     Renounce,
     /// The board's text once it has come, and the text being edited.
     Board { text: Option<String>, edit: Option<String>, error: Option<String> },
-    Members { list: Option<(String, Vec<GuildMember>)>, page: usize, error: Option<String> },
+    Members { list: Option<Guild>, page: usize, error: Option<String> },
     Potions { counts: Option<(Vec<i32>, i32)>, error: Option<String> },
-    /// `/arena/leaderboard`, best first, once it has come.
-    Leaderboard { runs: Option<Vec<ArenaRun>>, error: Option<String> },
+    /// `/arena/leaderboard`, best first, once it has come: solo runs or group runs.
+    Leaderboard { solo: bool, runs: Option<Vec<ArenaRun>>, error: Option<String> },
+    /// `/champions/board`: the Hall of Champions.
+    Champions(Box<crate::champions::View>),
 }
 
 /// What the player did in a window.
@@ -207,6 +218,8 @@ enum Hit {
     Demote(usize),
     Remove(usize),
     Storage(u8, u8),
+    Tab(usize),
+    Solo(bool),
 }
 
 /// The open window and its buttons as last drawn.
@@ -221,6 +234,63 @@ pub struct Npcs {
 
 /// Rows of the member list per page.
 const MEMBER_ROWS: usize = 10;
+
+/// The guild window's summary above its members, unscaled.
+const GUILD_HEAD: f32 = 88.0;
+
+fn thousands(n: i64) -> String {
+    crate::hud::group_digits(n.clamp(0, i32::MAX as i64) as i32)
+}
+
+/// The guild's summary at the top of its window: its hall and place on the Hall of Champions, then
+/// its guild fame, vault and loot boost, and the next hall. Returns its height.
+fn guild_head(ui: &mut Ui, g: &Guild, body: [f32; 4], s: f32, font: impl Fn(f32) -> f32) -> f32 {
+    if g.level == 0 {
+        return 0.0; // an older server: the members only
+    }
+    let (x, y) = (body[0], body[1]);
+    let hall = format!("Guild Hall {} of 4", g.level);
+    ui.label(&hall, x, y, font(14.0), true, color::GOLD);
+    let hw = ui.measure(&hall, font(14.0), true);
+    let on = |board: Option<(i32, i64)>, name: &str| match board {
+        Some((rank, fame)) if rank <= 10 => format!("#{rank} {name} ({})", thousands(fame)),
+        Some((_, fame)) => format!("{name} {}", thousands(fame)),
+        None => format!("{name} -"),
+    };
+    let place = format!("Hall of Champions: {}  ·  {}", on(g.living, "Living"), on(g.dead, "Dead"));
+    let pw = (body[2] - hw - 16.0 * s).max(0.0);
+    let place = fit(ui, &place, font(11.5), pw);
+    ui.label(&place, x + hw + 16.0 * s, y + 2.0 * s, font(11.5), false, color::TEXT_DIM);
+    // the hall's buffs for every member (an older server sends none: it gave 1% loot)
+    let buffs = if g.buffs.is_empty() { "+1% loot".to_owned() } else { short_buffs(&g.buffs) };
+    let buffs = fit(ui, &format!("Every member: {buffs}"), font(11.5), body[2]);
+    ui.label(&buffs, x, y + 22.0 * s, font(11.5), true, color::GOOD);
+    let line = format!(
+        "Guild fame {} ({} earned)  ·  Vault {}/{}",
+        thousands(g.fame),
+        thousands(g.total_fame),
+        g.vault_used,
+        g.vault_slots
+    );
+    let line = fit(ui, &line, font(11.5), body[2]);
+    ui.label(&line, x, y + 40.0 * s, font(11.5), false, color::TEXT);
+    let next = match (g.next_price > 0, g.next_buffs.is_empty()) {
+        (true, false) => format!("Next hall, {} guild fame: {}", thousands(g.next_price), short_buffs(&g.next_buffs)),
+        (true, true) => format!("Next hall: {} guild fame, bought by a leader in the hall.  /ginfo  /gvault", thousands(g.next_price)),
+        _ => "The guild has the grandest hall.  /ginfo  /gvault".to_owned(),
+    };
+    let next = fit(ui, &next, font(11.0), body[2]);
+    ui.label(&next, x, y + 58.0 * s, font(11.0), false, color::TEXT_MUTED);
+    GUILD_HEAD * s
+}
+
+/// A hall's buffs as the server words them, in the stats panel's short names to fit the window:
+/// "+40 health and mana" is "+40 HP and MP".
+fn short_buffs(text: &str) -> String {
+    [("experience", "XP"), ("health", "HP"), ("mana", "MP"), ("vitality", "VIT"), ("wisdom", "WIS")]
+        .iter()
+        .fold(text.to_owned(), |s, (long, short)| s.replace(long, short))
+}
 
 /// Runs the leaderboard shows: the best in its own card, then the rest in rows.
 pub const LEADERBOARD_RUNS: usize = 10;
@@ -278,13 +348,13 @@ impl Npcs {
                 Some(Act::SaveBoard(board))
             }
             (Hit::Page(d), Window::Members { page, list, .. }) => {
-                let n = list.as_ref().map_or(0, |l| l.1.len());
+                let n = list.as_ref().map_or(0, |l| l.members.len());
                 let pages = n.div_ceil(MEMBER_ROWS).max(1) as i32;
                 *page = (*page as i32 + d).clamp(0, pages - 1) as usize;
                 None
             }
-            (Hit::Promote(i) | Hit::Demote(i) | Hit::Remove(i), Window::Members { list: Some((_, members)), .. }) => {
-                let m = members.get(i)?;
+            (Hit::Promote(i) | Hit::Demote(i) | Hit::Remove(i), Window::Members { list: Some(guild), .. }) => {
+                let m = guild.members.get(i)?;
                 match hit {
                     Hit::Promote(_) => Some(Act::ChangeRank(m.name.clone(), (m.rank + 10).min(my_rank))),
                     Hit::Demote(_) => Some(Act::ChangeRank(m.name.clone(), (m.rank - 10).max(0))),
@@ -292,6 +362,17 @@ impl Npcs {
                 }
             }
             (Hit::Storage(kind, action), _) => Some(Act::Storage(kind, action)),
+            (Hit::Tab(i), Window::Champions(view)) => {
+                view.tab = i;
+                None
+            }
+            (Hit::Solo(on), Window::Leaderboard { solo, runs, error }) => {
+                if *solo != on {
+                    (*solo, *runs, *error) = (on, None, None);
+                    self.reload_at = Some(0);
+                }
+                None
+            }
             _ => None,
         }
     }
@@ -302,6 +383,9 @@ impl Npcs {
         match self.window.as_mut()? {
             Window::Board { edit: edit @ Some(_), .. } if code == KeyCode::Escape => *edit = None,
             _ if code == KeyCode::Escape => self.close(),
+            Window::Champions(view) if matches!(code, KeyCode::ArrowLeft | KeyCode::ArrowRight) => {
+                view.step(if code == KeyCode::ArrowLeft { -1 } else { 1 });
+            }
             Window::Renounce if enter => {
                 self.close();
                 return Some(Act::Renounce);
@@ -364,18 +448,19 @@ impl Npcs {
             Window::Prompt { .. } => (360.0, 230.0),
             Window::Renounce => (360.0, 180.0),
             Window::Board { .. } => (440.0, 400.0),
-            // As tall as the list (paged past MEMBER_ROWS).
+            // The guild's summary, then as tall as the list (paged past MEMBER_ROWS).
             Window::Members { list, .. } => {
-                let n = list.as_ref().map_or(0, |l| l.1.len());
+                let n = list.as_ref().map_or(0, |l| l.members.len());
                 let rows = n.clamp(3, MEMBER_ROWS);
-                (440.0, 104.0 + 30.0 * rows as f32 + if n > MEMBER_ROWS { 64.0 } else { 0.0 })
+                (500.0, 104.0 + GUILD_HEAD + 30.0 * rows as f32 + if n > MEMBER_ROWS { 64.0 } else { 0.0 })
             }
             Window::Potions { .. } => (480.0, 112.0 + 38.0 * 8.0 + 56.0),
             // the best run's card, then a row for each of the rest (room for three while loading)
             Window::Leaderboard { runs, .. } => {
                 let rest = runs.as_ref().map_or(3, |r| r.len().saturating_sub(1)).min(LEADERBOARD_RUNS - 1);
-                (540.0, 74.0 + 118.0 + 30.0 * rest as f32 + 10.0)
+                (540.0, 74.0 + 44.0 + 118.0 + 30.0 * rest as f32 + 10.0)
             }
+            Window::Champions(_) => crate::champions::SIZE,
         };
         // Never bigger than the view.
         let k = (lay.view_w() * 0.94 / (w * s)).min(lay.h * 0.94 / (h * s)).min(1.0);
@@ -391,11 +476,13 @@ impl Npcs {
             Window::Prompt { prompt: Prompt::Guild, .. } => "Create a guild".to_owned(),
             Window::Renounce => "Leave the guild".to_owned(),
             Window::Board { .. } => "Guild board".to_owned(),
-            Window::Members { list, .. } => list.as_ref().map_or("Guild members".to_owned(), |l| l.0.clone()),
+            Window::Members { list, .. } => list.as_ref().map_or("Guild members".to_owned(), |l| l.name.clone()),
             Window::Potions { .. } => "Potion storage".to_owned(),
             Window::Leaderboard { .. } => "Arena Leaderboard".to_owned(),
+            Window::Champions(_) => "Hall of Champions".to_owned(),
         };
-        ui.label(&title, r[0] + 20.0 * s, r[1] + 16.0 * s, font(19.0), true, color::TEXT);
+        let title_color = if matches!(window, Window::Champions(_)) { color::GOLD } else { color::TEXT };
+        ui.label(&title, r[0] + 20.0 * s, r[1] + 16.0 * s, font(19.0), true, title_color);
         // The close button, top right.
         let cb = [r[0] + r[2] - 40.0 * s, r[1] + 12.0 * s, 28.0 * s, 28.0 * s];
         if inside(cb, mouse) {
@@ -516,13 +603,15 @@ impl Npcs {
                         let t = error.as_deref().unwrap_or("Loading…");
                         ui.label(t, body[0], body[1], ts, false, if error.is_some() { color::DANGER } else { color::TEXT_MUTED });
                     }
-                    Some((_, members)) => {
+                    Some(guild) => {
+                        let members = &guild.members;
                         let small = font(10.5);
-                        for (x, label) in [(0.0, "NAME"), (150.0, "RANK"), (240.0, "FAME")] {
-                            ui.label(label, body[0] + x * s, body[1], small, true, color::TEXT_MUTED);
+                        let top = body[1] + guild_head(ui, guild, body, s, font);
+                        for (x, label) in [(0.0, "NAME"), (150.0, "RANK"), (230.0, "GAVE"), (300.0, "LIVING")] {
+                            ui.label(label, body[0] + x * s, top, small, true, color::TEXT_MUTED);
                         }
                         for (row, (i, m)) in members.iter().enumerate().skip(page * MEMBER_ROWS).take(MEMBER_ROWS).enumerate() {
-                            let y = body[1] + 20.0 * s + row as f32 * 30.0 * s;
+                            let y = top + 20.0 * s + row as f32 * 30.0 * s;
                             let rr = [body[0] - 6.0 * s, y, body[2] + 12.0 * s, 28.0 * s];
                             if row % 2 == 0 {
                                 theme::fill(ui.renderer, rr, 4.0 * s, 0xFFFFFF, 0.03);
@@ -531,7 +620,9 @@ impl Npcs {
                             let me_row = m.name == my_name;
                             ui.label(&m.name, body[0], ty, ts, true, if me_row { color::ACCENT_HI } else { color::TEXT });
                             ui.label(rank_name(m.rank), body[0] + 150.0 * s, ty, ts, false, color::TEXT_DIM);
-                            ui.label(&m.fame.to_string(), body[0] + 240.0 * s, ty, ts, false, color::TEXT_DIM);
+                            ui.label(&thousands(m.fame as i64), body[0] + 230.0 * s, ty, ts, false, color::TEXT_DIM);
+                            let alive = if m.away { "away".to_owned() } else { m.alive.map_or("-".to_owned(), thousands) };
+                            ui.label(&alive, body[0] + 300.0 * s, ty, ts, false, color::TEXT_DIM);
                             // Officers manage those below them (MemberListLine).
                             if my_rank >= 20 && m.rank < my_rank && !me_row {
                                 let mut x = body[0] + body[2];
@@ -605,17 +696,35 @@ impl Npcs {
                     }
                 }
             }
-            Window::Leaderboard { runs, error } => {
+            Window::Leaderboard { solo, runs, error } => {
                 let ts = font(12.5);
+                // the Solo and Group tabs, then the runs under them
+                let cs = font(13.0);
+                let mut tx = body[0];
+                for (on, label) in [(true, "Solo"), (false, "Group")] {
+                    let tr = [tx, body[1], ui.measure(label, cs, true) + 36.0 * s, 30.0 * s];
+                    crate::champions::chip(ui, tr, label, *solo == on, inside(tr, mouse), cs, None, s);
+                    self.buttons.push((Hit::Solo(on), tr));
+                    tx += tr[2] + 6.0 * s;
+                }
+                let body = [body[0], body[1] + 44.0 * s, body[2], body[3] - 44.0 * s];
                 match runs {
                     None => {
                         let t = error.as_deref().unwrap_or("Loading…");
                         ui.label(t, body[0], body[1], ts, false, if error.is_some() { color::DANGER } else { color::TEXT_MUTED });
                     }
                     Some(runs) if runs.is_empty() => {
-                        ui.label("No runs yet. Survive waves in the Arena (/arena) to get on the board.", body[0], body[1], ts, false, color::TEXT_MUTED);
+                        let t = if *solo { "No solo runs yet. Survive waves in the Arena (/arena) alone to get on the board." } else { "No group runs yet. Survive waves in the Arena (/arena) with others to get on the board." };
+                        ui.label(t, body[0], body[1], ts, false, color::TEXT_MUTED);
                     }
                     Some(runs) => draw_runs(ui, runs, body, s, me.and_then(|m| m.name()).unwrap_or("")),
+                }
+            }
+            Window::Champions(view) => {
+                let name = me.and_then(|m| m.name()).unwrap_or("");
+                let guild = me.and_then(|m| m.stat_str(stat::GUILD_NAME)).unwrap_or("");
+                for (i, tr) in crate::champions::draw(ui, view, r, s, name, guild, mouse, now) {
+                    self.buttons.push((Hit::Tab(i), tr));
                 }
             }
         }
@@ -762,6 +871,8 @@ mod tests {
         assert_eq!(NpcKind::of_class("Enchanter"), Some(NpcKind::Enchanter));
         assert_eq!(NpcKind::of_class("QuestMaster"), Some(NpcKind::QuestMaster));
         assert_eq!(NpcKind::of_class("Chronicler"), Some(NpcKind::Chronicler));
+        assert_eq!(NpcKind::of_class("ChampionsBoard"), Some(NpcKind::ChampionsBoard));
+        assert_eq!(NpcKind::of_class("ChampionStatue"), Some(NpcKind::ChampionStatue));
         assert_eq!(NpcKind::of_class("SkillTree"), None);
     }
 }

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using NLog;
 using Shared;
+using Shared.champions;
 using Shared.database;
 using Shared.database.account;
 using Shared.database.party;
@@ -585,7 +586,8 @@ namespace WorldServer.core.commands.player
 
             var wkndBoost = player.World.isWeekend ? settings.wkndBoost : 0;
             var lootEvent = settings.lootEvent;
-            var totalLootBoost = LootBoosts.Total(player.LDBoostTime > 0, player.IsLegend, wkndBoost, lootEvent);
+            var champLoot = player.Champion.Loot(!(player.World is RealmWorld));
+            var totalLootBoost = LootBoosts.Total(player.LDBoostTime > 0, player.IsLegend, wkndBoost, lootEvent, champLoot, player.GuildBuffs.Loot);
 
             player.SendInfo($"You have a {Math.Round(totalLootBoost * 100, 0)}% loot boost.");
             if (totalLootBoost > 0)
@@ -594,6 +596,15 @@ namespace WorldServer.core.commands.player
                     player.SendSubtext($"   Your loot drop potion gives: {Math.Round(LootBoosts.LootDrop * 100, 0)}% ({TimeLeft(player.LDBoostTime)})");
                 if (player.IsLegend)
                     player.SendSubtext($"   Being in the Legends gives: {Math.Round(LootBoosts.Legend * 100, 0)}%");
+                if (player.InGuild)
+                    player.SendSubtext($"   Your guild ({player.Guild}, Guild Hall {player.GuildHall}) gives: {Math.Round(player.GuildBuffs.Loot * 100, 1)}%");
+                if (champLoot > 0)
+                {
+                    // the Weekly Dungeons board's counts everywhere but the realms
+                    var (realm, dungeon) = (player.Champion.Loot(false), player.Champion.Loot(true));
+                    var where = realm == dungeon ? "" : $" in dungeons, {ChampionBoardDef.Percent(realm)} in the realms";
+                    player.SendSubtext($"   The Hall of Champions gives: {ChampionBoardDef.Percent(dungeon)}{where} (at most {ChampionBoardDef.Percent(ChampionBoards.LootCap)})");
+                }
                 if (player.World.isWeekend)
                     player.SendSubtext($"   It being a weekend gives: {Math.Round(settings.wkndBoost * 100.0, 0)}%");
                 if (settings.lootEvent > 0)
@@ -604,16 +615,33 @@ namespace WorldServer.core.commands.player
             var boosterActive = player.XPBoostTime != 0 && player.Level < 20;
             var expBoost = boosterActive ? 0.5 : 0;
             var expEvent = settings.expEvent;
-            var totalExpBoost = expEvent + expBoost;
+            var champXp = player.Champion.Experience;
+            var guildXp = player.GuildBuffs.Experience;
+            var totalExpBoost = expEvent + expBoost + champXp + guildXp;
 
             if (totalExpBoost > 0)
             {
-                player.SendInfo($"You have a {totalExpBoost * 100}% XP boost.");
+                player.SendInfo($"You have a {Math.Round(totalExpBoost * 100, 1)}% XP boost.");
                 if (boosterActive)
                     player.SendSubtext($"   Your XP booster gives: 50% ({(player.XPBoostTime < 0 ? "until level 20" : TimeLeft(player.XPBoostTime))})");
                 if (settings.expEvent > 0)
-                    player.SendSubtext($"   A server-wide event gives: {expEvent * 100}%");
+                    player.SendSubtext($"   A server-wide event gives: {Math.Round(expEvent * 100, 1)}%");
+                if (champXp > 0)
+                    player.SendSubtext($"   The Hall of Champions gives: {ChampionBoardDef.Percent(champXp)}");
+                if (guildXp > 0)
+                    player.SendSubtext($"   Your guild hall gives: {Math.Round(guildXp * 100, 1)}%");
             }
+
+            // the guild hall's stats
+            var buffs = player.GuildBuffs;
+            if (buffs.HasStats)
+                player.SendInfo($"Your guild hall (Guild Hall {player.GuildHall}) gives you {buffs.StatsText()}.");
+
+            // the Hall of Champions' other rewards
+            if (player.Champion.ArenaFame > 0)
+                player.SendInfo($"You get {ChampionBoardDef.Percent(player.Champion.ArenaFame)} more fame from Arena waves (the Hall of Champions).");
+            foreach (var line in player.Champion.Describe())
+                player.SendSubtext($"   {line}");
             return true;
         }
 
@@ -662,15 +690,8 @@ namespace WorldServer.core.commands.player
 
         protected override bool Process(Player player, TickTime time, string args)
         {
-            if (player.GuildRank < 0)
-            {
-                player.SendError("You need to be in a guild.");
-                return false;
-            }
-
-            //var proto = player.CoreServerManager.Resources.Worlds["GuildHall"];
-            //var world = player.CoreServerManager.WorldManager.GetWorld(proto.id);
-            //player.Reconnect(world.GetInstance(player.Client));
+            // to the guild's hall from anywhere, as /nexus goes to the Nexus
+            GuildHallWorld.Open(player);
             return true;
         }
     }
@@ -854,6 +875,7 @@ namespace WorldServer.core.commands.player
 
                 player.Guild = "";
                 player.GuildRank = 0;
+                player.SetGuildHall(0);
 
                 return true;
             }
@@ -888,6 +910,7 @@ namespace WorldServer.core.commands.player
 
                     targetPlayer.Guild = "";
                     targetPlayer.GuildRank = 0;
+                    targetPlayer.SetGuildHall(0);
 
                     manager.ChatManager.Guild(player, targetPlayer.Name + " has been kicked from the guild by " + player.Name);
                     targetPlayer.SendInfo("You have been kicked from the guild.");

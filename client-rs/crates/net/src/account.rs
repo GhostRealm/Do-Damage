@@ -342,10 +342,37 @@ pub struct GuildMember {
     pub fame: i32,
     /// Unix time.
     pub last_seen: i64,
+    /// Their living characters' fame (the Hall of Champions' Guild Living board), when they're
+    /// ranked and have played in the last two weeks.
+    pub alive: Option<i64>,
+    /// They haven't played in the last two weeks, so their living fame doesn't count.
+    pub away: bool,
 }
 
-/// `/guild/listMembers`: the guild's name and members.
-pub fn parse_guild(xml: &str) -> Result<(String, Vec<GuildMember>), String> {
+/// `/guild/listMembers`: the guild, its hall and its members.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Guild {
+    pub name: String,
+    pub members: Vec<GuildMember>,
+    /// Its hall, 1-4 (0 from an older server).
+    pub level: i32,
+    /// Guild fame to spend, and all it has earned.
+    pub fame: i64,
+    pub total_fame: i64,
+    pub vault_used: i32,
+    pub vault_slots: i32,
+    /// The next hall's price in guild fame (0 at the last).
+    pub next_price: i64,
+    /// What the hall gives every member ("+2% loot, +10% experience, ..."), and what the next
+    /// would; empty from an older server, and the next at the last hall.
+    pub buffs: String,
+    pub next_buffs: String,
+    /// Its place and fame on the Hall of Champions' Guild Living and Guild Dead boards.
+    pub living: Option<(i32, i64)>,
+    pub dead: Option<(i32, i64)>,
+}
+
+pub fn parse_guild(xml: &str) -> Result<Guild, String> {
     if let Some(e) = error_text(xml) {
         return Err(e);
     }
@@ -359,9 +386,31 @@ pub fn parse_guild(xml: &str) -> Result<(String, Vec<GuildMember>), String> {
             rank: child_text(m, "Rank").and_then(parse_int).unwrap_or(0) as i32,
             fame: child_text(m, "Fame").and_then(parse_int).unwrap_or(0) as i32,
             last_seen: child_text(m, "LastSeen").and_then(parse_int).unwrap_or(0),
+            alive: child_text(m, "Alive").and_then(parse_int),
+            away: child_text(m, "Away").is_some(),
         })
         .collect();
-    Ok((root.attribute("name").unwrap_or("").to_owned(), members))
+    let num = |tag: &str| child_text(root, tag).and_then(parse_int).unwrap_or(0);
+    let board = |tag: &str| {
+        root.children().find(|c| c.has_tag_name(tag)).map(|b| {
+            let a = |n: &str| b.attribute(n).and_then(parse_int).unwrap_or(0);
+            (a("rank") as i32, a("fame"))
+        })
+    };
+    Ok(Guild {
+        name: root.attribute("name").unwrap_or("").to_owned(),
+        members,
+        level: num("Level") as i32,
+        fame: num("CurrentFame"),
+        total_fame: num("TotalFame"),
+        vault_used: num("VaultUsed") as i32,
+        vault_slots: num("VaultSlots") as i32,
+        next_price: num("NextPrice"),
+        buffs: child_text(root, "Buffs").unwrap_or("").to_owned(),
+        next_buffs: child_text(root, "NextBuffs").unwrap_or("").to_owned(),
+        living: board("LivingBoard"),
+        dead: board("DeadBoard"),
+    })
 }
 
 /// `/account/grabPotions`: the stored count of each of the eight stat potions, and how many
@@ -408,6 +457,136 @@ pub fn parse_arena_runs(xml: &str) -> Result<Vec<ArenaRun>, String> {
             players: r.children().filter(|p| p.has_tag_name("Player")).filter_map(|p| p.text()).map(str::to_owned).collect(),
         })
         .collect())
+}
+
+/// `/champions/board`: the Hall of Champions, the living's leaderboard (the account server's
+/// `ChampionsController`), ranked every few minutes.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Champions {
+    /// Not ranked yet (the account server has just started).
+    pub pending: bool,
+    /// The server's clock, unix seconds, and when it ranked last and will next.
+    pub now: i64,
+    pub updated: i64,
+    pub next: i64,
+    /// When the weekly boards start afresh.
+    pub week_reset: i64,
+    /// When the yearly boards start afresh.
+    pub year_reset: i64,
+    /// What every board's loot boosts add up to at most (0.04 is 4%).
+    pub loot_cap: f64,
+    pub boards: Vec<ChampionBoard>,
+}
+
+/// One board of the Hall of Champions.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ChampionBoard {
+    pub id: String,
+    pub name: String,
+    pub weekly: bool,
+    /// It starts afresh on 1 January (Guild Dead).
+    pub yearly: bool,
+    /// What the value counts: "fame", "stars", "points", "wave", "dungeons".
+    pub unit: String,
+    /// How many are ranked on it.
+    pub count: i32,
+    pub description: String,
+    /// The reward of each tier (#1, #2-3, #4-10): its places, its colour for a colour reward
+    /// (else 0), and what it gives.
+    pub rewards: Vec<(String, u32, String)>,
+    /// The top 10, best first.
+    pub entries: Vec<ChampionEntry>,
+    /// The viewer's own place and value, when ranked (named in the request).
+    pub me: Option<(i32, i64)>,
+}
+
+/// A champion: an account's place, and the character shown for it (its best living one;
+/// `object_type` 0 when it has none). A group's place (Arena Group) has its `members`, each with
+/// their own character, and their names joined as `name`.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ChampionEntry {
+    pub rank: i32,
+    pub name: String,
+    pub value: i64,
+    pub object_type: u16,
+    pub skin: i32,
+    pub tex1: i32,
+    pub tex2: i32,
+    pub level: i32,
+    pub members: Vec<ChampionEntry>,
+    /// A guild's place (Guilds): how many members it has, its name the guild's and its character
+    /// its best member's; 0 for a player or a group.
+    pub guild: i32,
+}
+
+impl ChampionEntry {
+    /// The characters to show: the group's members, else this one.
+    pub fn faces(&self) -> &[ChampionEntry] {
+        if self.members.is_empty() { std::slice::from_ref(self) } else { &self.members }
+    }
+
+    /// Whether this place is `name`'s (theirs alone, or their group's).
+    pub fn has(&self, name: &str) -> bool {
+        !name.is_empty() && self.faces().iter().any(|f| f.name.eq_ignore_ascii_case(name))
+    }
+}
+
+/// `/champions/board`.
+pub fn parse_champions(xml: &str) -> Result<Champions, String> {
+    if let Some(e) = error_text(xml) {
+        return Err(e);
+    }
+    let doc = roxmltree::Document::parse(xml).map_err(|e| e.to_string())?;
+    let root = doc.root_element();
+    let int = |n: roxmltree::Node, a: &str| n.attribute(a).and_then(parse_int).unwrap_or(0);
+    let look = |e: roxmltree::Node, rank: i32, value: i64| ChampionEntry {
+        rank,
+        name: e.attribute("name").unwrap_or("").to_owned(),
+        value,
+        object_type: int(e, "objectType") as u16,
+        skin: int(e, "skin") as i32,
+        tex1: int(e, "tex1") as i32,
+        tex2: int(e, "tex2") as i32,
+        level: int(e, "level") as i32,
+        members: Vec::new(),
+        guild: int(e, "guild") as i32,
+    };
+    Ok(Champions {
+        pending: int(root, "pending") != 0,
+        now: int(root, "now"),
+        updated: int(root, "updated"),
+        next: int(root, "next"),
+        week_reset: int(root, "weekReset"),
+        year_reset: int(root, "yearReset"),
+        loot_cap: root.attribute("lootCap").and_then(|v| v.parse().ok()).unwrap_or(0.0),
+        boards: root
+            .children()
+            .filter(|c| c.has_tag_name("Board"))
+            .map(|b| ChampionBoard {
+                id: b.attribute("id").unwrap_or("").to_owned(),
+                name: b.attribute("name").unwrap_or("").to_owned(),
+                weekly: int(b, "weekly") != 0,
+                yearly: int(b, "yearly") != 0,
+                unit: b.attribute("unit").unwrap_or("").to_owned(),
+                count: int(b, "count") as i32,
+                description: b.children().find(|c| c.has_tag_name("Description")).and_then(|d| d.text()).unwrap_or("").to_owned(),
+                rewards: b
+                    .children()
+                    .filter(|c| c.has_tag_name("Reward"))
+                    .map(|r| (r.attribute("places").unwrap_or("").to_owned(), int(r, "color") as u32, r.text().unwrap_or("").to_owned()))
+                    .collect(),
+                entries: b
+                    .children()
+                    .filter(|c| c.has_tag_name("Entry"))
+                    .map(|e| ChampionEntry {
+                        members: e.children().filter(|m| m.has_tag_name("Member")).map(|m| look(m, 0, 0)).collect(),
+                        ..look(e, int(e, "rank") as i32, int(e, "value"))
+                    })
+                    .collect(),
+                me: b.children().find(|c| c.has_tag_name("Me")).map(|m| (int(m, "rank") as i32, int(m, "value"))),
+            })
+            .collect(),
+    })
 }
 
 /// A plain-text answer (the guild board), or the `<Error>`'s text.
@@ -488,16 +667,60 @@ mod tests {
 
     #[test]
     fn guild_and_potions() {
-        let (name, members) = parse_guild(
+        let g = parse_guild(
             r#"<Guild id="3" name="Knights"><TotalFame>9</TotalFame><Member><Name>Bob</Name><Rank>40</Rank>
             <Fame>12</Fame><LastSeen>100</LastSeen></Member></Guild>"#,
         )
         .unwrap();
-        assert_eq!(name, "Knights");
-        assert_eq!(members[0], GuildMember { name: "Bob".into(), rank: 40, fame: 12, last_seen: 100 });
+        assert_eq!(g.name, "Knights");
+        assert_eq!(g.members[0], GuildMember { name: "Bob".into(), rank: 40, fame: 12, last_seen: 100, alive: None, away: false });
+        assert_eq!((g.total_fame, g.level, g.living, g.dead), (9, 0, None, None));
+        assert_eq!((g.buffs.as_str(), g.next_buffs.as_str()), ("", ""));
+        let g = parse_guild(
+            r#"<Guild id="3" name="Knights"><TotalFame>900</TotalFame><CurrentFame>40</CurrentFame><Level>2</Level>
+            <VaultSlots>32</VaultSlots><VaultUsed>5</VaultUsed><NextPrice>30000</NextPrice><Buffs>+1.5% loot</Buffs><NextBuffs>+2% loot</NextBuffs><LivingBoard rank="1" fame="1500"/><DeadBoard rank="3" fame="900"/>
+            <Member><Name>Bob</Name><Rank>40</Rank><Fame>12</Fame><LastSeen>100</LastSeen><Alive>600</Alive></Member></Guild>"#,
+        )
+        .unwrap();
+        assert_eq!((g.level, g.fame, g.vault_used, g.vault_slots, g.next_price), (2, 40, 5, 32, 30000));
+        assert_eq!((g.living, g.dead), (Some((1, 1500)), Some((3, 900))));
+        assert_eq!((g.buffs.as_str(), g.next_buffs.as_str()), ("+1.5% loot", "+2% loot"));
+        assert_eq!(g.members[0].alive, Some(600));
         let (counts, cap) = parse_potions("<StoredPotions>1,2,3,4,5,6,7,8,100</StoredPotions>").unwrap();
         assert_eq!((counts, cap), (vec![1, 2, 3, 4, 5, 6, 7, 8], 100));
         assert_eq!(text_answer("Hello guild"), Ok("Hello guild".into()));
+    }
+
+    #[test]
+    fn champions() {
+        let xml = r##"<Champions now="100" updated="90" next="390" weekReset="5000" lootCap="0.04">
+            <Board id="fame" name="Fame" weekly="0" unit="fame" count="12"><Description>Most fame.</Description>
+                <Reward places="#1" color="0">+3% loot</Reward><Reward places="#2-3" color="0">+2% loot</Reward>
+                <Entry rank="1" name="Meapy" value="1234" objectType="782" skin="0" tex1="5" tex2="0" level="20"/>
+                <Me rank="11" value="40"/></Board>
+            <Board id="stars" name="Stars" weekly="0" unit="stars" count="0"><Description/>
+                <Reward places="#1" color="16765514">Gold glow</Reward></Board>
+            <Board id="arenaGroup" name="Arena Group" weekly="0" unit="wave" count="1"><Description/>
+                <Entry rank="1" value="31" name="Ann, Bo" objectType="782" skin="0" tex1="0" tex2="0" level="20">
+                    <Member name="Ann" objectType="782" skin="0" tex1="0" tex2="0" level="20"/>
+                    <Member name="Bo" objectType="775" skin="0" tex1="0" tex2="0" level="12"/></Entry></Board></Champions>"##;
+        let c = parse_champions(xml).unwrap();
+        assert!(!c.pending);
+        assert_eq!((c.now, c.week_reset, c.loot_cap), (100, 5000, 0.04));
+        assert_eq!(c.boards.len(), 3);
+        let group = &c.boards[2].entries[0];
+        assert_eq!((group.rank, group.value, group.members.len()), (1, 31, 2));
+        assert_eq!((group.members[1].name.as_str(), group.members[1].object_type, group.members[1].level), ("Bo", 775, 12));
+        assert!(group.has("bo") && !group.has("Cy") && group.faces().len() == 2);
+        assert_eq!(c.boards[0].entries[0].faces().len(), 1);
+        let fame = &c.boards[0];
+        assert_eq!((fame.id.as_str(), fame.count, fame.me), ("fame", 12, Some((11, 40))));
+        assert_eq!(fame.entries[0].name, "Meapy");
+        assert_eq!((fame.entries[0].object_type, fame.entries[0].tex1, fame.entries[0].level), (782, 5, 20));
+        assert_eq!(fame.rewards[1], ("#2-3".to_owned(), 0, "+2% loot".to_owned()));
+        assert_eq!(c.boards[1].rewards[0].1, 0xFFD24A);
+        assert!(c.boards[1].entries.is_empty() && c.boards[1].me.is_none());
+        assert!(parse_champions(r#"<Champions pending="1" now="5"/>"#).unwrap().pending);
     }
 
     #[test]

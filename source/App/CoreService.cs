@@ -24,6 +24,7 @@ namespace App
         public readonly ServerConfig Config;
         public readonly StatusHistory Status;
         private readonly Timer LegendSweeper = new Timer(60000);
+        public readonly ChampionsService Champions;
 
         public readonly List<ushort> PlayerClasses;
         public readonly Dictionary<ushort, string> _classes;
@@ -58,6 +59,8 @@ namespace App
 
             LegendSweeper.Elapsed += (sender, e) => Database.CleanLegends();
             LegendSweeper.Start();
+
+            Champions = new ChampionsService(this);
 
             Status = new StatusHistory(this);
 
@@ -114,9 +117,14 @@ namespace App
         }
 
         // The address of this PC on the local network, or null. Connecting a UDP socket sends nothing;
-        // it only picks the interface that reaches the internet.
+        // it only picks the interface that reaches the internet. BSK_LAN_ADDRESS sets it instead: in
+        // a container (docker-compose.yml) that interface is the container's own network, which the
+        // clients behind Docker's port forwarding can't reach.
         private static readonly Lazy<string> LanAddress = new Lazy<string>(() =>
         {
+            var configured = Environment.GetEnvironmentVariable("BSK_LAN_ADDRESS");
+            if (!string.IsNullOrEmpty(configured))
+                return configured;
             try
             {
                 using var socket = new System.Net.Sockets.Socket(System.Net.Sockets.AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Dgram, System.Net.Sockets.ProtocolType.Udp);
