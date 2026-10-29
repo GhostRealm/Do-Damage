@@ -94,8 +94,9 @@ python tools\rolling_restart.py status          # which slot is active, and how 
 ## Running on a VPS
 
 The same servers run on a Linux VPS (Ubuntu 24.04, x86_64; 4 GB of RAM is enough, 8 GB is
-comfortable), so this PC doesn't have to stay on. Everything is built on this PC by
-`deploy/deploy.py` and copied over ssh; the VPS only runs it. Players open `https://<site>`, the
+comfortable), so this PC doesn't have to stay on. Merging a release into `main` deploys it: GitHub
+Actions builds everything with `deploy/deploy.py` and copies it over ssh (see "Deploying from
+GitHub"); the VPS only runs it. The same script still deploys from this PC as a fallback. Players open `https://<site>`, the
 website, and play from there in the browser (`https://<site>/play/`), or download the desktop
 client. A desktop client built with `--account https://<site>/api` goes the browser's way too:
 sign-in over https and the game over wss, through Caddy and the gateway, so passwords and game
@@ -212,18 +213,20 @@ it running for a while; it doesn't survive a restart of this PC.
   is the well-known upstream pair, so it hides nothing from anyone who looks it up. Over wss it
   doesn't matter (TLS covers the Hello); it was left as it is so old clients keep working.
 
-**Updating:** `python deploy\deploy.py`. It replaces only what changed, and nobody is disconnected
-(see below). It publishes the desktop client first (`--account https://<site>/api --package
---publish`) when `client-rs/` or `client/src/` changed since the newest release in `dist\client`,
-and stops instead when it can't: not the main checkout on `main`, uncommitted client changes, or
-the version not raised; `--no-publish` skips that. `--skip-build` uploads the last build again,
+**Updating:** merge the release into `main`; GitHub deploys it (see "Deploying from GitHub").
+From this PC, as a fallback: `python deploy\deploy.py`. It replaces only what changed, and nobody
+is disconnected (see below). It first fetches any client release files the VPS has and
+`dist\client` lacks (GitHub publishes releases this PC doesn't have), then publishes the desktop
+client (`--account https://<site>/api --package --publish`) when `client-rs/` or `client/src/`
+changed since the newest release, and stops instead when it can't: not the main checkout on
+`main`, uncommitted client changes, or the version not raised; `--no-publish` skips that. Only
+the release files the VPS lacks are sent. `--skip-build` uploads the last build again,
 `--no-releases` leaves `dist\client` out, and `--status` shows the services, the world server slots and the gateway slots (each with
 its open connections). `--dry-run` builds and packs without touching the VPS, and `--client-only`
 publishes the client and installs only the releases and the website
-(`deploy/remote/install-client.sh`), for after a deploy from GitHub that couldn't sign it. The
-upload and the install hold `/opt/bsk/deploy.lock` on the VPS, so two deploys (this PC and GitHub)
-never overlap: the second waits. Merges to `main` can deploy by themselves: see "Deploying from
-GitHub" below.
+(`deploy/remote/install-client.sh`), for a release GitHub couldn't sign. The upload and the
+install hold `/opt/bsk/deploy.lock` on the VPS, so two deploys (this PC and GitHub) never
+overlap: the second waits.
 
 **Deploys that kick nobody** (`deploy/remote/install.sh`):
 - **World server:** a rolling deploy, as on this PC: players switch to the new one at their next
@@ -306,80 +309,77 @@ redis-cli -p 6379 hget names MEAPY                    # Redis, as on this PC
 
 ## Deploying from GitHub
 
-`.github/workflows/deploy.yml` deploys `main` to the VPS after each merge (a release's squash
-merge), with `deploy/deploy.py` on a GitHub Linux runner: the same build, bundle and `install.sh`
-as from the main checkout, so it kicks nobody (see "Deploys that kick nobody"). It's off until the
-owner turns it on; until then every run is a dry run.
+Merging a release into `main` deploys it: `.github/workflows/deploy.yml` runs `deploy/deploy.py`
+on GitHub's runners, with the same build, bundle and `install.sh` as from the main checkout, so it
+kicks nobody (see "Deploys that kick nobody"). It's on since 2.3.2 (2026-10-29), the first release
+it deployed, desktop client included.
 
 **What runs:**
-- **On a pull request,** and on `main` while deploys are off: `deploy.py --dry-run` builds the
-  whole bundle (servers, gateway, web client, website) and sends nothing. `.github/workflows/ci.yml`
-  checks pull requests and release branches besides: `cargo test`, the wasm build, `dotnet build`
-  and `dotnet test`, the website, and the Docker images.
-- **On a push to `main`** with deploys on (and from the Actions tab: "Run workflow" on `main`, with
-  "dry run" and "publish the client" boxes):
-  1. `client` (Windows, only with the `CLIENT_UPDATE_KEY` secret): fetches the VPS's published
-     releases (`deploy.py --fetch-from-server`) and publishes the desktop client when it changed
-     since the newest one, as the main checkout does (`--publish-only`: the version must be
-     raised, the changelog section named). It first checks the key's public key against the
-     `CLIENT_UPDATE_PUBLIC_KEY` variable, so a wrong key never signs anything.
-  2. `deploy` (Linux): builds and installs everything, with the new release when step 1 made one.
-     Without one, the VPS's releases stay as they are (`--no-releases`), the website keeps its
-     downloads (fetched from the VPS to build it), and when the client changed the run's summary
-     says to publish it from the main checkout: `python deploy\deploy.py --client-only`, once the
-     run is done.
-  3. `deploy.py --status`.
+- **On a push to `main`** (the release's squash merge), or from the Actions tab ("Run workflow"
+  on `main`, with "dry run" and "publish the client" boxes):
+  1. `client` (Windows, since the desktop release is a Windows build): lists what the VPS has
+     published and copies only its `latest.json` (`deploy.py --fetch-from-server`). When
+     `client-rs/` or `client/src/` changed since that release, it publishes the new one
+     (`--publish-only`: the version must be raised and its changelog section named, or the whole
+     deploy stops here). It first checks the key's public half against the
+     `CLIENT_UPDATE_PUBLIC_KEY` variable, so a wrong key never signs anything. Only the blobs
+     the VPS lacks are written (`bsk-publish --known`); they go to the next job as an artifact,
+     with the website's new download.
+  2. `deploy` (Linux): builds the servers, the gateway, the web client and the website, and
+     installs them with the new release's files, which `deploy/remote/add-releases.sh` adds beside
+     the VPS's own. Without a new release, the VPS's releases stay as they are.
+  3. `deploy.py --status`: the services, the world server slots and the gateway slots.
+- **On a pull request** (and on `main` while deploys are off): `deploy.py --dry-run` builds the
+  whole bundle and sends nothing. `.github/workflows/ci.yml` checks pull requests and release
+  branches besides: `cargo test`, the wasm build, `dotnet build` and `dotnet test`, the website,
+  and the Docker images.
+- **Watching it:** `gh run watch --repo Meapy/Do-Damage <run id>` (`gh run list --workflow Deploy`
+  lists them), or the Actions tab. The log shows each step as it happens. The first deploy took
+  about 50 minutes, 37 of them fetching every published release, which it no longer does; a cold
+  build of the client on Windows is about 5 minutes, less once its Rust cache is saved.
+  Afterwards, `https://dodmg.com/api/client/windows/latest.json` names the new version, and the
+  Discord bot posts it.
 - **One at a time:** runs share a concurrency group and are never cancelled half way, and on the
   VPS the upload and install hold `/opt/bsk/deploy.lock` (also taken by deploys from the PC). A
   failed `client` job stops the deploy before anything reaches the VPS; a failed install stops as
   `install.sh` always has (a gateway that doesn't start leaves the old one running).
-- **Secrets** stay out of the logs and the repository: `deploy/ci_setup.py` writes them into the
-  git-ignored files `deploy.py` reads (`deploy/vps.local.json`, `deploy/discord.local.env`,
-  `build/client-update.key`) and the runner's `~/.ssh`, and each job deletes them at its end.
+- **If it fails:** read the run's log, fix the cause on the next release branch, and release
+  again. If players need the release before that, deploy it from the main checkout
+  (`python deploy\deploy.py`, on `main`): it fetches the release files GitHub published that
+  `dist\client` lacks first, so it never puts an older release back.
+- **Turning it off:** `gh variable set DEPLOY_ENABLED --repo Meapy/Do-Damage --body false`. Merges
+  then only dry-run, and the main checkout deploys as before. `true` turns it back on.
 
-**The client signing key.** Clients only take releases signed with `build/client-update.key`;
-whoever holds it can ship code to every player's PC. Two ways:
-- **Keep it on this PC (recommended).** Don't add `CLIENT_UPDATE_KEY`. GitHub deploys the servers,
-  the gateway, the web client and the website; a release that changes the desktop client is then
-  published from the main checkout with `deploy.py --client-only`, which uploads only the releases
-  and the website. The key never leaves this PC, and a compromised GitHub account, workflow or
-  third-party action can't sign a release. The cost is one command per release with client
-  changes (most of them: the changelog is in `client-rs/`), and players' desktop clients updating
-  a few minutes after the servers rather than with them (the old client keeps working with the
-  new server, as the release rules ask).
-- **Store it in GitHub.** Add `CLIENT_UPDATE_KEY` and `CLIENT_UPDATE_PUBLIC_KEY` (below): every
-  merge then publishes by itself. The key sits only in the `production` environment, which only
-  `main` can use, and is on a runner only for the `client` job. If it ever leaks, every player has
-  to download a new client by hand.
+**Secrets and settings** (repository secrets and variables, Settings, Secrets and variables,
+Actions). `deploy/ci_setup.py` writes them into the git-ignored files `deploy.py` reads
+(`deploy/vps.local.json`, `deploy/discord.local.env`, `build/client-update.key`) and the runner's
+`~/.ssh`; nothing prints them, and each job deletes them at its end. The logs are public, so a
+change to the workflows must never print one either.
 
-**Setting it up** (the owner, once; everything goes in an environment named `production`):
-1. GitHub, the repository's Settings, Environments, New environment: `production`. Deployment
-   branches and tags: "Selected", add `main`. Optionally "Required reviewers" with yourself: each
-   deploy then waits for a click in the Actions tab.
-2. A deploy key for the VPS, just for GitHub (not `~/.ssh/dodmg_ed25519`), so it can be revoked on
-   its own: `ssh-keygen -t ed25519 -N "" -C github-deploy -f $HOME\.ssh\dodmg_github`, then add
-   `dodmg_github.pub` to `/root/.ssh/authorized_keys` on the VPS (the user in `ssh` in the
-   config).
-3. The secrets, in that environment (Settings, Environments, `production`, Add environment
-   secret), or with `gh` from the main checkout in PowerShell (piping, so nothing is on a command
-   line):
+| Name | Kind | What it holds |
+|---|---|---|
+| `VPS_SSH_KEY` | secret | a private key just for GitHub (`$HOME\.ssh\dodmg_github` on the PC, `github-deploy` in the VPS's `/root/.ssh/authorized_keys`), so it can be revoked on its own |
+| `VPS_KNOWN_HOSTS` | secret | the VPS's host keys, under both names: `ssh-keygen -F 169.58.244.146` with `dodmg.com,` added before the IP |
+| `VPS_CONFIG` | secret | `deploy/vps.local.json` (its `-i` in `ssh_options` is replaced by the key above; the rest is kept) |
+| `DISCORD_ENV` | secret | `deploy/discord.local.env`; without it the bot keeps the settings it has on the VPS |
+| `CLIENT_UPDATE_KEY` | secret | `build/client-update.key`, the client signing key |
+| `CLIENT_UPDATE_PUBLIC_KEY` | variable | its public half, `f2c62eb2...c9f9` (`cargo run -q --release -p bsk-publish -- key --key ..\build\client-update.key` in `client-rs` prints it) |
+| `DEPLOY_ENABLED` | variable | `true`: merges deploy |
 
-   | Secret | What to paste | `gh` |
-   |---|---|---|
-   | `VPS_SSH_KEY` | the private key from step 2, all of it | `Get-Content -Raw $HOME\.ssh\dodmg_github \| gh secret set VPS_SSH_KEY --env production` |
-   | `VPS_KNOWN_HOSTS` | the VPS's host key lines, under the name the config's `ssh` uses (ssh refuses any other key). This PC's known_hosts has them under the IP only, so the command adds the name | `ssh-keygen -F 169.58.244.146 \| Select-String -NotMatch '^#' \| ForEach-Object { $_ -replace '^169\.58\.244\.146', 'dodmg.com,169.58.244.146' } \| Out-String \| gh secret set VPS_KNOWN_HOSTS --env production` |
-   | `VPS_CONFIG` | `deploy/vps.local.json`, all of it (its `-i` in `ssh_options` is replaced by the key above; `-p` and the rest are kept) | `Get-Content -Raw deploy\vps.local.json \| gh secret set VPS_CONFIG --env production` |
-   | `DISCORD_ENV` | optional: `deploy/discord.local.env`. Without it the bot keeps the settings on the VPS, so only add it to change them from GitHub | `Get-Content -Raw deploy\discord.local.env \| gh secret set DISCORD_ENV --env production` |
-   | `CLIENT_UPDATE_KEY` | only to publish the client from GitHub: `build/client-update.key` | `Get-Content -Raw build\client-update.key \| gh secret set CLIENT_UPDATE_KEY --env production` |
+To replace one, pipe its file to `gh` from the main checkout in PowerShell, so nothing is on a
+command line: `Get-Content -Raw deploy\vps.local.json | gh secret set VPS_CONFIG --repo
+Meapy/Do-Damage`.
 
-   With `CLIENT_UPDATE_KEY`, also the variable `CLIENT_UPDATE_PUBLIC_KEY`, the key's public half
-   (not secret): `cargo run -q --release -p bsk-publish -- key --key ..\build\client-update.key`
-   in `client-rs` prints it (it only reads the key that's there), then
-   `gh variable set CLIENT_UPDATE_PUBLIC_KEY --env production --body <it>`.
-4. Try it without touching the VPS: Actions, Deploy, Run workflow on `main` with "dry run" ticked.
-5. Turn it on: `gh variable set DEPLOY_ENABLED --body true` (a repository variable). From then on
-   each merge to `main` deploys. To turn it off, set it to anything else (`false`); merges then
-   only dry-run, and the main checkout deploys as before.
+**The signing key in GitHub.** Clients only take releases signed with the key; whoever holds it
+can ship code to every player's PC. It's in GitHub so that a merge publishes the client by itself,
+and it's on a runner only for the `client` job. Two steps would narrow who can reach it, both in
+Settings, Environments: create an environment named `production` (the deploy jobs already name it)
+with deployment branches limited to `main`, optionally with yourself as a required reviewer (each
+deploy then waits for a click), and move the secrets into it. As repository secrets, a workflow on
+any branch pushed to this repository can read them. To keep the key on this PC instead, delete
+`CLIENT_UPDATE_KEY`: GitHub then deploys everything but the client, its run's summary says when
+the client changed, and `python deploy\deploy.py --client-only` from the main checkout publishes
+it and installs only the releases and the website (`deploy/remote/install-client.sh`).
 
 ## Docker
 
@@ -463,7 +463,7 @@ python tools\discord\setup_server.py --env deploy\discord.local.env
 python tools\discord\setup_server.py --env deploy\discord.local.env --apply --refresh-messages
 ```
 
-**Release posts happen once per release, and only for real ones.** The bot reads `/opt/bsk/dist/client/windows/latest.json` every minute. Only a deploy changes that file (`deploy.py`, after the release is merged and published from `main`). A version newer than any it has posted gets posted, with the changelog the release was published with. The versions it has posted are kept in `/opt/bsk/discord/state.json`, and before posting it also looks through #updates' recent messages for that version. On its first start it counts everything up to `DISCORD_POSTED_UP_TO` (2.2.1) as already posted. Test publishes (`--publish-to`, the isolated stacks) and runs on this PC never post, because they write elsewhere and have no `BSK_RELEASES`.
+**Release posts happen once per release, and only for real ones.** The bot reads `/opt/bsk/dist/client/windows/latest.json` every minute. Only a deploy changes that file: the one GitHub runs when a release is merged into `main`. A version newer than any it has posted gets posted, with the changelog the release was published with. The versions it has posted are kept in `/opt/bsk/discord/state.json`, and before posting it also looks through #updates' recent messages for that version. On its first start it counts everything up to `DISCORD_POSTED_UP_TO` (2.2.1) as already posted. Test publishes (`--publish-to`, the isolated stacks) and runs on this PC never post, because they write elsewhere and have no `BSK_RELEASES`.
 
 **On the VPS:** the first deploy with `deploy/discord.local.env` makes a venv with discord.py (`tools/discord/requirements.txt`, `/opt/bsk/discord/venv`), then installs and starts `bsk-discord`. Later deploys restart it only when its code, settings or unit changed. It holds no player's connection, so restarting it kicks nobody, and it never touches the game's services.
 
@@ -522,6 +522,38 @@ The remotes `upstream` (HaloCelsius) and `aurusenth` share no history with `main
 
 ## Changes from upstream
 
+- **The Marketplace** (2026-10-29; `Shared/database/market/MarketStore.cs`, `WorldServer/core/market/`,
+  `MarketStall.cs`, `MarketHandlers.cs`, `MarketListings.cs`, `/sell`, `/market`; the Rust client's
+  `market.rs`): players list items from their inventory or vault for fame at the Market Broker
+  (`MarketNPC`, the old invisible "Market Object" 0x4970) in the Nexus's market square, and the
+  square's stalls (the `Market Stall` region, `MarketStalls`) show the listings (the Broker, a static map object, greets players who come near: `MarketBroker`), newest first, in
+  turns of 30 s. Every change is one Lua script in Redis (`MarketStore`): a listing takes the item
+  from the character (only while the account's lock token is the caller's) or from a vault chest
+  (only if the chest is as the server read it); a purchase checks the listing, its item type and
+  price and the buyer's fame, removes the listing, moves the fame (the seller is credited 95% even
+  offline, on `fame` and `totalFame`) and delivers the item to the buyer's character or, when it's
+  full or the character isn't the one locked, to their Marketplace box (`market.box.<acc>`, with
+  imprints). So exactly one of buy, take back and expiry wins, and nothing is copied or lost if a
+  server dies between steps. Fame read from Redis is cached without being marked dirty
+  (`RedisObject.SetStored`, `DbAccount.StoredFame`), so a save can't write stale fame over a sale.
+  The listings are cached by the world server and read again only when `market.version` moves (at
+  most once a second); actions and views are rate limited per player. 10 listings per player, 5%
+  tax, 1 to 7 days (3 by default), 1 to 10,000,000 fame; expired listings go to the seller's box,
+  with news on their next visit to the Nexus (`Channel.Market` tells a seller online at once).
+  Messages 121-125 (`MarketBrowse`, `MarketListings`, `MarketSell`, `MarketAct`, `MarketResult`) are
+  the new window's; the old market messages (76-85) still work for older clients, on the same
+  service. Tests: `source/Tests/MarketStoreTests.cs` (each starts a Redis of its own; CI installs
+  `redis-server`). World server and client.
+- **The Nexus reworked around the market** (2026-10-29; `tools/build_castle_maps.py`,
+  `MerchantLists.cs`, `NexusWorld`, `NexusMerchant`, `DoomedWorlds.NexusPortals`, `/forge`,
+  `/market`, `NexusGuide`): the south yard and the forge hall are gone. The forge court (Divine Forge
+  and Enchanter) and the Arena court (portal, now at 54.5, 28.5, and leaderboard) stand either side
+  of the road between the spawn and the keep, the market square (Broker and two pavilions of 8
+  stalls) fills the courtyard south of the spawn, the castle lost its south-west corner and south
+  yard (97 by 88 tiles, was 92 high), and a crystal court (amethysts on plinths either side of a cross of lanes, `CRYSTAL_COURTS`) fills the east ward's north side. Every shop has
+  fewer stalls than items now and rotates through them (`MerchantData.Rotates`: 3-6 minutes an
+  item, as the pet generators did), so the wards are half the size. `/forge` and `/market` put you
+  in front of the forge and the Broker.
 - **Deploys from GitHub, and Docker** (2026-10-29; `.github/workflows/`, `deploy/deploy.py`,
   `deploy/ci_setup.py`, `deploy/remote/install-client.sh`, `docker/`, `docker-compose.yml`): merges
   to `main` deploy by themselves once `DEPLOY_ENABLED` is on, and pull requests get CI (see
@@ -530,6 +562,9 @@ The remotes `upstream` (HaloCelsius) and `aurusenth` share no history with `main
   on the VPS while it installs. `install.sh` keeps the Discord bot's settings when a deploy brings
   none. The account server takes `BSK_LAN_ADDRESS`. `client/src/.../miniDungeonHub.xml` is now
   `MiniDungeonHub.xml`, as the client's manifest names it (a web build on Linux couldn't find it).
+  Turned on with 2.3.2, which it deployed; since then client releases move only as what's new
+  (`bsk-publish --known`, `deploy/remote/add-releases.sh`), and a PC deploy fetches the release
+  files GitHub published before it uploads.
 - **The Hall of Champions** (2026-10-29; `Shared/champions/`, `App/ChampionsService.cs`,
   `App/Controllers/ChampionsController.cs`, `WorldServer/core/champions/ChampionCache.cs`,
   `Player.Champions.cs`, `Command.Champions.cs`, the client's `champions.rs`, `source/Tests/ChampionsTests.cs`):
@@ -849,7 +884,7 @@ The remotes `upstream` (HaloCelsius) and `aurusenth` share no history with `main
     PC's default; the VPS's 8 MB L3 gives a 4 MB minimum). It works (a test program made 30, 122
     and 11 collections per 400 MB at the default, 4 MB and 64 MB), but the collector raises the
     budget above that minimum by itself, so whether it helps there needs a run on the VPS.
-- **Server-side checks on items and the market** (2026-10-26; `MessageHandlers.cs` `CanTakeFrom`, `BreakDownItemHandler.cs`, `InvDropHandler.cs`, the market handlers, `Database.ClaimMarketEntry`): breaking down and dropping items take only from the player's own inventory or a bag within a tile that is theirs or everyone's (as swapping already did); a breakdown empties the slot before the fame is paid; a market listing takes each slot once; and an offer is taken off the market by exactly one of buying, taking it back and expiry, on any world server, before its item goes anywhere. The account server allows 5 registrations an hour from one address (100 in all), as it did for guests. `System.Drawing.Common`, which a package pulls in, is pinned to 8.0.10 (5.0.0 has an advisory).
+- **Server-side checks on items and the market** (2026-10-26; `MessageHandlers.cs` `CanTakeFrom`, `BreakDownItemHandler.cs`, `InvDropHandler.cs`, the market handlers, `Database.ClaimMarketEntry`): breaking down and dropping items take only from the player's own inventory or a bag within a tile that is theirs or everyone's (as swapping already did); a breakdown empties the slot before the fame is paid; a market listing takes each slot once; and an offer is taken off the market by exactly one of buying, taking it back and expiry, on any world server, before its item goes anywhere (since 2026-10-29 the Marketplace's Lua scripts do this, see "The Marketplace"). The account server allows 5 registrations an hour from one address (100 in all), as it did for guests. `System.Drawing.Common`, which a package pulls in, is pinned to 8.0.10 (5.0.0 has an advisory).
 - **Realm 2** (2026-10-25; `tools/build_realm2.py` and `tools/realm2/art.py`, `core/worlds/realm2/` (`Realm2Canvas`, `Realm2Generator`, `Realm2EventPainter`, `Realm2Themes`), `impl/Realm2World.cs`, `RealmManager.Realm2.cs`, `BehaviorDb.Realm2.cs`, `Command.Realm2.cs`, the `Realm 2` world in `Worlds.xml`; `Wmap.ProjectOntoWorld`'s `keepUnset`): a second realm, made afresh each time one opens, not listed in the Nexus (`RealmWorld.ListedInNexus`: no Nexus portal, no Realm Portals or `/realm` to it), opened by the `Realm2` portal (`/spawn realm2`) or the `Realm 2 Key` (soulbound, which nothing drops yet). It runs on a thread of its own, as realms do (`CreateNewWorldAsync` attaches a `RealmWorld` as a root). For staff, `/realm2` takes you into the Nexus's (2026-10-28; it used to open a new one); in a Realm 2 it lists its lands, `/realm2 next` brings its next event now and `/realm2 <land>` (`starter`, `midlands`, `godlands`, a theme's key such as `cube` or `penta`, or `last`) takes you there. The map (`Realm2Generator`, about 0.15 s; 1024 by 768): a void (`R2 Abyss`, no walking) with the starter lands at one end of a random way out (across or corner to corner): shore round the edge, low sand, plains and forest, the sea beyond the beach, players arriving on the far side; the midlands (mid round high lands, clearings for the two Lucky gods) joined by land; then the Godlands, a chain of overlapping blobs 64-86 tiles across winding out from the midlands with two or three branches, chasms of void away from its spine, and three or four islands off its edge joined by a bridge (5 wide, with rails) or a pool (`R2 Pool Water`, walkable, slow); `Rock` and `Snowy Rock` with the realm's Godlands scenery. All three carry the realm's terrain types, so `RealmManager`'s region monsters (the gods in the Godlands) and quests live there as in the realm (the realm's set pieces are left out). Events come as the realm's do (`EnsureQuest`: the realm's pacing, gap and stale rules): first the Lucky gods in their clearings, then the eleven themed events (`Realm2Themes.Events`) in a random order, each drawing its land when it comes (`Realm2EventPainter` paints a canvas round the site, its untouched tiles left `Empty`, projected with `keepUnset` so the world keeps them; the monsters standing there are removed; `Layout.AreaOf` takes the land's tiles). Lands are about 50 tiles in radius, spread evenly along the Godlands (the nth aims at n/11 of the way, never more than 15 tiles nearer the shore than the last, any way across), best on its edge so they stick out into the void and its middle stays free; a quarter of them out in the void beside it with a bridge or a pool; never on anyone (no player within the land's radius) and, when they can, within 150 tiles of someone; lands may overlap older ones, but each land's heart is at least 90 tiles from every other's (75, then 60, when nowhere fits). The Godlands a land covers lose their gods: they're removed, the tiles stop being Godlands terrain, and the realm's god count (`EnemyMaxCounts` for `Mountains`) drops by one for every 125 tiles covered, so the rest doesn't fill up with the displaced gods. Three stretches of the Godlands (`Layout.Untouched`, the trunk's blobs nearest 30%, 60% and 90% along it, 40 tiles in radius) are never drawn over: no land's heart within its radius plus 1.25 of the land's. Against a drought: with no event running for 30 s (`Realm2DroughtMs`, after the usual 15 s gap), the next comes with the rules loosened (players need only be 20 tiles off its heart and needn't be near; failing that, the way out is dropped and lands need only be 60 apart), and an event nobody has touched lets the next come after 3 minutes (`Realm2StaleMs`) rather than the realm's 10. Realm 2 closes as a realm does (`CountingEvents` → `CloseRealm`): Oryx's lines, then everyone to Oryx's Castle. Each has its own three grounds (pools of lava, honey or tide water in some), four scenery objects, a wall in ruined runs, and an arena 14 tiles across at its heart dressed for its boss (the Pentaract's pentagram with its towers on the points, the Statues' garden with the altar between them, the Caldera's lava moat with four causeways, the Avatar's own map, and so on); bosses that bring their own map (Hermit God, Ghost Ship, Grand Sphinx, Skull Shrine, Eye of the Dragon, Killer Bee Nest) place it over the arena as in the realm. Realm 2 needs all thirteen events to close (`EventsNeeded`: the larger of 13 and the realm's players + 5); after the eleven, a crowd's extra events bring new lands. Each land keeps a monster per 125 tiles (the realm's Godlands density), spawned in groups of two to four, and one of each of its two quests, in its middle ring on roughly opposite sides, never within 22 tiles of each other (topped up every minute, out of sight of players; `/realmstatus` lists where they stand); realm messages stay inside Realm 2. The 66 monsters (44 regular, `<God/>`, 1,500-3,000 health, the small ones only spawned by the bigger, as their tables leave them out; 22 quests, `<Quest/>` level 18-19, 12,000-15,000 health) and their art, 8x8 and 16x16 pixel maps drawn by the script, are new (`realm2Env8x8`, `realm2Env16x16`, `realm2Chars8x8`, `realm2Chars16x16`, registered for the Rust client in `gen_rs_manifest.py`; types 0x7800-0x7AFF kept in `tools/realm2/types.json`); their shots are the game's own projectiles. Monsters drop as gods (`MountainDrop` and a potion of their land), quests T10-T12 gear, T4-T5 abilities and rings, two potions and sometimes a themed dungeon portal. Ships with a client release (the sheets and XML); an older client doesn't draw Realm 2's grounds or monsters.
 - **Discord bot** (2026-10-26; `tools/discord/`, `deploy/systemd/bsk-discord.service`, the Discord part of `deploy/remote/install.sh`): it runs on the VPS and posts each release to the Discord server's #updates once it's live, keeps a server-status message there, and answers `/status`, `/online`, `/wiki`, `/play` and `/updates`. `setup_server.py` laid out the server's channels and messages. See "Discord" above.
 - **Quests, daily login rewards and achievements** (`Shared/quests/`, `resources/data/quests.json`, `WorldServer/core/quests/`, `client-rs/app/src/quests.rs`): all tuned in `quests.json` (its `_about` says how). Each account draws 3 daily, 3 weekly and 3 monthly quests from the pool (resets at UTC midnight, Monday, the 1st; one swap a period; a bonus for claiming a period's all), has a 28-day login reward track that moves on only when claimed, and 22 achievements in 4 tiers with points, ranks (Wanderer to Mythic) and chat name colours (`DbAccount.ColorNameChat`). The state is one JSON field, `progress`, on `account.<id>`, saved on every claim (before paying), every 30 s while it changes and on leaving; achievements start from the account's characters' old kills, god and Oryx kills, fame and levels (`QuestTracker.Seed`, once). Hooks: kills near you (`DamageCounter.Death`; not in the Nexus, vaults, minigames including the Arena, nor `Spawned` or XP-less monsters), dungeon clears (`World.BossDied`, once per instance, for players in it near a boss when it died; difficulty from the strongest boss's `MaxHP`, as the wiki rates it), realm closes (`RealmManager.CountingEvents`), Arena waves, stat potions that raise a stat (stored ones don't, as storage gives them back), base fame, levels, forging, white bags and trades that move an item. Rewards: fame to the account, items to the inventory or the vault's gift chest. Messages 103-108 (`QUESTS_REQUEST` ... `QUEST_PROGRESS`) are sent only to a client that asked, so the AIR client and older Rust clients are unaffected (they get chat lines for completions instead). The Tinkerer and the Chronicler (`QuestGivers.cs`, sprites by `tools/draw_quest_npcs.py` in `QuestNpcs16x16.png`, objects 0x497b and 0x497c in both `CustomObjects.xml`) stand either side of the spawn and greet players with what waits. `/quests` lists it all in chat; `/questadmin` (admins, test servers) moves the quests' clock, counts events, finishes quests or starts afresh. Unit tests: `dotnet test source\Tests` (outside the solution). The wiki's Quests page comes from the data (`tools/wiki_quests.py`).
@@ -947,6 +982,7 @@ The remotes `upstream` (HaloCelsius) and `aurusenth` share no history with `main
 - **The arenas' wave and time box** (`ArenaPools.SendWaveInfo`; `ArenaWorld`, `DoomedBattleArena`): both clients' `ArenaMenu` start the clock on state 1 and otherwise set the time, but `ArenaWorld` sent its own `ArenaState` (Start is 2), so the clock never ran: it showed 00:00 until a rest set it. Both arenas now send the time with state 0 and then state 1 while a game runs, on joining, when the countdown ends and as each wave starts. The Battle Arenas (paid and free) didn't send the box at all; they do now, timed from the end of their countdown. Server only.
 - **The Oryxes in the arenas** (`BehaviorDb.OryxArena.cs`, `ArenaTransition`, `BossStats(arena: true)`; `ArenaPools.OryxBosses`, `OryxWakeMs`, `StartInvulnerableMs`): Oryx 2, 3, 4 and 5 each start in a state `Where` that asks `ArenaTransition` whether the world's `IdName` contains "Arena". Outside one they go on to their usual first state (one tick later). In one they have arena health (60,000 / 75,000 / 90,000 / 110,000, a `BossStats` with `arena` set, listed before the untargeted one, which it overrides by setting `StatsTunedForWorld`), wake invulnerable and silent for `OryxWakeMs` (5 s, `ArenaWake`), then repeat only their first phase for good: Oryx 2's Attack (`Oryx2Attack`, three henchmen instead of five), Oryx 3's White attacks (`O3White`), Oryx 4's cycle without the ten invulnerable seconds of Silence (`O4Cycle`) and no Ascend or Rage, and Oryx 5's Judgement (Cross, Firmament, Hunt) without the Wardens, Host, Transcendence, Halo Orbs, Pillars or Concession. Their phases are now built by those helpers, shared with the dungeon fights, which are unchanged. The Battle Arena spawns an Oryx in its middle (16.5, 16.5; the public arena already puts bosses on its central spawn), since his patterns return to where he spawned, and a wave with an Oryx keeps everyone invulnerable for 5 s instead of 2.5. `AnnounceOnDeath` says nothing in an arena. Server only.
 - **Damage events** (`WorldServer/core/DamageEvent.cs`; `serverSettings.damageEvent` and `damageEventEnemies` in `wServer.json`): the enemies named by object id deal `damageEvent` less damage (0.2: 20%). It's applied where their shots are broadcast (`World.BroadcastEnemyShootIfVisible` and `BroadcastIfVisible` for `EnemyShootMessage`, so the client and the server's hit check get the same lower number), to their `AoeMessage`s, and in `Player.Damage` (grenades and bombs). It covers their summons too: an entity brought in by a behaviour (`Spawn`, `SpawnGroup`, `SpawnRing`, `TossObject`, `TossObject2`, `TossOnDeath`, `InvisiToss`, `ThrowEveryNthEntry`, `Reproduce`, `ReproduceGroup`, `Transform`, `TransformOnDeath`, `DoomedRuntime.Spawn`) calls `Entity.SummonedBy(host)`, which sets `DamageEventSummon` when the host is named or is itself such a summon, so Oryx 5's stars, Halo Orbs, Pillars of Heaven and Ichor Sprites (through the Divine Ichor's `Transform`) and the court he tosses in are softened, while the same court monsters placed by the map in the rooms before are not. A new spawn site should call `SummonedBy` before `EnterWorld`. The Nexus login message names them by display id. Live: Oryx the Mad God 4 and Oryx the Ascended God at 0.2; set `damageEvent` to 0 (and redeploy the world server) to end it. Server only.
+- **Free guilds event** (`serverSettings.freeGuildsUntil` in `wServer.json`, the moment it ends in UTC, such as `"2026-12-01T00:00:00Z"`; `Shared/database/guild/GuildPrice.cs`): making a guild costs nothing until then and the normal 1,000 fame after, with no redeploy (`CreateGuildHandler` checks the date on each guild). The Guild Register (`WorldServer/core/objects/GuildRegister.cs`; static in the XML, but `Wmap` loads it as an entity, since a static object's stats are sent once) sends its price as `MerchandisePrice` (0 during the event), which the Rust client shows on its button and in the name prompt; an older client shows 1,000 and is charged nothing. The Nexus login message names the last free day while it runs. Empty: no event. Live: until 2026-12-01 00:00 UTC.
 - **Arena leaderboard in the Nexus** (`Shared/database/leaderboard/DbArenaRuns.cs`, `App/Controllers/ArenaController.cs`, `ArenaWorld`, `DoomedBattleArena`; Rust client `npc.rs`; `Arena Leaderboard` 0x4975 in both `CustomObjects.xml`, its trophy at 0x60 in `CustomAssets8x8.png`, placed at (48, 68) by `tools/build_castle_maps.py`): runs are kept in the sorted set `doomed.arenaLeaderboard` as `<unix ms>|<seconds>|<arena>|<players>` with the score `wave + (1,000,000 - seconds) / 10^7`, so of two runs to the same wave the quicker ranks first; older members (`<unix ms>|<players>`, whole scores) still read, with no time. The Battle Arenas time a run from the end of their minute's countdown; the public arena (`ArenaWorld`, which didn't record runs before) from the start of the game, and adds its run in `Over` with everyone who was in it at the start or at any wave. `/leaderboard` shows the time; the account server's `POST /arena/leaderboard` (`count`, at most 50) answers `<ArenaRuns><Run wave seconds time arena><Player>…`. The trophy's class is `ArenaLeaderboard`: the Rust client's interact panel opens a window with the best run in a card and the next nine in rows, and while the player is within 11 tiles a sign floats over it with the best run (`signs.rs`, fetched with `count=1` every minute while near; the window's fetch refreshes it too). Signs are cards drawn over a world object in the world's scale, never in the chat; another object can have one by adding its contents to `Signs`. An older client doesn't know the object.
 - **Nine star colours** (Rust client `stars.rs`; `Player.STAFF_STARS`): the rank star's colour is one of nine steps, one per ninth of the most stars there are (5 per class), from light blue to white; it was one of five, a step per multiple of the number of classes, so most of the range was yellow. Staff are given 1000 stars (it was 100, which real ranks now pass with 30 classes) and the client draws 1000 and up green; `/stars` takes 0 to 1000. The rank tooltip's legend lists the same nine ranges (`stars::step_start`), the last ending at the most stars; it had kept the old ranges, a step per multiple of the number of classes, so it ran past the most there are.
 
@@ -980,7 +1016,7 @@ The remotes `upstream` (HaloCelsius) and `aurusenth` share no history with `main
 - **Recent Deaths** (account server, world server, Rust client): `Database.Death` pushes each death onto the Redis list `deaths:recent` (JSON: account and character ids, account name, class, skin, dyes, level, fame, killer, Unix time, world name), trimmed to the last 30 (`DbRecentDeaths`). `/fame/recent` (form field `count`, default 20) lists them newest first, with `Ago` in seconds so clients need no clock. The Legends screen's fourth tab shows them; a row opens that death's `/char/fame` summary. Admins' deaths are listed too (they're left out of the legends). `/fame/list` is unchanged.
 - **Every class open from the start:** `Database.CreateCharacter` no longer checks the classes' `<UnlockLevel>` (a level in another class), and `/char/list` reports every class `unrestricted`; admin-only classes stay admin-only. The Rust client doesn't lock classes on its new-character screen any more. Skins still need their class level.
 
-- **Castle nexus and vault** (`tools/build_castle_maps.py`): the nexus (`Exalt/Nexus Castle.jm`, 97 by 92 tiles, was `Nexus New Auru.jm`, 377 by 392) is a castle courtyard in the client's and website's look: curtain walls and towers with lit windows and a dark moat, the keep's great hall with the 21 realm portal tiles, the spawn with the healing fountains, two market wards with every shop's old stall count, and a south yard with the arena portals (`DoomedWorlds.NexusPortals` moved with them), the Wine Cellar and the memorial. The four shared nexus chests stay on their old tiles, which are their Redis keys (`DbNexusChest`). The vault (`Exalt/Vault Castle.jm`, was `Vault New Auru.jm`) is a cellar of Oryx's Sanctuary high walls with the same 60 vault chest and 26 gift chest tiles. Both are generated: change the script and rerun it. The old maps are still in the repository.
+- **Castle nexus and vault** (`tools/build_castle_maps.py`): the nexus (`Exalt/Nexus Castle.jm`, 97 by 92 tiles, was `Nexus New Auru.jm`, 377 by 392) is a castle courtyard in the client's and website's look: curtain walls and towers with lit windows and a dark moat, the keep's great hall with the 21 realm portal tiles, the spawn with the healing fountains, two market wards with every shop's old stall count, and a south yard with the arena portals (`DoomedWorlds.NexusPortals` moved with them), the Wine Cellar and the memorial. The four shared nexus chests stay on their old tiles, which are their Redis keys (`DbNexusChest`). The vault (`Exalt/Vault Castle.jm`, was `Vault New Auru.jm`) is a cellar of Oryx's Sanctuary high walls with the same 60 vault chest and 26 gift chest tiles. Both are generated: change the script and rerun it. The old maps are still in the repository. The nexus was reworked on 2026-10-29 (see "The Nexus reworked around the market"): no south yard any more.
   - **Event maps:** the script also writes a decorated copy of each map per event in its `EVENTS` (now `Halloween`: jack-o'-lanterns, green candles, fallen leaves, dead and autumn trees, a cauldron), in decoration slots the layouts mark, so nothing players use moves. `serverSettings.mapEvent` in `wServer.json` (empty by default) picks them: a world whose map is `<map>.jm` loads `<map> <mapEvent>.jm` where one exists (`World.LoadMapFromData`). A world server reads it when it starts, so a rolling deploy switches it without kicking anyone.
 - **Assassin poison** (world server): `PoisonEnemy` in `Player.UseItem.cs` ignores defense (it took defense off the total), spreads `TotalDamage` over `DurationMS` from the elapsed tick time with one hit a second (it hit every 1.2 s for a per-second amount, so it ran 20% long), and stops when the enemy dies or leaves the world (a dead enemy's timer used to fire every tick forever). `Enemy.Damage` kills at 0 health: it caps damage at the enemy's health, so the old `Health < 0` check let poison and other ability damage leave monsters alive on 0.
 - **Nexus vault chests keep their items:** the shared Vault Chests the nexus map places (four of them) were plain containers, emptied by every world server restart. `NexusWorld.LinkVaultChests` links each to a Redis record (`DbNexusChest`) when the nexus starts: the hash `nexusChests`, fields `items.<x>_<y>` and `datas.<x>_<y>` for the chest's tile. Every change to a chest is saved at once, as vault chests are. Moving a chest in the map starts it empty (its old items stay under the old tile's fields).
@@ -1188,7 +1224,7 @@ The remotes `upstream` (HaloCelsius) and `aurusenth` share no history with `main
 - **T16 armours in the forge:** each from its slot's T15 armour and an Ascended Armor Shard for 2,000
   fame (`ForgeRecipes.Ascended`; `NotChained` keeps two T15s from making one). The wiki no longer
   calls them Doomed Realms items (`wiki_data.OWN_IN_DOOMED`).
-- **The forge hall** (`tools/build_castle_maps.py`): the class memorial's ring of graves is gone; the
+- **The forge hall** (`tools/build_castle_maps.py`; since 2026-10-29 the forge court north-west of the spawn, see "The Nexus reworked around the market"): the class memorial's ring of graves is gone; the
   Divine Forge (redrawn in the Enchanter's stone and dull gold, six frames, `tools/draw_forge_sprite.py`)
   and the Enchanter stand side by side in a walled hall with doors to the west, north and east. Nothing
   in it takes a decoration slot, so map events (`decorate`) leave it alone. The forge window lost

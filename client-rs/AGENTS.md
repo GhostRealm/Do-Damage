@@ -19,12 +19,15 @@ python tools\build_client_rs.py --account https://dodmg.com/api --package --publ
 
 - **Releasing to players** (ask the owner first): raise the version and name the changelog section
   (below) on the release branch, and squash-merge its pull request into `main` (../AGENTS.md, Git,
-  "Release branches"). Then, in the **main checkout**, which holds the signing key, run
-  `python deploy\deploy.py`: when `client-rs/` or `client/src/` changed since the newest release in
-  `dist\client`, it runs the line above first (with `https://<site>/api` from the VPS config), and
-  stops if the version wasn't raised or the checkout isn't `main`. That writes
-  `dist\Do-Damage-windows.zip` (the website's download) and a signed release in `dist\client`, and
-  the deploy puts both on the VPS, where clients find it at `<account>/client/`. Publishing by hand
+  "Release branches"). The merge deploys it: GitHub's `client` job (`.github/workflows/deploy.yml`,
+  on Windows, with the signing key from a secret) runs `deploy.py --publish-only`. When
+  `client-rs/` or `client/src/` changed since the server's newest release, that runs the line
+  above (with `https://<site>/api` from the VPS config), and stops the whole deploy if the version
+  wasn't raised. It writes `dist\Do-Damage-windows.zip` (the website's download) and the new
+  release's files, and the `deploy` job puts both on the VPS, where clients find it at
+  `<account>/client/`. Only the blobs the server lacks are written and sent (`bsk-publish
+  --known`). `python deploy\deploy.py` from the main checkout does the same from the PC, as a
+  fallback. Publishing by hand
   needs `--account` (the script refuses without it): a release built without it has
   `http://127.0.0.1:8080` built in, and players who restart after updating to it are stranded, as
   2.1.1 and the first 2.2.0 were. Desktop clients switch at their next portal, or straight
@@ -136,7 +139,7 @@ The client itself can be scripted for tests (desktop only):
 | `--npc <class>` | Open that NPC's window once in the game (`GuildBoard`, `PotionStorage`...), wherever you stand; `Vault` opens the vault window once in the vault (with `--say "/vault"`) |
 | `--quests <tab>` | Open the quest log at a tab once its data has come: `daily`, `weekly`, `monthly`, `login`, `achievements` (with `/questadmin` in `--say` to set up a state) |
 | `--effect <type>` | Show that `ShowEffect` type on you every half second (0: an area attack beside you), to check particles |
-| `--type <text>` | Type into the first NPC prompt that opens (then Enter), onto the guild board being edited, or into the Divine Forge's or the vault window's search (with `--npc Forge` or `--npc Vault`) |
+| `--type <text>` | Type into the first NPC prompt that opens (then Enter), onto the guild board being edited, into the Divine Forge's or the vault window's search (with `--npc Forge` or `--npc Vault`), or into the Marketplace's price once on its Sell tab (`--npc MarketNPC`) |
 | `--size WxH` | Open the window at this size (physical pixels), to check the layout |
 | `--mouse x,y` | Put the mouse there (window pixels) and ignore the real one and its buttons: tooltips, aiming |
 | `--mouse-script "down@ms:x,y;move@ms:x,y;up@ms:x,y;right@ms:x,y"` | Mouse steps after joining: left-button drags and clicks on the HUD, and right-clicks. Their times count from the first world joined, `--shot-after` from the start (a few seconds earlier), so leave the shot some seconds after the last step |
@@ -155,8 +158,8 @@ The client itself can be scripted for tests (desktop only):
 - **No server needed** for the screens outside the game: `--account http://127.0.0.1:1` with
   `--shot` shows the menu and sign-in screens over the sky, at any `--size`.
 
-For example, the Arena (its monsters come 60 s after you enter; its portal is in the Nexus's south
-yard): `--walk-to 45.5,68.5 --hold 0:200 --hold -:6000 --hold f:100000 --aim auto --shot a.png --shot-after 95`.
+For example, the Arena (its monsters come 60 s after you enter; its portal is in the Nexus's Arena
+court, north-east of the spawn): `--walk-to 54.5,28.5 --hold 0:200 --hold -:6000 --hold f:100000 --aim auto --shot a.png --shot-after 95`.
 
 ## Layout
 
