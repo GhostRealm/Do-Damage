@@ -12,6 +12,23 @@ Keep each version short: changes go under `### ` group headings (Oryx 5, Arena, 
 on), one line per change players notice, summed up rather than item by item (the wiki has the
 details). Add to a group's line when a change adds to it, rather than adding another line.
 
+## 2.3.4 (2026-10-30)
+
+### Events
+- Halloween Sweet Treats, until the end of 6 November (UTC): stat potions (Life, Mana, Attack,
+  Defense, Speed, Dexterity, Vitality and Wisdom, Greater ones too) drop twice as often, and two at
+  a time. Your loot boosts still count on top. The Nexus and `/boosts` tell you while it runs.
+
+### Realm 2
+- `/realm2` works for everyone: it takes you into the Nexus's Realm 2 from anywhere.
+
+### Realms
+- Realms now carry on through server updates and restarts: they keep their names, the events
+  you've defeated toward closing them and the events still up, and Realm 2 keeps its map, every
+  land it has grown and its waystones. A realm someone closes stays closed.
+- `/uptime` shows how long the game has been up, not just the current server. Updates and the
+  regular server refresh don't take the game down, so they no longer start it again from zero.
+
 ## 2.3.3 (2026-10-29)
 
 ### Marketplace

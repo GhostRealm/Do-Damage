@@ -59,7 +59,8 @@ python tools\rolling_restart.py status          # which slot is active, and how 
   waiting, and switches at their next trip to the Nexus or a realm. After 60 minutes
   (`--minutes`) whoever is left is moved to the new Nexus, with warnings 5 and 1 minutes before.
   The old server then stops by itself.
-- **The 2-hourly restart** (`restartTime` in `wServer.json`) works the same way: the server asks
+- **The scheduled restart**, every 8 hours (`restartTime` in `wServer.json`; every 2 until
+  2026-10-30), works the same way: the server asks
   the proxy, which runs `rolling_restart.py deploy --reuse` (the same build, copied to the other
   slot). Nobody is kicked any more. A request that comes while another deploy runs waits for it
   (`proxy.log` says so); one from a server that's already being replaced is dropped; a server
@@ -82,6 +83,63 @@ python tools\rolling_restart.py status          # which slot is active, and how 
   world servers of a hand-over as one.
 - **Try it on a test stack:** `python tools\testclient\iso_stack.py --slot N start --rolling`,
   then `python tools\rolling_restart.py --iso N deploy`.
+
+### How often it rolls, and what "uptime" means
+
+Measured on the VPS for 2026-10-27 to 2026-10-30 (`/opt/bsk/build/live/proxy.log`): 57 rolls in
+3½ days, 34 of them the scheduled restart, then every 2 hours (`restartTime: 2` in
+`wServer.json`, the upstream default; every 8 since) and 23 deploys (`requested command: update`), up to 8 on a busy release day. No
+crash, no OOM kill (`journalctl -k`) and no restart of `bsk-world` itself (up since 2026-10-18);
+the last world server crashes were on 2026-10-16 and 2026-10-23. So a world server never runs
+longer than 2 hours, but the game wasn't down: the website's per-day uptime (`/api/app/status`,
+`StatusHistory`: a public world server listed, sampled each minute) and the Discord bot's
+"Uptime (7 days)" read 100%.
+
+The figure under 2 hours was the in-game `/uptime`, which counted the time since *this* world
+server started (and wrapped at 24 hours). It now shows the game's uptime (`core/GameUptime.cs`):
+each public world server refreshes `worlds:alive` in Redis every 15 s (gone 60 s after the last
+one stops, at once on a clean stop that isn't a hand-over), and `worlds:upSince` is set again only
+by a server that starts while `worlds:alive` is gone. A rolling deploy or scheduled restart starts
+the new server before the old one stops, so it keeps the time; stopping `bsk-world`, or a crash
+with nothing beside it, starts it again. `/uptime` also says how long ago the current world server
+took over.
+
+### Realm state across restarts
+
+A rolling deploy or scheduled restart used to give the new world server fresh realms: new names,
+event counts back to 0, a new Realm 2 map without its lands or waystones, and the running events
+gone, while the old server's realms lived on only for the players still in them. Now each realm
+the Nexus opens keeps a snapshot in the Redis hash `realms`, one JSON field per realm by a key
+that stays the same from server to server (`core/worlds/RealmSnapshots.cs`,
+`RealmManager.Snapshot.cs`):
+
+- **What's kept:** the realm's name, the events defeated toward closing, the events running (by
+  name and place, not their health) and a realm's events still to come. For Realm 2 also its
+  map's seed (`Realm2Generator` makes the same map from it), every land drawn (theme, centre, size,
+  its painter's seed, its bridge or pool, whether its Lost Sentry still stands), its waystones and
+  the order of the events to come.
+- **When it's written:** within 2 s of a change (an event spawned or defeated, a land or a
+  waystone) and every 30 s, without waiting for Redis (fire and forget, from the realm's own
+  thread), so saving the players at shutdown isn't held up, and a SIGTERM or Ctrl+C loses at most
+  those seconds.
+- **Opening again:** a new world server reads the hash at start-up (`WorldManager.Initialize`) and
+  the Nexus opens those realms, then Realm 2, from their snapshots (`RealmWorld.Restoring`,
+  `RealmManager.Restore`, after the realm's own set pieces), with the same names on their portals.
+  Snapshots older than 10 minutes, or that can't be read, are removed and the realms start
+  afresh; a snapshot that doesn't fit this version only leaves out what doesn't fit.
+- **During a hand-over** the old server's realm and the new one's are the same realm. A server
+  that's handing over writes only what its players change; every 10 s each realm reads its field
+  and takes up a higher count written by the other server; a realm that closes on either marks its
+  field `Closed`, which closes it on the other and is never written over (a Lua check).
+- **Not kept:** the bosses' health, the ordinary monsters, loot on the ground, the realm's own set
+  pieces (placed afresh), Oryx's Castle, dungeons and their portals, the Nexus's dungeon portals,
+  and a Realm 2 opened with a key. Admin-only world servers keep nothing.
+- **Tested** on isolated stack 7 (2026-10-30). Realm 2 at 4/13, with six lands and a waystone, and
+  a realm at 1/8 came back the same after `rolling_restart.py --iso 7 deploy --reuse`. An event
+  defeated on the old server during the hand-over was taken up by the new one. After the whole
+  stack had been down for 70 s, the realms came back and `/uptime` started again. A closed realm
+  didn't come back. `source/Tests/RealmSnapshotsTests.cs` covers reading, staleness and Realm 2's
+  seeds.
 
 ## Letting other people play
 
@@ -280,7 +338,7 @@ redis-cli -p 6379 hget names MEAPY                    # Redis, as on this PC
 - **Deploys inside the service:** `bsk-world` runs `rolling_restart.py serve`, which starts a
   world server and then becomes the world proxy, so the world servers belong to the service. A
   deploy starts its new world server through the proxy (`rolling_restart.py request update`,
-  `deploy.request` in `/opt/bsk/build/live`); the 2-hourly restart already went that way.
+  `deploy.request` in `/opt/bsk/build/live`); the scheduled restart already went that way.
 - **Ports and address** come from `/opt/bsk/bsk.env`, which `deploy.py` writes from the config.
   `rolling_restart.py` takes them from `BSK_WORLD_PORT`, `BSK_REDIS_PORT` and
   `BSK_PUBLIC_ADDRESS`. Changing the Redis port needs `systemctl restart bsk-redis` by hand.
@@ -522,6 +580,9 @@ The remotes `upstream` (HaloCelsius) and `aurusenth` share no history with `main
 
 ## Changes from upstream
 
+- **Realms survive restarts and deploys** (2026-10-30; `RealmSnapshots.cs`, `RealmManager.Snapshot.cs`):
+  see "Realm state across restarts". **`/uptime`** shows the game's uptime rather than the current
+  world server's (`GameUptime.cs`; see "How often it rolls, and what "uptime" means").
 - **The Marketplace** (2026-10-29; `Shared/database/market/MarketStore.cs`, `WorldServer/core/market/`,
   `MarketStall.cs`, `MarketHandlers.cs`, `MarketListings.cs`, `/sell`, `/market`; the Rust client's
   `market.rs`): players list items from their inventory or vault for fame at the Market Broker
@@ -983,6 +1044,8 @@ The remotes `upstream` (HaloCelsius) and `aurusenth` share no history with `main
 - **The Oryxes in the arenas** (`BehaviorDb.OryxArena.cs`, `ArenaTransition`, `BossStats(arena: true)`; `ArenaPools.OryxBosses`, `OryxWakeMs`, `StartInvulnerableMs`): Oryx 2, 3, 4 and 5 each start in a state `Where` that asks `ArenaTransition` whether the world's `IdName` contains "Arena". Outside one they go on to their usual first state (one tick later). In one they have arena health (60,000 / 75,000 / 90,000 / 110,000, a `BossStats` with `arena` set, listed before the untargeted one, which it overrides by setting `StatsTunedForWorld`), wake invulnerable and silent for `OryxWakeMs` (5 s, `ArenaWake`), then repeat only their first phase for good: Oryx 2's Attack (`Oryx2Attack`, three henchmen instead of five), Oryx 3's White attacks (`O3White`), Oryx 4's cycle without the ten invulnerable seconds of Silence (`O4Cycle`) and no Ascend or Rage, and Oryx 5's Judgement (Cross, Firmament, Hunt) without the Wardens, Host, Transcendence, Halo Orbs, Pillars or Concession. Their phases are now built by those helpers, shared with the dungeon fights, which are unchanged. The Battle Arena spawns an Oryx in its middle (16.5, 16.5; the public arena already puts bosses on its central spawn), since his patterns return to where he spawned, and a wave with an Oryx keeps everyone invulnerable for 5 s instead of 2.5. `AnnounceOnDeath` says nothing in an arena. Server only.
 - **Damage events** (`WorldServer/core/DamageEvent.cs`; `serverSettings.damageEvent` and `damageEventEnemies` in `wServer.json`): the enemies named by object id deal `damageEvent` less damage (0.2: 20%). It's applied where their shots are broadcast (`World.BroadcastEnemyShootIfVisible` and `BroadcastIfVisible` for `EnemyShootMessage`, so the client and the server's hit check get the same lower number), to their `AoeMessage`s, and in `Player.Damage` (grenades and bombs). It covers their summons too: an entity brought in by a behaviour (`Spawn`, `SpawnGroup`, `SpawnRing`, `TossObject`, `TossObject2`, `TossOnDeath`, `InvisiToss`, `ThrowEveryNthEntry`, `Reproduce`, `ReproduceGroup`, `Transform`, `TransformOnDeath`, `DoomedRuntime.Spawn`) calls `Entity.SummonedBy(host)`, which sets `DamageEventSummon` when the host is named or is itself such a summon, so Oryx 5's stars, Halo Orbs, Pillars of Heaven and Ichor Sprites (through the Divine Ichor's `Transform`) and the court he tosses in are softened, while the same court monsters placed by the map in the rooms before are not. A new spawn site should call `SummonedBy` before `EnterWorld`. The Nexus login message names them by display id. Live: Oryx the Mad God 4 and Oryx the Ascended God at 0.2; set `damageEvent` to 0 (and redeploy the world server) to end it. Server only.
 - **Free guilds event** (`serverSettings.freeGuildsUntil` in `wServer.json`, the moment it ends in UTC, such as `"2026-12-01T00:00:00Z"`; `Shared/database/guild/GuildPrice.cs`): making a guild costs nothing until then and the normal 1,000 fame after, with no redeploy (`CreateGuildHandler` checks the date on each guild). The Guild Register (`WorldServer/core/objects/GuildRegister.cs`; static in the XML, but `Wmap` loads it as an entity, since a static object's stats are sent once) sends its price as `MerchandisePrice` (0 during the event), which the Rust client shows on its button and in the name prompt; an older client shows 1,000 and is charged nothing. The Nexus login message names the last free day while it runs. Empty: no event. Live: until 2026-12-01 00:00 UTC.
+- **Timed events: Halloween Sweet Treats** (2026-10-30; `Shared/resources/ServerEvents.cs`, `serverSettings.events` in `wServer.json`, `Tests/ServerEventsTests.cs`): a list of named events, each with a `start` and `end` in UTC and its effects, running from its start until just before its end with no redeploy. The one effect so far is on stat potions (`ServerEvents.IsStatPotion`: Potion of Life, Mana, Attack, Defense, Speed, Dexterity, Vitality and Wisdom, their `(SB)` and Greater ones; not the Max potions, the Candies of Extreme or other stat consumables): `potionChance` multiplies the drop's own chance in `Loot.Handle`'s per-player roll before the boosts (so the Loot Drop Potion, the Legends, guild halls, the Hall of Champions, weekend, `lootEvent` and the damage share multiply it as any drop's, and `Loot.Chance` caps it at a sure drop before the arena's rate), and `potionAmount` puts that many of the potion in the bag. Two events at once multiply. `GameServer.EventsTick` announces to everyone online when one starts or ends (not one already on when the server starts, nor while draining); the Nexus login message and `/boosts` show the running ones. Live: Halloween Sweet Treats, 2026-10-30 00:00 to 2026-11-07 00:00 UTC (the last day 6 November), potions twice as likely and two at a time. Tested on an isolated stack with an admin `bsk-bot` spawning and `/smite`-ing MegaRototos (BasicPots) in its vault, the event's window set a few minutes ahead in the stack's `wServer.json`: before it 2.28 potions a kill (210 kills; 2.27 expected), during it 9.02 (250 kills; 9.01 expected, a 72% chance per potion with the damage share and the 25% `lootEvent`, times two), after it 2.33 (140 kills); its start and end were announced on time and it ended by itself. The Nexus line and `/boosts` checked with the live dates. World server only.
+- **/realm2 for everyone** (2026-10-30; `Command.Realm2`, moved to `commands/player/`): any player can use it to go into the Nexus's Realm 2 (`RealmPortalMonitor.Realm2`, the one its portal leads to, never a new one or a key-opened one), refused while it's being built or full. Inside a Realm 2 the land list, `/realm2 next` and `/realm2 <land>` stay admin-only; anyone else is told which Realm 2 they're in. The wiki lists it (`COMMAND_HELP`). World server only.
 - **Arena leaderboard in the Nexus** (`Shared/database/leaderboard/DbArenaRuns.cs`, `App/Controllers/ArenaController.cs`, `ArenaWorld`, `DoomedBattleArena`; Rust client `npc.rs`; `Arena Leaderboard` 0x4975 in both `CustomObjects.xml`, its trophy at 0x60 in `CustomAssets8x8.png`, placed at (48, 68) by `tools/build_castle_maps.py`): runs are kept in the sorted set `doomed.arenaLeaderboard` as `<unix ms>|<seconds>|<arena>|<players>` with the score `wave + (1,000,000 - seconds) / 10^7`, so of two runs to the same wave the quicker ranks first; older members (`<unix ms>|<players>`, whole scores) still read, with no time. The Battle Arenas time a run from the end of their minute's countdown; the public arena (`ArenaWorld`, which didn't record runs before) from the start of the game, and adds its run in `Over` with everyone who was in it at the start or at any wave. `/leaderboard` shows the time; the account server's `POST /arena/leaderboard` (`count`, at most 50) answers `<ArenaRuns><Run wave seconds time arena><Player>…`. The trophy's class is `ArenaLeaderboard`: the Rust client's interact panel opens a window with the best run in a card and the next nine in rows, and while the player is within 11 tiles a sign floats over it with the best run (`signs.rs`, fetched with `count=1` every minute while near; the window's fetch refreshes it too). Signs are cards drawn over a world object in the world's scale, never in the chat; another object can have one by adding its contents to `Signs`. An older client doesn't know the object.
 - **Nine star colours** (Rust client `stars.rs`; `Player.STAFF_STARS`): the rank star's colour is one of nine steps, one per ninth of the most stars there are (5 per class), from light blue to white; it was one of five, a step per multiple of the number of classes, so most of the range was yellow. Staff are given 1000 stars (it was 100, which real ranks now pass with 30 classes) and the client draws 1000 and up green; `/stars` takes 0 to 1000. The rank tooltip's legend lists the same nine ranges (`stars::step_start`), the last ending at the most stars; it had kept the old ranges, a step per multiple of the number of classes, so it ran past the most there are.
 
