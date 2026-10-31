@@ -24,8 +24,12 @@ raises your stats a little.
 ## Fame, rank stars and class quests
 
 Every 1,000 experience a character earns is one **fame** on that character, and experience keeps
-counting after level 20. At level 20 the Arena and the Admin Arena give three quarters of the usual
-experience for a kill, so three quarters of the fame (levelling there is as fast as anywhere). When the character dies, its fame, plus bonuses (for your equipment, for
+counting after level 20. At level 20 every kill gives 10% more experience, so more fame. A kill
+usually gives at most a tenth of a level's experience (half for your quest), but at level 20 a
+boss (Oryx and his chain, realm events, dungeon bosses) gives its whole experience twice over, up
+to 50 fame: Oryx 2 gives about 15 fame. At level 20 the Arena and the Admin Arena give three
+quarters of the usual experience for a kill, so three quarters of the fame (levelling there is as
+fast as anywhere). When the character dies, its fame, plus bonuses (for your equipment, for
 beating your best with that class and so on), is added to your account. Account fame is what you
 spend in the Nexus Bazaar, the shops, the marketplace and on upgrades.
 
@@ -52,6 +56,12 @@ A character with every stat at its highest is "maxed" (8/8). A potion drunk on a
 wasted, so keep spares in your **potion storage**, in your vault: it holds {{v:storage_base}} of
 each potion to start, and each upgrade ({{v:storage_cost}} fame) adds {{v:storage_step}} more. From
 its window you can store, take out, drink, or drink just enough to max a stat.
+
+**Infernal potions**, forged at the Divine Forge from an Infernal shard and 100 of a stat's potions
+(see [Forge](forge.html#forge-shards-and-the-forge-storage)), go further: drunk with that stat
+maxed, one adds what the stat's own potion adds past your class's highest (5 Life or Mana, 1 of
+the others), up to five of them: 5 Defense, say, or 25 Life over. A stat past its highest shows in
+orange rather than gold, and stays there.
 
 A **Potion of Max** Life, Mana, Attack, Defense, Speed, Dexterity, Vitality or Wisdom (from the
 Elder dungeons' bosses; Max Life from the Elder Tomb's) fills that stat to your class's highest at
@@ -124,6 +134,23 @@ Monsters drop loot in bags. The bag's colour says how good it is, from brown up 
 rarest, which is announced to everyone. Bags of good loot are soulbound: they're yours alone, and
 you need to have done enough of the damage to get one. Doing more of the damage also raises your
 chance at every drop.
+
+**Healers and buffers get loot too.** Healing players with your ability while they fight, or
+buffing them (Berserk, Damaging, a tome's or seal's Healing, a seal's boost and so on), gives you
+**assist credit** on whatever they hit: half of each hit they land while your buff lasts, or for up
+to 5 seconds after a heal. Debuffing a monster yourself (Curse, Slow, Paralyze and the like) gives
+you a quarter of the hits other players land on it while the debuff lasts. Assist credit counts
+like damage for drops and soulbound bags, on top of any damage you do yourself, but:
+
+- it counts for at most a fifth of the monster's damage, and never takes you past its top damage
+  dealer;
+- healing someone at full health, or yourself, gives nothing, and a small heal gives less than a
+  big one (healing a tenth of their health or more gives the full 5 seconds);
+- it only comes while you're actually helping: standing near a group gives nothing;
+- the damage dealers' own shares and loot don't change.
+
+The boss panel at the top left shows each player's assist credit in green (+1,850) beside their
+damage, counted as it counts for loot, and their share includes it.
 
 - On weekends every drop is 30% more likely.
 - A **Loot Drop Potion** (Nexus Bazaar) raises your drop chances for a while.

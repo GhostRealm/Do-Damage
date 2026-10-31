@@ -90,6 +90,11 @@ pub struct Game {
     pub particles: crate::particles::Particles,
     /// The quest's object (`QuestObjId`), for the arrow and the boss bar.
     pub quest: Option<i32>,
+    /// The maps seen of the last few worlds left (by game id, name and size; the squares known),
+    /// so going back to one (a realm after the Nexus) shows the map as it was.
+    seen_maps: Vec<(MapKey, Vec<(u32, u16)>)>,
+    /// The current world's key in `seen_maps`.
+    map_key: MapKey,
     /// The realm's events, side quests and waystones with its count to close (`RealmEvents`), for
     /// the events list at the top left and the minimap; none outside a realm.
     pub realm_events: Option<bsk_proto::RealmEvents>,
@@ -144,6 +149,8 @@ pub struct Hitter {
     pub name: String,
     pub class: u16,
     pub damage: i32,
+    /// Assist credit: what their healing and buffing counts for in the loot.
+    pub assist: i32,
 }
 
 /// Who hit the quest, as the server last said, with the quest's name and type as we last saw
@@ -155,6 +162,7 @@ pub struct QuestDamage {
     pub object_type: u16,
     pub hitters: Vec<Hitter>,
     pub mine: i32,
+    pub mine_assist: i32,
 }
 
 /// A boss we hit that died, and who hit it.
@@ -166,6 +174,7 @@ pub struct BossFight {
     pub max_hp: i32,
     pub hitters: Vec<Hitter>,
     pub mine: i32,
+    pub mine_assist: i32,
     /// Our name then.
     pub me: String,
 }
@@ -225,6 +234,11 @@ const TELEPORT_COOLDOWN: i32 = 10_000;
 /// How many chat lines to keep.
 const CHAT_KEEP: usize = 500;
 
+/// A world's map, to know it again: its game id, name and size.
+type MapKey = (i32, String, i32, i32);
+/// How many worlds' maps are kept after leaving them.
+const SEEN_MAPS: usize = 3;
+
 impl Game {
     /// Connect and load a character, or create one (`Join::Create`).
     pub fn start(target: Target, hello: HelloParams, join: Join) -> Self {
@@ -271,6 +285,8 @@ impl Game {
             show_displays: false,
             particles: Default::default(),
             quest: None,
+            seen_maps: Vec::new(),
+            map_key: (0, String::new(), 0, 0),
             realm_events: None,
             name_result: None,
             guild_result: None,
@@ -311,9 +327,20 @@ impl Game {
         let (session, first) = Session::start(clone_hello(&self.hello), Join::Load { char_id: self.char_id });
         self.session = session;
         self.socket.send(&first);
+        self.remember_map();
         self.world = None;
         self.sent_view_radius = MIN_VIEW_RADIUS;
         self.status = format!("Entering {}…", r.name);
+    }
+
+    /// Keeps the map seen of the world being left (`seen_maps`), the oldest let go past SEEN_MAPS.
+    fn remember_map(&mut self) {
+        let Some(old) = &self.world else { return };
+        self.seen_maps.retain(|(k, _)| *k != self.map_key);
+        self.seen_maps.push((self.map_key.clone(), old.known_squares()));
+        if self.seen_maps.len() > SEEN_MAPS {
+            self.seen_maps.remove(0);
+        }
     }
 
     /// Connect again, to the Nexus.
@@ -344,6 +371,7 @@ impl Game {
             return false;
         };
         self.socket.close();
+        self.remember_map();
         self.world = None;
         self.trade = None;
         self.invite = None;
@@ -409,7 +437,7 @@ impl Game {
     }
 
     /// The quest's damage as the server sent it, with its name and type while we can see it.
-    fn set_quest_damage(&mut self, object_id: i32, object_type: Option<u16>, hitters: Vec<Hitter>, mine: i32, data: &GameData) {
+    fn set_quest_damage(&mut self, object_id: i32, object_type: Option<u16>, hitters: Vec<Hitter>, mine: (i32, i32), data: &GameData) {
         let seen = self.world.as_ref().and_then(|w| w.objects.get(&object_id)).map(|o| {
             let desc = data.objects.get(&o.object_type);
             let name = o.name().map(str::to_owned).or_else(|| desc.map(|d| d.display_id.clone())).unwrap_or_default();
@@ -420,7 +448,7 @@ impl Game {
         // says it.
         let named = object_type.map(|t| (data.objects.get(&t).map(|d| d.display_id.clone()).unwrap_or_default(), t));
         let (name, object_type) = seen.or(kept).or(named).unwrap_or_default();
-        self.quest_damage = Some(QuestDamage { object_id, name, object_type, hitters, mine });
+        self.quest_damage = Some(QuestDamage { object_id, name, object_type, hitters, mine: mine.0, mine_assist: mine.1 });
     }
 
     fn handle(&mut self, msg: &ServerMessage, now: i32, data: &GameData) {
@@ -458,7 +486,13 @@ impl Game {
         }
         match event {
             Some(Event::MapInfo(info)) => {
-                self.world = Some(World::new(info.width as i32, info.height as i32, &info.display_name, info.seed));
+                self.remember_map();
+                self.map_key = (self.hello.game_id, info.name.clone(), info.width as i32, info.height as i32);
+                let mut world = World::new(info.width as i32, info.height as i32, &info.display_name, info.seed);
+                if let Some((_, squares)) = self.seen_maps.iter().find(|(k, _)| *k == self.map_key) {
+                    world.restore_squares(squares);
+                }
+                self.world = Some(world);
                 self.particles.clear();
                 self.arena = None;
                 self.arena_votes = None;
@@ -527,19 +561,29 @@ impl Game {
         match msg {
             ServerMessage::QuestObjId(q) => self.quest = Some(q.object_id),
             ServerMessage::QuestDamage(d) => {
-                let hitters = d.top.iter().map(|s| Hitter { name: s.name.clone(), class: 0, damage: s.damage }).collect();
-                self.set_quest_damage(d.object_id, None, hitters, d.mine, data);
+                let hitters = d.top.iter().map(|s| Hitter { name: s.name.clone(), class: 0, damage: s.damage, assist: 0 }).collect();
+                self.set_quest_damage(d.object_id, None, hitters, (d.mine, 0), data);
             }
             ServerMessage::FameStats(f) => self.fame_stats = f.stats.iter().map(|s| (s.id, s.value)).collect(),
             ServerMessage::QuestDamageFull(d) => {
-                let hitters = d.hitters.iter().map(|h| Hitter { name: h.name.clone(), class: h.class, damage: h.damage }).collect();
-                self.set_quest_damage(d.object_id, Some(d.object_type), hitters, d.mine, data);
-                // It died: kept if we hit it.
-                if d.dead && d.mine > 0 {
+                let mut hitters: Vec<Hitter> = d.hitters.iter().map(|h| Hitter { name: h.name.clone(), class: h.class, damage: h.damage, assist: 0 }).collect();
+                // assist credit: on the damage dealer's row, or a row of its own for a helper
+                // who never hit it; then most of both first
+                for a in d.assists.iter().flat_map(|a| a.iter()) {
+                    match hitters.iter_mut().find(|h| h.name == a.name) {
+                        Some(h) => h.assist = a.damage,
+                        None => hitters.push(Hitter { name: a.name.clone(), class: a.class, damage: 0, assist: a.damage }),
+                    }
+                }
+                hitters.sort_by_key(|h| std::cmp::Reverse(h.damage + h.assist));
+                let mine_assist = d.mine_assist.unwrap_or(0);
+                self.set_quest_damage(d.object_id, Some(d.object_type), hitters, (d.mine, mine_assist), data);
+                // It died: kept if we hit it or helped.
+                if d.dead && (d.mine > 0 || mine_assist > 0) {
                     if let Some(q) = self.quest_damage.clone().filter(|q| q.object_id == d.object_id) {
                         self.boss_history.retain(|b| b.object_id != q.object_id);
                         let me = self.world.as_ref().and_then(|w| w.player()).and_then(|p| p.name()).unwrap_or("").to_owned();
-                        self.boss_history.insert(0, BossFight { object_id: q.object_id, name: q.name, object_type: q.object_type, max_hp: d.max_hp, hitters: q.hitters, mine: d.mine, me });
+                        self.boss_history.insert(0, BossFight { object_id: q.object_id, name: q.name, object_type: q.object_type, max_hp: d.max_hp, hitters: q.hitters, mine: d.mine, mine_assist, me });
                         self.boss_history.truncate(BOSS_HISTORY);
                     }
                 }
@@ -705,7 +749,11 @@ impl Game {
             ServerMessage::SwitchMusic(m) => self.music = Some(m.music.clone()),
             ServerMessage::MarketListings(m) => self.market_events.push(crate::market::Event::Listings(m.clone())),
             ServerMessage::MarketResult(r) => self.market_events.push(crate::market::Event::Result(r.clone())),
-            ServerMessage::ForgeData(d) => self.forge_events.push(crate::forge::Event::Data(d.recipes.0.clone(), d.prices.0.clone())),
+            ServerMessage::ForgeData(d) => self.forge_events.push(crate::forge::Event::Data(
+                d.recipes.0.clone(),
+                d.prices.0.clone(),
+                d.storage_costs.as_ref().map_or_else(Vec::new, |c| c.0.clone()),
+            )),
             ServerMessage::ForgeResult(r) => self.forge_events.push(crate::forge::Event::Result {
                 sold: r.sold,
                 success: r.success,
@@ -713,7 +761,9 @@ impl Game {
                 fame: r.fame,
                 message: r.message.clone(),
             }),
-            ServerMessage::ForgeShards(s) => self.forge_events.push(crate::forge::Event::Shards(s.shards.0.clone())),
+            ServerMessage::ForgeShards(s) => {
+                self.forge_events.push(crate::forge::Event::Shards(s.shards.0.clone(), s.potions.as_ref().map_or_else(Vec::new, |p| p.0.clone())))
+            }
             ServerMessage::ForgeVault(v) => self.forge_events.push(crate::forge::Event::Vault(v.items.0.clone())),
             ServerMessage::VaultContents(v) => self.vault_contents = Some(v.clone()),
             ServerMessage::ImprintVault(v) => self.forge_events.push(crate::forge::Event::ImprintVault(v.items.0.clone())),
