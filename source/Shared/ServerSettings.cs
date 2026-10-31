@@ -29,7 +29,7 @@ namespace Shared
         public int worldIdBase { get; set; } = 0;
         public string version { get; set; } = "undefined";
         // An event's maps, such as "Halloween": a world whose map is "<map>.jm" plays
-        // "<map> <mapEvent>.jm" instead where there is one (tools/build_castle_maps.py). Empty: none.
+        // "<map> <mapEvent>.jm" instead where there is one (tools/build_nexus.py and the other map builders; none has event copies now). Empty: none.
         public string mapEvent { get; set; } = "";
         // The free guilds event: making a guild costs nothing until this moment, in UTC
         // ("2026-12-01T00:00:00Z"; Shared/database/guild/GuildPrice.cs). Empty: none.
@@ -38,5 +38,8 @@ namespace Shared
         // such as Halloween Sweet Treats' doubled potion drops. Each runs only between its dates.
         public resources.ServerEvent[] events { get; set; } = new resources.ServerEvent[] { };
         public int[] whitelist { get; set; } = new int[] { };
+        // A player who stands still in the Nexus this long is saved and sent back to the
+        // character list (Shared/NexusAfk.cs); admins are exempt. 0: never.
+        public double nexusAfkMinutes { get; set; } = 20;
     }
 }
